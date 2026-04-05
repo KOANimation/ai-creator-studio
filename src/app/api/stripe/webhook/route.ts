@@ -88,6 +88,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: message }, { status: 400 });
   }
 
+  // Ignore all Stripe test-mode webhook events so fake payments
+  // never grant real credits or modify production subscription data.
+  if (!event.livemode) {
+    return NextResponse.json({
+      received: true,
+      skipped: "Ignoring Stripe test mode webhook",
+    });
+  }
+
   const supabase = await createClient();
 
   try {
@@ -95,7 +104,9 @@ export async function POST(req: Request) {
       const session = event.data.object as Stripe.Checkout.Session;
 
       const customerId =
-        typeof session.customer === "string" ? session.customer : null;
+        typeof session.customer === "string"
+          ? session.customer
+          : session.customer?.id ?? null;
       const userId = session.metadata?.supabase_user_id ?? null;
 
       if (customerId && userId) {
@@ -127,7 +138,8 @@ export async function POST(req: Request) {
           ? invoice.customer
           : invoice.customer?.id ?? null;
 
-      const rawSubscription = invoice.parent?.subscription_details?.subscription;
+      const rawSubscription =
+        invoice.parent?.subscription_details?.subscription;
       const subscriptionId =
         typeof rawSubscription === "string" ? rawSubscription : null;
 
