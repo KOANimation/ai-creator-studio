@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/app/lib/supabase/client";
 
@@ -10,12 +10,94 @@ export default function ResetPasswordPage() {
 
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [bootLoading, setBootLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [sessionReady, setSessionReady] = useState(false);
+
+  useEffect(() => {
+    const initRecoverySession = async () => {
+      try {
+        setBootLoading(true);
+        setErrorMessage(null);
+
+        const hash = window.location.hash.startsWith("#")
+          ? window.location.hash.slice(1)
+          : window.location.hash;
+
+        const hashParams = new URLSearchParams(hash);
+        const queryParams = new URLSearchParams(window.location.search);
+
+        const accessToken = hashParams.get("access_token");
+        const refreshToken = hashParams.get("refresh_token");
+        const type = hashParams.get("type");
+        const code = queryParams.get("code");
+
+        if (accessToken && refreshToken) {
+          const { error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+
+          if (error) {
+            throw error;
+          }
+
+          if (type && type !== "recovery") {
+            throw new Error("This password reset link is invalid.");
+          }
+
+          setSessionReady(true);
+          return;
+        }
+
+        if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+
+          if (error) {
+            throw error;
+          }
+
+          setSessionReady(true);
+          return;
+        }
+
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (session) {
+          setSessionReady(true);
+          return;
+        }
+
+        throw new Error(
+          "This reset link is invalid or expired. Please request a new one."
+        );
+      } catch (err) {
+        setErrorMessage(
+          err instanceof Error
+            ? err.message
+            : "Could not verify reset link."
+        );
+        setSessionReady(false);
+      } finally {
+        setBootLoading(false);
+      }
+    };
+
+    void initRecoverySession();
+  }, [supabase]);
 
   const handleUpdate = async () => {
     if (!password.trim()) {
       setErrorMessage("Please enter a new password.");
+      setMessage(null);
+      return;
+    }
+
+    if (password.length < 6) {
+      setErrorMessage("Password must be at least 6 characters.");
       setMessage(null);
       return;
     }
@@ -54,17 +136,22 @@ export default function ResetPasswordPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25"
+              disabled={bootLoading || !sessionReady}
+              className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:cursor-not-allowed disabled:opacity-60"
               placeholder="New password"
             />
 
             <button
               type="button"
               onClick={handleUpdate}
-              disabled={loading}
+              disabled={loading || bootLoading || !sessionReady}
               className="w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {loading ? "Updating..." : "Update password"}
+              {bootLoading
+                ? "Verifying reset link..."
+                : loading
+                  ? "Updating..."
+                  : "Update password"}
             </button>
 
             {message && (
