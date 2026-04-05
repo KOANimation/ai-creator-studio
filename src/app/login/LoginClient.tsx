@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { createClient } from "@/app/lib/supabase/client";
@@ -183,6 +184,17 @@ export default function LoginClient() {
                   className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25"
                   placeholder="Password"
                 />
+
+                {!isSignup && (
+                  <div className="text-right">
+                    <Link
+                      href="/forgot-password"
+                      className="text-sm text-white/60 hover:text-white"
+                    >
+                      Forgot your password?
+                    </Link>
+                  </div>
+                )}
 
                 <button
                   type="button"
