@@ -24,3 +24,79 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* ------------------------------
+   Tools page helpers (moved from styled-jsx to prevent hydration mismatch)
+   ------------------------------ */
+
+html,
+body {
+  overflow-x: hidden;
+}
+
+/* marquee is constrained by wrapper */
+.marqueeWrap {
+  overflow: hidden;
+  width: 100%;
+}
+
+.marquee {
+  display: flex;
+  gap: 12px;
+  width: max-content;
+  will-change: transform;
+  animation: ko-marquee 22s linear infinite;
+}
+
+@keyframes ko-marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+/* AI shimmer */
+.ai-shimmer {
+  background: linear-gradient(
+    110deg,
+    rgba(255, 255, 255, 0.02) 0%,
+    rgba(255, 255, 255, 0.1) 30%,
+    rgba(255, 255, 255, 0.02) 60%
+  );
+  transform: translateX(-40%);
+  animation: ko-shimmer 1.6s ease-in-out infinite;
+}
+
+@keyframes ko-shimmer {
+  0% {
+    transform: translateX(-60%);
+  }
+  100% {
+    transform: translateX(60%);
+  }
+}
+
+/* AI scanline */
+.ai-scanline {
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(255, 255, 255, 0.06) 50%,
+    transparent 100%
+  );
+  transform: translateY(-100%);
+  animation: ko-scan 2.2s ease-in-out infinite;
+  mix-blend-mode: screen;
+  opacity: 0.5;
+}
+
+@keyframes ko-scan {
+  0% {
+    transform: translateY(-120%);
+  }
+  100% {
+    transform: translateY(120%);
+  }
+}
