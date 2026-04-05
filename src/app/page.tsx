@@ -57,7 +57,7 @@ function AuthMenuItem({ href, label }: { href: string; label: string }) {
     <button
       type="button"
       onClick={() => go(href)}
-      className="w-full flex items-center justify-between rounded-xl px-3 py-2 text-[13px] text-white/75 hover:text-white hover:bg-white/5 transition"
+      className="cursor-pointer w-full flex items-center justify-between rounded-xl px-3 py-2 text-[13px] text-white/75 hover:text-white hover:bg-white/5 transition"
     >
       <span>{label}</span>
       <span className="text-white/30">→</span>
@@ -82,7 +82,7 @@ function AuthCTAButton({
       type="button"
       onClick={() => go(href)}
       className={[
-        "rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white hover:bg-white/15",
+        "cursor-pointer rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white hover:bg-white/15",
         className,
       ].join(" ")}
     >
@@ -205,7 +205,7 @@ function VideoCarousel({
                     onClick={() => setIdx(realIndex)}
                     aria-label={`Select ${items[realIndex].title}`}
                     className={[
-                      "relative overflow-hidden rounded-xl border transition",
+                      "cursor-pointer relative overflow-hidden rounded-xl border transition",
                       "focus:outline-none focus:ring-2 focus:ring-white/20",
                       isActive
                         ? "border-white/25 ring-1 ring-white/15"
@@ -233,7 +233,7 @@ function VideoCarousel({
           aria-label="Previous"
           onClick={prev}
           className={[
-            "absolute top-1/2 z-30 -translate-y-1/2",
+            "cursor-pointer absolute top-1/2 z-30 -translate-y-1/2",
             "left-2 md:-left-10",
             "rounded-full border border-white/10 bg-black/45 p-3 md:p-4",
             "text-white/90 backdrop-blur hover:bg-black/60",
@@ -248,7 +248,7 @@ function VideoCarousel({
           aria-label="Next"
           onClick={next}
           className={[
-            "absolute top-1/2 z-30 -translate-y-1/2",
+            "cursor-pointer absolute top-1/2 z-30 -translate-y-1/2",
             "right-2 md:-right-10",
             "rounded-full border border-white/10 bg-black/45 p-3 md:p-4",
             "text-white/90 backdrop-blur hover:bg-black/60",
@@ -311,7 +311,7 @@ function ImageToVideoCarousel({
               <button
                 onClick={prev}
                 aria-label="Select previous"
-                className="relative overflow-hidden rounded-xl border border-white/10 hover:border-white/20 transition focus:outline-none focus:ring-2 focus:ring-white/20"
+                className="cursor-pointer relative overflow-hidden rounded-xl border border-white/10 hover:border-white/20 transition focus:outline-none focus:ring-2 focus:ring-white/20"
               >
                 <video
                   className="h-[58px] w-[132px] object-cover"
@@ -335,7 +335,7 @@ function ImageToVideoCarousel({
               <button
                 onClick={next}
                 aria-label="Select next"
-                className="relative overflow-hidden rounded-xl border border-white/10 hover:border-white/20 transition focus:outline-none focus:ring-2 focus:ring-white/20"
+                className="cursor-pointer relative overflow-hidden rounded-xl border border-white/10 hover:border-white/20 transition focus:outline-none focus:ring-2 focus:ring-white/20"
               >
                 <video
                   className="h-[58px] w-[132px] object-cover"
@@ -356,7 +356,7 @@ function ImageToVideoCarousel({
           aria-label="Previous"
           onClick={prev}
           className={[
-            "absolute top-1/2 z-30 -translate-y-1/2",
+            "cursor-pointer absolute top-1/2 z-30 -translate-y-1/2",
             "left-2 md:-left-12",
             "rounded-full border border-white/10 bg-black/45 p-3 md:p-4",
             "text-white/90 backdrop-blur hover:bg-black/60",
@@ -371,7 +371,7 @@ function ImageToVideoCarousel({
           aria-label="Next"
           onClick={next}
           className={[
-            "absolute top-1/2 z-30 -translate-y-1/2",
+            "cursor-pointer absolute top-1/2 z-30 -translate-y-1/2",
             "right-2 md:-right-12",
             "rounded-full border border-white/10 bg-black/45 p-3 md:p-4",
             "text-white/90 backdrop-blur hover:bg-black/60",
@@ -453,7 +453,7 @@ function FAQItem({
   return (
     <button
       onClick={onToggle}
-      className="w-full rounded-2xl border border-white/10 bg-white/5 px-6 py-5 text-left hover:bg-white/7 transition backdrop-blur"
+      className="cursor-pointer w-full rounded-2xl border border-white/10 bg-white/5 px-6 py-5 text-left hover:bg-white/7 transition backdrop-blur"
     >
       <div className="flex items-center justify-between gap-4">
         <span className="text-sm font-semibold text-white/90 sm:text-base">
@@ -511,7 +511,7 @@ export default function Home() {
   };
 
   return (
-    <main className="relative min-h-screen text-white overflow-x-hidden">
+    <main className="relative min-h-screen overflow-x-hidden text-white">
       <WallpaperRevealBackground src="/wallpaper.jpg" radius={240} />
 
       {/* NAV */}
@@ -535,13 +535,13 @@ export default function Home() {
             </div>
 
             <nav className="hidden items-center gap-7 text-[13px] font-medium tracking-wide text-white/65 md:flex">
-              <div className="relative group">
+              <div className="group relative">
                 <a
-                  className="transition hover:text-white inline-flex items-center gap-2"
+                  className="inline-flex items-center gap-2 transition hover:text-white"
                   href="#features"
                 >
                   Features
-                  <span className="text-white/35 text-[12px] leading-none translate-y-[1px]">
+                  <span className="translate-y-[1px] text-[12px] leading-none text-white/35">
                     ▾
                   </span>
                 </a>
@@ -550,7 +550,7 @@ export default function Home() {
 
                 <div
                   className={[
-                    "absolute left-0 top-full z-[3000] w-64 mt-2",
+                    "absolute left-0 top-full z-[3000] mt-2 w-64",
                     "rounded-2xl border border-white/10 bg-black/70 backdrop-blur",
                     "shadow-[0_18px_70px_rgba(0,0,0,0.55)]",
                     "opacity-0 translate-y-2 pointer-events-none",
@@ -646,9 +646,9 @@ export default function Home() {
           />
         </div>
 
-        <div className="absolute inset-0 z-[1000] flex items-center justify-center px-6 text-center pointer-events-none">
+        <div className="pointer-events-none absolute inset-0 z-[1000] flex items-center justify-center px-6 text-center">
           <div className="select-none">
-            <div className="text-4xl font-semibold tracking-tight text-white md:text-6xl drop-shadow-[0_8px_24px_rgba(0,0,0,0.65)]">
+            <div className="text-4xl font-semibold tracking-tight text-white drop-shadow-[0_8px_24px_rgba(0,0,0,0.65)] md:text-6xl">
               Old Soul.
               <span className="block">New Motion.</span>
               <span className="block">KOANimation.</span>
@@ -717,7 +717,7 @@ export default function Home() {
                 Image to Video
               </h2>
 
-              <span className="text-white/20 text-2xl leading-none md:hidden">
+              <span className="text-2xl leading-none text-white/20 md:hidden">
                 |
               </span>
               <div className="hidden h-10 w-px bg-white/10 md:block" />
@@ -808,7 +808,7 @@ export default function Home() {
                 </h3>
                 <AuthCTAButton
                   href={TOOL_ROUTES.referenceToVideo}
-                  className="mt-6 bg-blue-600 hover:bg-blue-500 border-0"
+                  className="mt-6 border-0 bg-blue-600 hover:bg-blue-500"
                 >
                   Try it now
                 </AuthCTAButton>
