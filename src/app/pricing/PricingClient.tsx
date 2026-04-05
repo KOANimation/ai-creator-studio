@@ -158,6 +158,7 @@ export default function PricingClient() {
   const [activeCheckoutPlan, setActiveCheckoutPlan] = useState<PlanKey | null>(
     null
   );
+  const [isManagingBilling, setIsManagingBilling] = useState(false);
   const [currentSubscription, setCurrentSubscription] =
     useState<CurrentSubscription>({
       currentPlan: null,
@@ -282,6 +283,40 @@ export default function PricingClient() {
     }
 
     router.push("/tools");
+  };
+
+  const handleManageSubscription = async () => {
+    try {
+      if (!isAuthed) {
+        router.push(`/login?redirect=${encodeURIComponent("/pricing")}`);
+        return;
+      }
+
+      if (!currentSubscription.currentPlan) {
+        alert("You do not have an active paid subscription yet.");
+        return;
+      }
+
+      setIsManagingBilling(true);
+
+      const res = await fetch("/api/stripe/create-portal-session", {
+        method: "POST",
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data?.url) {
+        throw new Error(data?.error || "Failed to open billing portal.");
+      }
+
+      window.location.href = data.url;
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to open billing portal.";
+      alert(message);
+    } finally {
+      setIsManagingBilling(false);
+    }
   };
 
   const handlePlanAction = async (planKey: PlanKey) => {
@@ -523,6 +558,18 @@ export default function PricingClient() {
             <Link className="hover:text-white" href="/pricing">
               Pricing
             </Link>
+
+            {isAuthed && currentSubscription.currentPlan ? (
+              <button
+                type="button"
+                onClick={() => void handleManageSubscription()}
+                className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={isManagingBilling}
+              >
+                {isManagingBilling ? "Opening..." : "Manage subscription"}
+              </button>
+            ) : null}
+
             <button
               type="button"
               onClick={handleTryKoa}
@@ -575,17 +622,25 @@ export default function PricingClient() {
           )}
 
           {currentPlanName && (
-            <div className="mx-auto mt-4 inline-flex rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/85">
-              Current plan: {currentPlanName}
+            <div className="mx-auto mt-4 inline-flex flex-wrap items-center justify-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/85">
+              <span>Current plan: {currentPlanName}</span>
               {currentSubscription.cancelAtPeriodEnd &&
                 currentSubscription.currentPeriodEnd && (
-                  <span className="ml-2 text-white/55">
+                  <span className="text-white/55">
                     · ends{" "}
                     {new Date(
                       currentSubscription.currentPeriodEnd
                     ).toLocaleDateString()}
                   </span>
                 )}
+              <button
+                type="button"
+                onClick={() => void handleManageSubscription()}
+                className="ml-1 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={isManagingBilling}
+              >
+                {isManagingBilling ? "Opening..." : "Manage"}
+              </button>
             </div>
           )}
 
