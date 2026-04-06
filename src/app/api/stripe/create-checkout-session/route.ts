@@ -56,25 +56,6 @@ function normalizePlan(plan: unknown): IncomingPlan | null {
   }
 }
 
-function getSubscriptionCurrentPeriodEndIso(
-  subscription: Stripe.Subscription
-): string | null {
-  const subscriptionAny = subscription as Stripe.Subscription & {
-    current_period_end?: number | null;
-  };
-
-  const periodEndUnix =
-    typeof subscriptionAny.current_period_end === "number"
-      ? subscriptionAny.current_period_end
-      : null;
-
-  if (periodEndUnix === null) {
-    return null;
-  }
-
-  return new Date(periodEndUnix * 1000).toISOString();
-}
-
 export async function POST(req: Request) {
   try {
     const supabase = await createClient();
@@ -107,12 +88,15 @@ export async function POST(req: Request) {
       );
     }
 
+    const siteUrl =
+      process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+
     const { data: currentSubscription, error: currentSubscriptionError } =
       await supabaseAdmin
         .from("subscriptions")
-        .select("id, status, price_id, cancel_at_period_end")
+        .select("id, status, price_id")
         .eq("user_id", user.id)
-        .in("status", ["active", "trialing"])
+        .in("status", ["active", "trialing", "past_due", "unpaid"])
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -141,59 +125,42 @@ export async function POST(req: Request) {
       );
 
       const currentItem = stripeSubscription.items.data[0];
+      const stripeCustomerId =
+        typeof stripeSubscription.customer === "string"
+          ? stripeSubscription.customer
+          : stripeSubscription.customer?.id ?? null;
 
-      if (!currentItem?.id) {
+      if (!currentItem?.id || !stripeCustomerId) {
         return NextResponse.json(
-          { error: "Could not find current subscription item." },
+          { error: "Could not prepare subscription update confirmation." },
           { status: 500 }
         );
       }
 
-      const updated = await stripe.subscriptions.update(currentSubscription.id, {
-        items: [
-          {
-            id: currentItem.id,
-            price: priceId,
+      const portalSession = await stripe.billingPortal.sessions.create({
+        customer: stripeCustomerId,
+        return_url: `${siteUrl}/pricing`,
+        flow_data: {
+          type: "subscription_update_confirm",
+          after_completion: {
+            type: "redirect",
+            redirect: {
+              return_url: `${siteUrl}/pricing?success=1`,
+            },
           },
-        ],
-        proration_behavior: "create_prorations",
-        cancel_at_period_end: false,
+          subscription_update_confirm: {
+            subscription: stripeSubscription.id,
+            items: [
+              {
+                id: currentItem.id,
+                price: priceId,
+              },
+            ],
+          },
+        },
       });
 
-      const updatedPriceId = updated.items.data[0]?.price?.id ?? priceId;
-      const currentPeriodEnd = getSubscriptionCurrentPeriodEndIso(updated);
-
-      const { error: upsertError } = await supabaseAdmin
-        .from("subscriptions")
-        .upsert(
-          {
-            id: updated.id,
-            user_id: user.id,
-            status: updated.status,
-            price_id: updatedPriceId,
-            current_period_end: currentPeriodEnd,
-            cancel_at_period_end: updated.cancel_at_period_end ?? false,
-            created_at: new Date().toISOString(),
-          },
-          {
-            onConflict: "id",
-          }
-        );
-
-      if (upsertError) {
-        return NextResponse.json(
-          {
-            error:
-              upsertError.message || "Failed to save updated subscription",
-          },
-          { status: 500 }
-        );
-      }
-
-      return NextResponse.json({
-        updated: true,
-        message: "Subscription updated successfully.",
-      });
+      return NextResponse.json({ url: portalSession.url });
     }
 
     let stripeCustomerId: string | null = null;
@@ -255,9 +222,6 @@ export async function POST(req: Request) {
         { status: 500 }
       );
     }
-
-    const siteUrl =
-      process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
