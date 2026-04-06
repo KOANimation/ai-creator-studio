@@ -20,6 +20,9 @@ const supabase = createSupabaseAdmin(
   }
 );
 
+const allowTestCreditGrants =
+  process.env.STRIPE_ALLOW_TEST_CREDIT_GRANTS === "true";
+
 function getCreditsForPrice(priceId: string): number {
   switch (priceId) {
     case process.env.STRIPE_PRICE_ESSENTIAL_MONTHLY:
@@ -61,6 +64,7 @@ function getSubscriptionCurrentPeriodEndIso(
 
   const itemPeriodEnd = subscription.items.data[0]?.current_period_end;
   const directPeriodEnd = subscriptionAny.current_period_end ?? null;
+
   const periodEndUnix =
     typeof itemPeriodEnd === "number"
       ? itemPeriodEnd
@@ -183,7 +187,10 @@ function getInvoiceSubscriptionId(invoice: Stripe.Invoice): string | null {
   return null;
 }
 
-async function grantCreditsFromInvoice(invoice: Stripe.Invoice): Promise<void> {
+async function grantCreditsFromInvoice(
+  invoice: Stripe.Invoice,
+  eventLivemode: boolean
+): Promise<void> {
   const customerId =
     typeof invoice.customer === "string"
       ? invoice.customer
@@ -192,6 +199,7 @@ async function grantCreditsFromInvoice(invoice: Stripe.Invoice): Promise<void> {
   const subscriptionId = getInvoiceSubscriptionId(invoice);
 
   console.log("Invoice event received:", invoice.id);
+  console.log("Invoice livemode:", eventLivemode);
   console.log("Invoice customer:", customerId);
   console.log("Resolved subscription id:", subscriptionId);
 
@@ -229,6 +237,15 @@ async function grantCreditsFromInvoice(invoice: Stripe.Invoice): Promise<void> {
 
   if (credits <= 0) {
     console.error("No credits configured for price id:", priceId);
+    return;
+  }
+
+  if (!eventLivemode && !allowTestCreditGrants) {
+    console.log(
+      "Skipping test-mode credit grant for invoice:",
+      invoice.id,
+      "because STRIPE_ALLOW_TEST_CREDIT_GRANTS is false"
+    );
     return;
   }
 
@@ -287,7 +304,7 @@ export async function POST(req: Request) {
       case "invoice.paid":
       case "invoice_payment.paid": {
         const invoice = event.data.object as Stripe.Invoice;
-        await grantCreditsFromInvoice(invoice);
+        await grantCreditsFromInvoice(invoice, event.livemode);
         break;
       }
 
