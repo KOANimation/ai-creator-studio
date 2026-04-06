@@ -1,3 +1,4 @@
+// src/app/page.tsx
 "use client";
 
 import Link from "next/link";
@@ -18,11 +19,19 @@ function GlowDivider() {
   );
 }
 
+/**
+ * ✅ REAL auth check via Supabase session
+ */
 async function isLoggedIn(): Promise<boolean> {
   const user = await getCurrentUser();
   return !!user;
 }
 
+/**
+ * ✅ Auth-gated navigation:
+ * - logged in → go to target
+ * - else → /login?redirect=<target>
+ */
 function useAuthNavigate() {
   const router = useRouter();
 
@@ -40,6 +49,7 @@ function useAuthNavigate() {
   );
 }
 
+/** ✅ Navbar item that uses auth-gated navigation */
 function AuthMenuItem({ href, label }: { href: string; label: string }) {
   const go = useAuthNavigate();
 
@@ -47,7 +57,7 @@ function AuthMenuItem({ href, label }: { href: string; label: string }) {
     <button
       type="button"
       onClick={() => go(href)}
-      className="cursor-pointer flex w-full items-center justify-between rounded-xl px-3 py-2 text-[13px] text-white/75 transition hover:bg-white/5 hover:text-white"
+      className="cursor-pointer w-full flex items-center justify-between rounded-xl px-3 py-2 text-[13px] text-white/75 hover:text-white hover:bg-white/5 transition"
     >
       <span>{label}</span>
       <span className="text-white/30">→</span>
@@ -55,6 +65,7 @@ function AuthMenuItem({ href, label }: { href: string; label: string }) {
   );
 }
 
+/** ✅ CTA button that uses auth-gated navigation */
 function AuthCTAButton({
   href,
   children,
@@ -71,7 +82,7 @@ function AuthCTAButton({
       type="button"
       onClick={() => go(href)}
       className={[
-        "cursor-pointer rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/15",
+        "cursor-pointer rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white hover:bg-white/15",
         className,
       ].join(" ")}
     >
@@ -80,6 +91,7 @@ function AuthCTAButton({
   );
 }
 
+/** ✅ Wallpaper reveal (spotlight) behind the black */
 function WallpaperRevealBackground({
   src = "/wallpaper.jpg",
   radius = 240,
@@ -183,10 +195,6 @@ function VideoCarousel({
 
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(255,255,255,0.06)_0%,rgba(0,0,0,0.55)_62%,rgba(0,0,0,0.88)_100%)]" />
 
-          <div className="pointer-events-none absolute left-5 top-5 z-20 rounded-full border border-white/10 bg-black/35 px-3 py-1 text-xs font-medium text-white/70 backdrop-blur">
-            Reference-to-Video Showcase
-          </div>
-
           <div className="pointer-events-none absolute bottom-5 left-1/2 z-20 w-[min(92%,560px)] -translate-x-1/2">
             <div className="pointer-events-auto flex items-center justify-center gap-3 rounded-2xl border border-white/10 bg-black/45 px-3 py-3 shadow-[0_20px_80px_rgba(0,0,0,0.55)] backdrop-blur">
               {[at(idx - 1), at(idx), at(idx + 1)].map((realIndex) => {
@@ -233,7 +241,7 @@ function VideoCarousel({
             "focus:outline-none focus:ring-2 focus:ring-white/20",
           ].join(" ")}
         >
-          <span className="text-2xl leading-none md:text-3xl">‹</span>
+          <span className="text-2xl md:text-3xl leading-none">‹</span>
         </button>
 
         <button
@@ -248,7 +256,7 @@ function VideoCarousel({
             "focus:outline-none focus:ring-2 focus:ring-white/20",
           ].join(" ")}
         >
-          <span className="text-2xl leading-none md:text-3xl">›</span>
+          <span className="text-2xl md:text-3xl leading-none">›</span>
         </button>
 
         <div className="mt-5 text-center text-white/65">
@@ -259,6 +267,7 @@ function VideoCarousel({
   );
 }
 
+/** Vidu-like "Image to Video" carousel (2 thumbs + chevrons) */
 function ImageToVideoCarousel({
   items,
   initialIndex = 0,
@@ -293,11 +302,7 @@ function ImageToVideoCarousel({
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,rgba(255,255,255,0.035)_0%,rgba(0,0,0,0.46)_58%,rgba(0,0,0,0.90)_100%)]" />
           <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/60 to-transparent" />
 
-          <div className="pointer-events-none absolute left-5 top-5 z-20 rounded-full border border-white/10 bg-black/35 px-3 py-1 text-xs font-medium text-white/70 backdrop-blur">
-            Image-to-Video Showcase
-          </div>
-
-          <div className="pointer-events-none absolute bottom-6 right-7 text-sm font-semibold tracking-tight text-white/35">
+          <div className="pointer-events-none absolute bottom-6 right-7 text-white/35 text-sm font-semibold tracking-tight">
             KOANimation
           </div>
 
@@ -306,7 +311,7 @@ function ImageToVideoCarousel({
               <button
                 onClick={prev}
                 aria-label="Select previous"
-                className="cursor-pointer relative overflow-hidden rounded-xl border border-white/10 transition hover:border-white/20 focus:outline-none focus:ring-2 focus:ring-white/20"
+                className="cursor-pointer relative overflow-hidden rounded-xl border border-white/10 hover:border-white/20 transition focus:outline-none focus:ring-2 focus:ring-white/20"
               >
                 <video
                   className="h-[58px] w-[132px] object-cover"
@@ -330,7 +335,7 @@ function ImageToVideoCarousel({
               <button
                 onClick={next}
                 aria-label="Select next"
-                className="cursor-pointer relative overflow-hidden rounded-xl border border-white/10 transition hover:border-white/20 focus:outline-none focus:ring-2 focus:ring-white/20"
+                className="cursor-pointer relative overflow-hidden rounded-xl border border-white/10 hover:border-white/20 transition focus:outline-none focus:ring-2 focus:ring-white/20"
               >
                 <video
                   className="h-[58px] w-[132px] object-cover"
@@ -359,7 +364,7 @@ function ImageToVideoCarousel({
             "focus:outline-none focus:ring-2 focus:ring-white/20",
           ].join(" ")}
         >
-          <span className="text-2xl leading-none md:text-3xl">‹</span>
+          <span className="text-2xl md:text-3xl leading-none">‹</span>
         </button>
 
         <button
@@ -374,7 +379,7 @@ function ImageToVideoCarousel({
             "focus:outline-none focus:ring-2 focus:ring-white/20",
           ].join(" ")}
         >
-          <span className="text-2xl leading-none md:text-3xl">›</span>
+          <span className="text-2xl md:text-3xl leading-none">›</span>
         </button>
       </div>
     </div>
@@ -387,33 +392,20 @@ function FeatureCard({
   mediaSrc,
   ctaHref,
   ctaLabel,
-  glowClass,
-  badge,
 }: {
   title: string;
   desc: string;
   mediaSrc: string;
   ctaHref: string;
   ctaLabel: string;
-  glowClass: string;
-  badge: string;
 }) {
   return (
-    <div
-      className={[
-        "relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur",
-        "shadow-[0_30px_110px_rgba(0,0,0,0.45)]",
-        glowClass,
-      ].join(" ")}
-    >
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.04),rgba(255,255,255,0.01)_22%,rgba(0,0,0,0.08)_100%)]" />
-      <div className="pointer-events-none absolute -top-10 left-8 h-28 w-28 rounded-full bg-white/10 blur-3xl opacity-40" />
-
-      <div className="relative z-10 flex items-start justify-between gap-6">
+    <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-8 shadow-[0_30px_110px_rgba(0,0,0,0.45)] backdrop-blur">
+      <div className="flex items-start justify-between gap-6">
         <div className="max-w-md">
           <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs text-white/70">
             <span className="h-2 w-2 rounded-full bg-white/25" />
-            {badge}
+            Feature
           </div>
           <h3 className="text-xl font-semibold text-white md:text-2xl">
             {title}
@@ -422,7 +414,7 @@ function FeatureCard({
 
           <Link
             href={ctaHref}
-            className="mt-6 inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/35 px-5 py-2.5 text-sm font-semibold text-white/85 backdrop-blur transition hover:bg-black/50"
+            className="mt-6 inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/35 px-5 py-2.5 text-sm font-semibold text-white/85 backdrop-blur hover:bg-black/50"
           >
             {ctaLabel} <span className="text-lg leading-none">→</span>
           </Link>
@@ -461,56 +453,19 @@ function FAQItem({
   return (
     <button
       onClick={onToggle}
-      className="cursor-pointer w-full rounded-2xl border border-white/10 bg-white/5 px-6 py-5 text-left transition hover:bg-white/[0.07] backdrop-blur"
+      className="cursor-pointer w-full rounded-2xl border border-white/10 bg-white/5 px-6 py-5 text-left hover:bg-white/7 transition backdrop-blur"
     >
       <div className="flex items-center justify-between gap-4">
         <span className="text-sm font-semibold text-white/90 sm:text-base">
           {q}
         </span>
-        <span className="text-xl leading-none text-white/60">
+        <span className="text-white/60 text-xl leading-none">
           {open ? "–" : "+"}
         </span>
       </div>
       {open && (
         <div className="mt-3 text-sm leading-relaxed text-white/70">{a}</div>
       )}
-    </button>
-  );
-}
-
-function ToolModeCard({
-  title,
-  desc,
-  href,
-  accentClass,
-}: {
-  title: string;
-  desc: string;
-  href: string;
-  accentClass: string;
-}) {
-  const go = useAuthNavigate();
-
-  return (
-    <button
-      type="button"
-      onClick={() => go(href)}
-      className={[
-        "group relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-5 text-left backdrop-blur transition",
-        "hover:border-white/20 hover:bg-white/[0.07]",
-        accentClass,
-      ].join(" ")}
-    >
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.04),rgba(255,255,255,0.01)_20%,rgba(0,0,0,0.08)_100%)]" />
-      <div className="relative z-10">
-        <div className="flex items-center justify-between gap-4">
-          <div className="text-base font-semibold text-white">{title}</div>
-          <div className="text-white/30 transition group-hover:text-white/60">
-            →
-          </div>
-        </div>
-        <p className="mt-3 text-sm leading-relaxed text-white/65">{desc}</p>
-      </div>
     </button>
   );
 }
@@ -559,6 +514,7 @@ export default function Home() {
     <main className="relative min-h-screen overflow-x-hidden text-white">
       <WallpaperRevealBackground src="/wallpaper.jpg" radius={240} />
 
+      {/* NAV */}
       <header className="fixed inset-x-0 top-0 z-[2000]">
         <div className="mx-auto w-full max-w-7xl px-6">
           <div className="mt-4 flex items-center justify-between rounded-2xl border border-white/10 bg-black/45 px-4 py-3 shadow-[0_18px_70px_rgba(0,0,0,0.55)] backdrop-blur">
@@ -597,9 +553,9 @@ export default function Home() {
                     "absolute left-0 top-full z-[3000] mt-2 w-64",
                     "rounded-2xl border border-white/10 bg-black/70 backdrop-blur",
                     "shadow-[0_18px_70px_rgba(0,0,0,0.55)]",
-                    "pointer-events-none translate-y-2 opacity-0",
+                    "opacity-0 translate-y-2 pointer-events-none",
+                    "group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto",
                     "transition duration-200",
-                    "group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100",
                   ].join(" ")}
                 >
                   <div className="p-2">
@@ -644,23 +600,19 @@ export default function Home() {
             </nav>
 
             <div className="flex items-center gap-3">
-              <AuthCTAButton
-                href="/tools"
-                className="shadow-[0_0_35px_rgba(96,165,250,0.18)]"
-              >
-                Try KOANimation
-              </AuthCTAButton>
+              <AuthCTAButton href="/tools">Try KOANimation</AuthCTAButton>
             </div>
           </div>
         </div>
       </header>
 
+      {/* HERO */}
       <section className="relative min-h-screen overflow-hidden">
         <FloatingMediaWall />
 
         <div className="absolute inset-0 z-[1] bg-black/55" />
         <div className="absolute inset-0 z-[2] bg-[radial-gradient(circle_at_50%_45%,rgba(0,0,0,0.15)_0%,rgba(0,0,0,0.70)_70%,rgba(0,0,0,0.90)_100%)]" />
-        <div className="absolute inset-0 z-[3] bg-[radial-gradient(circle_at_25%_25%,rgba(168,85,247,0.16),transparent_60%),radial-gradient(circle_at_75%_40%,rgba(59,130,246,0.10),transparent_65%)]" />
+        <div className="absolute inset-0 z-[3] bg-[radial-gradient(circle_at_25%_25%,rgba(168,85,247,0.14),transparent_60%),radial-gradient(circle_at_75%_40%,rgba(147,51,234,0.10),transparent_65%)]" />
 
         <div className="absolute inset-0 z-[4]">
           <Particles
@@ -694,106 +646,12 @@ export default function Home() {
           />
         </div>
 
-        <div className="relative z-[1000] mx-auto flex min-h-screen w-full max-w-7xl items-center px-6 pt-28">
-          <div className="grid w-full gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
-            <div className="max-w-3xl">
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/35 px-4 py-2 text-xs text-white/70 backdrop-blur">
-                <span className="h-2 w-2 rounded-full bg-violet-400/80 shadow-[0_0_12px_rgba(168,85,247,0.7)]" />
-                Cinematic anime motion studio
-              </div>
-
-              <h1 className="mt-6 text-5xl font-semibold tracking-tight text-white drop-shadow-[0_8px_24px_rgba(0,0,0,0.65)] sm:text-6xl md:text-7xl">
-                Old Soul.
-                <span className="block">New Motion.</span>
-                <span className="block text-white/95">KOANimation.</span>
-              </h1>
-
-              <p className="mt-6 max-w-2xl text-base leading-relaxed text-white/68 md:text-lg">
-                Create stylized anime motion with reference-aware workflows,
-                cinematic camera movement, and studio-grade presentation built
-                for creators who care about aesthetic control.
-              </p>
-
-              <div className="mt-8 flex flex-wrap items-center gap-3">
-                <AuthCTAButton
-                  href="/tools"
-                  className="border-0 bg-white text-black hover:bg-white/90"
-                >
-                  Launch Studio
-                </AuthCTAButton>
-
-                <AuthCTAButton
-                  href={TOOL_ROUTES.referenceToVideo}
-                  className="bg-white/8"
-                >
-                  Explore Workflows
-                </AuthCTAButton>
-              </div>
-
-              <div className="mt-8 grid max-w-2xl gap-3 sm:grid-cols-3">
-                {[
-                  "Reference-consistent motion",
-                  "Image-to-video atmosphere",
-                  "Cinematic anime presentation",
-                ].map((item) => (
-                  <div
-                    key={item}
-                    className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white/72 backdrop-blur"
-                  >
-                    {item}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="relative">
-              <div className="absolute -inset-8 rounded-[40px] bg-[radial-gradient(circle_at_center,rgba(168,85,247,0.18),transparent_55%)] blur-3xl" />
-              <div className="relative overflow-hidden rounded-[30px] border border-white/10 bg-black/35 p-4 shadow-[0_40px_140px_rgba(0,0,0,0.55)] backdrop-blur-xl">
-                <div className="mb-4 flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
-                  <div>
-                    <div className="text-sm font-semibold text-white">
-                      KOANimation Studio
-                    </div>
-                    <div className="mt-1 text-xs text-white/50">
-                      Reference-driven anime motion workflows
-                    </div>
-                  </div>
-                  <div className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs text-emerald-200">
-                    Live
-                  </div>
-                </div>
-
-                <div className="overflow-hidden rounded-[24px] border border-white/10">
-                  <video
-                    className="h-[240px] w-full object-cover sm:h-[320px]"
-                    src="/backgrounds/15.mp4"
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    preload="metadata"
-                  />
-                </div>
-
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                    <div className="text-xs uppercase tracking-[0.18em] text-white/40">
-                      Workflow
-                    </div>
-                    <div className="mt-2 text-sm font-medium text-white/85">
-                      Reference to Video
-                    </div>
-                  </div>
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                    <div className="text-xs uppercase tracking-[0.18em] text-white/40">
-                      Output
-                    </div>
-                    <div className="mt-2 text-sm font-medium text-white/85">
-                      Stylized cinematic clips
-                    </div>
-                  </div>
-                </div>
-              </div>
+        <div className="pointer-events-none absolute inset-0 z-[1000] flex items-center justify-center px-6 text-center">
+          <div className="select-none">
+            <div className="text-4xl font-semibold tracking-tight text-white drop-shadow-[0_8px_24px_rgba(0,0,0,0.65)] md:text-6xl">
+              Old Soul.
+              <span className="block">New Motion.</span>
+              <span className="block">KOANimation.</span>
             </div>
           </div>
         </div>
@@ -801,100 +659,8 @@ export default function Home() {
         <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-[10] h-28 bg-gradient-to-b from-transparent to-black/80" />
       </section>
 
-      <section className="relative -mt-6 pb-10">
-        <div className="mx-auto w-full max-w-7xl px-6">
-          <div className="grid gap-4 md:grid-cols-3">
-            {[
-              {
-                title: "Aesthetic Control",
-                desc: "Design motion with a more intentional visual identity, not random generations.",
-              },
-              {
-                title: "Studio Workflows",
-                desc: "Jump into focused tools for reference-to-video, image-to-video, and text generation.",
-              },
-              {
-                title: "Creator Presentation",
-                desc: "Premium outputs and a polished interface that feels closer to a real studio.",
-              },
-            ].map((item, i) => (
-              <div
-                key={item.title}
-                className={[
-                  "rounded-3xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur",
-                  i === 0
-                    ? "shadow-[0_0_50px_rgba(168,85,247,0.08)]"
-                    : i === 1
-                      ? "shadow-[0_0_50px_rgba(59,130,246,0.07)]"
-                      : "shadow-[0_0_50px_rgba(255,255,255,0.04)]",
-                ].join(" ")}
-              >
-                <div className="text-base font-semibold text-white">
-                  {item.title}
-                </div>
-                <p className="mt-2 text-sm leading-relaxed text-white/65">
-                  {item.desc}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="relative pb-20 pt-12">
-        <div className="mx-auto w-full max-w-7xl px-6">
-          <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div>
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs text-white/70">
-                <span className="h-2 w-2 rounded-full bg-cyan-400/80 shadow-[0_0_12px_rgba(34,211,238,0.7)]" />
-                Core modes
-              </div>
-              <h2 className="text-4xl font-semibold tracking-tight text-white md:text-5xl">
-                Choose your workflow
-              </h2>
-              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/65">
-                Start from references, stills, or text prompts depending on how
-                much control you want over the final motion.
-              </p>
-            </div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-            <ToolModeCard
-              title="Reference to Video"
-              desc="Match a subject or style and animate with stronger consistency."
-              href={TOOL_ROUTES.referenceToVideo}
-              accentClass="shadow-[0_0_50px_rgba(168,85,247,0.08)]"
-            />
-            <ToolModeCard
-              title="Image to Video"
-              desc="Bring still artwork to life with motion, camera, and atmosphere."
-              href={TOOL_ROUTES.imageToVideo}
-              accentClass="shadow-[0_0_50px_rgba(59,130,246,0.08)]"
-            />
-            <ToolModeCard
-              title="Text to Video"
-              desc="Generate clips from prompt-first cinematic direction."
-              href={TOOL_ROUTES.textToVideo}
-              accentClass="shadow-[0_0_50px_rgba(236,72,153,0.07)]"
-            />
-            <ToolModeCard
-              title="Reference to Image"
-              desc="Create style-aware images with more controlled visual identity."
-              href={TOOL_ROUTES.referenceToImage}
-              accentClass="shadow-[0_0_50px_rgba(234,179,8,0.07)]"
-            />
-            <ToolModeCard
-              title="Text to Image"
-              desc="Generate polished stills ready for concepting or animation input."
-              href={TOOL_ROUTES.textToImage}
-              accentClass="shadow-[0_0_50px_rgba(255,255,255,0.04)]"
-            />
-          </div>
-        </div>
-      </section>
-
-      <section className="relative pb-20 pt-10">
+      {/* Reference to Video */}
+      <section className="relative pb-20 pt-16">
         <div className="mx-auto w-full max-w-7xl px-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
@@ -920,18 +686,9 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Feature Cards */}
       <section id="features" className="relative py-16">
         <div className="mx-auto w-full max-w-7xl px-6">
-          <div className="mb-8">
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs text-white/70">
-              <span className="h-2 w-2 rounded-full bg-violet-400/80 shadow-[0_0_12px_rgba(168,85,247,0.7)]" />
-              Highlights
-            </div>
-            <h2 className="text-4xl font-semibold tracking-tight text-white md:text-5xl">
-              Built for stylish motion creation
-            </h2>
-          </div>
-
           <div className="grid gap-6 md:grid-cols-2">
             <FeatureCard
               title="First & Last Frames Control"
@@ -939,8 +696,6 @@ export default function Home() {
               mediaSrc="/backgrounds/16.mp4"
               ctaHref="/tools"
               ctaLabel="Get Started"
-              glowClass="shadow-[0_0_80px_rgba(168,85,247,0.08)]"
-              badge="Frame Control"
             />
             <FeatureCard
               title="Anime Art to Video"
@@ -948,13 +703,12 @@ export default function Home() {
               mediaSrc="/backgrounds/7.mp4"
               ctaHref="/tools"
               ctaLabel="Get Started"
-              glowClass="shadow-[0_0_80px_rgba(59,130,246,0.08)]"
-              badge="Animation"
             />
           </div>
         </div>
       </section>
 
+      {/* Image to Video */}
       <section id="templates" className="relative pb-20 pt-6">
         <div className="mx-auto w-full max-w-7xl px-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -987,6 +741,7 @@ export default function Home() {
         </div>
       </section>
 
+      {/* FAQ */}
       <section id="resources" className="relative py-16">
         <div className="mx-auto w-full max-w-7xl px-6">
           <div className="grid gap-10 md:grid-cols-2 md:items-start">
@@ -1032,10 +787,10 @@ export default function Home() {
         </div>
       </section>
 
+      {/* CTA */}
       <section className="relative pb-24 pt-8">
         <div className="mx-auto w-full max-w-7xl px-6">
-          <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-[0_40px_140px_rgba(0,0,0,0.55)] backdrop-blur">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.16),transparent_32%),radial-gradient(circle_at_left,rgba(168,85,247,0.15),transparent_30%)]" />
+          <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 backdrop-blur">
             <video
               className="h-[300px] w-full object-cover md:h-[360px]"
               src="/backgrounds/15.mp4"
@@ -1045,23 +800,15 @@ export default function Home() {
               playsInline
               preload="metadata"
             />
-            <div className="absolute inset-0 bg-black/60" />
+            <div className="absolute inset-0 bg-black/55" />
             <div className="absolute inset-0 flex items-center justify-center px-6 text-center">
               <div>
-                <div className="mx-auto mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/35 px-4 py-2 text-xs text-white/70 backdrop-blur">
-                  <span className="h-2 w-2 rounded-full bg-cyan-400/80 shadow-[0_0_12px_rgba(34,211,238,0.7)]" />
-                  Start creating
-                </div>
                 <h3 className="text-4xl font-semibold tracking-tight text-white md:text-5xl">
                   Embrace Your Creativity
                 </h3>
-                <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-white/68 md:text-base">
-                  Step into a more cinematic creation flow and build motion that
-                  feels intentional, atmospheric, and uniquely yours.
-                </p>
                 <AuthCTAButton
                   href={TOOL_ROUTES.referenceToVideo}
-                  className="mt-6 border-0 bg-blue-600 shadow-[0_0_40px_rgba(37,99,235,0.30)] hover:bg-blue-500"
+                  className="mt-6 border-0 bg-blue-600 hover:bg-blue-500"
                 >
                   Try it now
                 </AuthCTAButton>
