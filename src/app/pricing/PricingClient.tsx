@@ -438,8 +438,16 @@ export default function PricingClient() {
         sub: "Monthly subscription",
         buttonStyle:
           "bg-[#9CC5FF] text-black hover:brightness-95 border border-white/10",
-        highlight: false,
         badge: "",
+        glowClass:
+          "border-[#9CC5FF]/25 shadow-[0_0_0_1px_rgba(156,197,255,0.12),0_0_32px_rgba(156,197,255,0.10),0_30px_80px_rgba(0,0,0,0.55)]",
+        selectedGlowClass:
+          "ring-2 ring-[#9CC5FF]/35 shadow-[0_0_0_1px_rgba(156,197,255,0.18),0_0_42px_rgba(156,197,255,0.18),0_30px_90px_rgba(0,0,0,0.6)]",
+        currentGlowClass:
+          "ring-2 ring-[#9CC5FF]/40 shadow-[0_0_0_1px_rgba(156,197,255,0.22),0_0_48px_rgba(156,197,255,0.22),0_30px_95px_rgba(0,0,0,0.62)]",
+        auraClass:
+          "bg-[radial-gradient(circle_at_top,rgba(156,197,255,0.18),transparent_42%)]",
+        badgeGlowClass: "",
         creditBox: {
           title: "4000 credits monthly",
           sub: "Starter creator plan",
@@ -460,8 +468,16 @@ export default function PricingClient() {
         sub: "Monthly subscription",
         buttonStyle:
           "bg-[#EAD39A] text-black hover:brightness-95 border border-white/10",
-        highlight: false,
         badge: "",
+        glowClass:
+          "border-[#EAD39A]/25 shadow-[0_0_0_1px_rgba(234,211,154,0.12),0_0_32px_rgba(234,211,154,0.10),0_30px_80px_rgba(0,0,0,0.55)]",
+        selectedGlowClass:
+          "ring-2 ring-[#EAD39A]/35 shadow-[0_0_0_1px_rgba(234,211,154,0.18),0_0_42px_rgba(234,211,154,0.18),0_30px_90px_rgba(0,0,0,0.6)]",
+        currentGlowClass:
+          "ring-2 ring-[#EAD39A]/40 shadow-[0_0_0_1px_rgba(234,211,154,0.22),0_0_48px_rgba(234,211,154,0.22),0_30px_95px_rgba(0,0,0,0.62)]",
+        auraClass:
+          "bg-[radial-gradient(circle_at_top,rgba(234,211,154,0.18),transparent_42%)]",
+        badgeGlowClass: "",
         creditBox: {
           title: "12000 credits monthly",
           sub: "For serious creators and teams",
@@ -482,8 +498,16 @@ export default function PricingClient() {
         sub: "Monthly subscription",
         buttonStyle:
           "bg-[#CDB7FF] text-black hover:brightness-95 border border-white/10",
-        highlight: true,
         badge: "Most popular",
+        glowClass:
+          "border-[#CDB7FF]/35 shadow-[0_0_0_1px_rgba(205,183,255,0.18),0_0_42px_rgba(205,183,255,0.20),0_35px_100px_rgba(0,0,0,0.62)]",
+        selectedGlowClass:
+          "ring-2 ring-[#CDB7FF]/45 shadow-[0_0_0_1px_rgba(205,183,255,0.25),0_0_56px_rgba(205,183,255,0.28),0_35px_110px_rgba(0,0,0,0.68)]",
+        currentGlowClass:
+          "ring-2 ring-[#CDB7FF]/50 shadow-[0_0_0_1px_rgba(205,183,255,0.28),0_0_62px_rgba(205,183,255,0.30),0_35px_115px_rgba(0,0,0,0.7)]",
+        auraClass:
+          "bg-[radial-gradient(circle_at_top,rgba(205,183,255,0.24),transparent_42%)]",
+        badgeGlowClass: "shadow-[0_0_18px_rgba(107,112,255,0.45)]",
         creditBox: {
           title: "24000 credits monthly",
           sub: "Best for power users",
@@ -505,8 +529,16 @@ export default function PricingClient() {
         sub: "Monthly subscription",
         buttonStyle:
           "bg-[#53D6FF] text-black hover:brightness-95 border border-white/10",
-        highlight: false,
         badge: "Best value",
+        glowClass:
+          "border-[#53D6FF]/30 shadow-[0_0_0_1px_rgba(83,214,255,0.14),0_0_36px_rgba(83,214,255,0.14),0_32px_90px_rgba(0,0,0,0.58)]",
+        selectedGlowClass:
+          "ring-2 ring-[#53D6FF]/40 shadow-[0_0_0_1px_rgba(83,214,255,0.20),0_0_50px_rgba(83,214,255,0.24),0_35px_105px_rgba(0,0,0,0.66)]",
+        currentGlowClass:
+          "ring-2 ring-[#53D6FF]/50 shadow-[0_0_0_1px_rgba(83,214,255,0.24),0_0_60px_rgba(83,214,255,0.28),0_35px_115px_rgba(0,0,0,0.7)]",
+        auraClass:
+          "bg-[radial-gradient(circle_at_top,rgba(83,214,255,0.22),transparent_42%)]",
+        badgeGlowClass: "shadow-[0_0_18px_rgba(107,112,255,0.45)]",
         creditBox: {
           title: "106000 credits monthly",
           sub: "Studio-level usage and scaling",
@@ -676,28 +708,41 @@ export default function PricingClient() {
                 <div
                   key={p.key}
                   className={[
-                    "relative overflow-hidden rounded-3xl border bg-black/16 p-6 backdrop-blur-xl transition",
-                    p.highlight
-                      ? "border-white/25 shadow-[0_0_0_1px_rgba(160,160,255,0.35),0_40px_140px_rgba(0,0,0,0.75)]"
-                      : "border-white/10",
-                    isSelected ? "ring-2 ring-white/30" : "",
-                    isCurrent ? "ring-2 ring-emerald-300/35" : "",
+                    "group relative overflow-hidden rounded-3xl border bg-black/30 p-6 backdrop-blur-xl transition duration-300",
+                    p.glowClass,
+                    isSelected ? p.selectedGlowClass : "",
+                    isCurrent ? p.currentGlowClass : "",
                   ].join(" ")}
                 >
+                  <div
+                    className={[
+                      "pointer-events-none absolute inset-0 transition duration-300",
+                      p.auraClass,
+                      isSelected || isCurrent ? "opacity-100" : "opacity-70",
+                    ].join(" ")}
+                  />
+
+                  <div className="pointer-events-none absolute inset-[1px] rounded-[23px] bg-[linear-gradient(to_bottom,rgba(255,255,255,0.04),rgba(255,255,255,0.01)_20%,rgba(0,0,0,0.08)_100%)]" />
+
                   {p.badge ? (
-                    <div className="absolute right-4 top-4 z-20 rounded-full bg-[#6B70FF] px-3 py-1 text-xs font-semibold text-white">
+                    <div
+                      className={[
+                        "absolute right-4 top-4 z-20 rounded-full bg-[#6B70FF] px-3 py-1 text-xs font-semibold text-white",
+                        p.badgeGlowClass,
+                      ].join(" ")}
+                    >
                       {p.badge}
                     </div>
                   ) : null}
 
                   {isCurrent && (
-                    <div className="absolute left-4 top-4 z-20 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-200">
+                    <div className="absolute left-4 top-4 z-20 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-white backdrop-blur-md">
                       Current Plan
                     </div>
                   )}
 
                   {!isCurrent && isSelected && (
-                    <div className="absolute left-4 top-4 z-20 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-white">
+                    <div className="absolute left-4 top-4 z-20 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-white backdrop-blur-md">
                       Selected
                     </div>
                   )}
