@@ -1,12 +1,29 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@/app/lib/supabase/server";
+import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2024-06-20",
 });
 
-type IncomingPlan = "essential" | "advanced" | "infinite" | "studio" | "wonder";
+const supabaseAdmin = createSupabaseAdmin(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  }
+);
+
+type IncomingPlan =
+  | "essential"
+  | "advanced"
+  | "infinite"
+  | "studio"
+  | "wonder";
 
 function getPriceId(plan: IncomingPlan) {
   switch (plan) {
@@ -64,9 +81,10 @@ export async function POST(req: Request) {
 
     const {
       data: { user },
+      error: userError,
     } = await supabase.auth.getUser();
 
-    if (!user) {
+    if (userError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -90,7 +108,7 @@ export async function POST(req: Request) {
     }
 
     const { data: currentSubscription, error: currentSubscriptionError } =
-      await supabase
+      await supabaseAdmin
         .from("subscriptions")
         .select("id, status, price_id, cancel_at_period_end")
         .eq("user_id", user.id)
@@ -145,20 +163,22 @@ export async function POST(req: Request) {
       const updatedPriceId = updated.items.data[0]?.price?.id ?? priceId;
       const currentPeriodEnd = getSubscriptionCurrentPeriodEndIso(updated);
 
-      const { error: upsertError } = await supabase.from("subscriptions").upsert(
-        {
-          id: updated.id,
-          user_id: user.id,
-          status: updated.status,
-          price_id: updatedPriceId,
-          current_period_end: currentPeriodEnd,
-          cancel_at_period_end: updated.cancel_at_period_end ?? false,
-          created_at: new Date().toISOString(),
-        },
-        {
-          onConflict: "id",
-        }
-      );
+      const { error: upsertError } = await supabaseAdmin
+        .from("subscriptions")
+        .upsert(
+          {
+            id: updated.id,
+            user_id: user.id,
+            status: updated.status,
+            price_id: updatedPriceId,
+            current_period_end: currentPeriodEnd,
+            cancel_at_period_end: updated.cancel_at_period_end ?? false,
+            created_at: new Date().toISOString(),
+          },
+          {
+            onConflict: "id",
+          }
+        );
 
       if (upsertError) {
         return NextResponse.json(
@@ -179,7 +199,7 @@ export async function POST(req: Request) {
     let stripeCustomerId: string | null = null;
 
     const { data: existingCustomer, error: existingCustomerError } =
-      await supabase
+      await supabaseAdmin
         .from("stripe_customers")
         .select("stripe_customer_id")
         .eq("user_id", user.id)
@@ -208,7 +228,7 @@ export async function POST(req: Request) {
 
       stripeCustomerId = customer.id;
 
-      const { error: insertError } = await supabase
+      const { error: insertError } = await supabaseAdmin
         .from("stripe_customers")
         .upsert(
           {
@@ -236,7 +256,8 @@ export async function POST(req: Request) {
       );
     }
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+    const siteUrl =
+      process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
