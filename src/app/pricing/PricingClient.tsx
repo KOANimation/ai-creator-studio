@@ -5,18 +5,20 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/app/lib/supabase/client";
 
-type PlanKey =
-  | "free"
-  | "standard"
-  | "premium"
-  | "ultimate"
-  | "enterprise";
+type PlanKey = "standard" | "premium" | "ultimate" | "enterprise";
 
 type CurrentSubscription = {
-  currentPlan: Exclude<PlanKey, "free"> | null;
+  currentPlan: PlanKey | null;
   status: string | null;
   currentPeriodEnd: string | null;
   cancelAtPeriodEnd: boolean;
+};
+
+const PLAN_PRICES: Record<PlanKey, number> = {
+  standard: 8,
+  premium: 16,
+  ultimate: 28,
+  enterprise: 120,
 };
 
 const FAQS = [
@@ -139,11 +141,26 @@ function getPlanDisplayName(plan: PlanKey | null) {
       return "Infinite";
     case "enterprise":
       return "Studio";
-    case "free":
-      return "Free";
     default:
       return null;
   }
+}
+
+function getPlanActionLabel(
+  planKey: PlanKey,
+  currentPlan: PlanKey | null
+): string {
+  if (!currentPlan) {
+    return "Subscribe Now";
+  }
+
+  if (currentPlan === planKey) {
+    return "Current Plan";
+  }
+
+  return PLAN_PRICES[planKey] > PLAN_PRICES[currentPlan]
+    ? "Upgrade Plan"
+    : "Downgrade Plan";
 }
 
 export default function PricingClient() {
@@ -203,7 +220,6 @@ export default function PricingClient() {
     const planParam = searchParams.get("plan");
 
     if (
-      planParam === "free" ||
       planParam === "standard" ||
       planParam === "premium" ||
       planParam === "ultimate" ||
@@ -322,16 +338,6 @@ export default function PricingClient() {
   const handlePlanAction = async (planKey: PlanKey) => {
     handleSelectPlan(planKey);
 
-    if (planKey === "free") {
-      if (!isAuthed) {
-        router.push(`/login?redirect=${encodeURIComponent("/tools")}`);
-        return;
-      }
-
-      router.push("/tools");
-      return;
-    }
-
     if (currentSubscription.currentPlan === planKey) {
       return;
     }
@@ -373,7 +379,10 @@ export default function PricingClient() {
 
       if (data.updated) {
         await loadCurrentSubscription();
-        alert(data.message || "Subscription updated successfully.");
+        alert(
+          data.message ||
+            "Plan updated successfully. Stripe will handle any prorated difference automatically."
+        );
         return;
       }
 
@@ -398,21 +407,6 @@ export default function PricingClient() {
 
   const plans = useMemo(
     () => [
-      {
-        key: "free" as const,
-        name: "Free",
-        price: 0,
-        suffix: "/ month",
-        sub: "",
-        buttonStyle:
-          "bg-white/10 text-white border border-white/10 hover:bg-white/15",
-        highlight: false,
-        badge: "",
-        bullets: ["10 references/month"],
-        creditBox: null as
-          | null
-          | { title: string; sub: string; accent?: boolean },
-      },
       {
         key: "standard" as const,
         name: "Essential",
@@ -508,25 +502,10 @@ export default function PricingClient() {
 
   const comparePlans = useMemo(
     () => [
-      { key: "free" as const, name: "Free", price: 0, btn: "Start Free" },
-      {
-        key: "standard" as const,
-        name: "Essential",
-        price: 8,
-        btn: "Subscribe Now",
-      },
-      {
-        key: "premium" as const,
-        name: "Advanced",
-        price: 16,
-        btn: "Subscribe Now",
-      },
-      {
-        key: "ultimate" as const,
-        name: "Infinite",
-        price: 28,
-        btn: "Subscribe Now",
-      },
+      { key: "standard" as const, name: "Essential", price: 8 },
+      { key: "premium" as const, name: "Advanced", price: 16 },
+      { key: "ultimate" as const, name: "Infinite", price: 28 },
+      { key: "enterprise" as const, name: "Studio", price: 120 },
     ],
     []
   );
@@ -660,22 +639,15 @@ export default function PricingClient() {
 
       <section className="relative pb-24">
         <div className="mx-auto max-w-7xl px-6">
-          <div className="mt-10 grid gap-6 lg:grid-cols-5">
+          <div className="mt-10 grid gap-6 lg:grid-cols-4">
             {plans.map((p) => {
               const isSelected = selectedPlan === p.key;
               const isCurrent = currentSubscription.currentPlan === p.key;
               const isLoading = activeCheckoutPlan === p.key;
-
-              let buttonLabel = "Subscribe Now";
-              if (p.key === "free") buttonLabel = "Start Free";
-              if (isCurrent) buttonLabel = "Current Plan";
-              if (
-                !isCurrent &&
-                currentSubscription.currentPlan &&
-                p.key !== "free"
-              ) {
-                buttonLabel = "Switch Plan";
-              }
+              const buttonLabel = getPlanActionLabel(
+                p.key,
+                currentSubscription.currentPlan
+              );
 
               return (
                 <div
@@ -720,20 +692,14 @@ export default function PricingClient() {
 
                   <div className="relative z-10 mt-6 flex items-end gap-2">
                     <div className="text-5xl font-semibold tracking-tight">
-                      {p.price === 0 ? "0" : p.price}
+                      {p.price}
                     </div>
                     <div className="pb-1 text-white/50">{p.suffix}</div>
                   </div>
 
-                  {p.sub ? (
-                    <div className="relative z-10 mt-1 text-sm text-white/55">
-                      {p.sub}
-                    </div>
-                  ) : (
-                    <div className="relative z-10 mt-1 text-sm text-white/55">
-                      &nbsp;
-                    </div>
-                  )}
+                  <div className="relative z-10 mt-1 text-sm text-white/55">
+                    {p.sub}
+                  </div>
 
                   <button
                     type="button"
@@ -747,27 +713,23 @@ export default function PricingClient() {
                       p.buttonStyle,
                     ].join(" ")}
                   >
-                    {isLoading ? "Processing..." : buttonLabel}{" "}
+                    {isLoading ? "Processing..." : buttonLabel}
                     {!isCurrent && <span className="ml-2 text-white/60">›</span>}
                   </button>
 
-                  {p.creditBox ? (
-                    <div
-                      className={[
-                        "relative z-10 mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-4",
-                        p.creditBox.accent ? "bg-[#3B3F64]/40" : "",
-                      ].join(" ")}
-                    >
-                      <div className="text-sm font-semibold text-white/85">
-                        {p.creditBox.title}
-                      </div>
-                      <div className="mt-1 text-xs text-white/60">
-                        {p.creditBox.sub}
-                      </div>
+                  <div
+                    className={[
+                      "relative z-10 mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-4",
+                      p.creditBox.accent ? "bg-[#3B3F64]/40" : "",
+                    ].join(" ")}
+                  >
+                    <div className="text-sm font-semibold text-white/85">
+                      {p.creditBox.title}
                     </div>
-                  ) : (
-                    <div className="relative z-10 mt-6 h-[74px]" />
-                  )}
+                    <div className="mt-1 text-xs text-white/60">
+                      {p.creditBox.sub}
+                    </div>
+                  </div>
 
                   <div className="relative z-10 mt-6 space-y-3 text-sm text-white/80">
                     {p.bullets.map((b) => (
@@ -796,47 +758,50 @@ export default function PricingClient() {
                 <div className="text-2xl font-semibold">Compare Plans</div>
               </div>
 
-              {comparePlans.map((c) => (
-                <div
-                  key={c.key}
-                  className={[
-                    "bg-black/40 p-8",
-                    selectedPlan === c.key
-                      ? "ring-1 ring-inset ring-white/20"
-                      : "",
-                    currentSubscription.currentPlan === c.key
-                      ? "ring-1 ring-inset ring-emerald-300/35"
-                      : "",
-                  ].join(" ")}
-                >
-                  <div className="text-xl font-semibold">{c.name}</div>
-                  <div className="mt-2 flex items-end gap-2">
-                    <div className="text-5xl font-semibold">{c.price}</div>
-                    <div className="pb-1 text-white/50">/ month</div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => void handlePlanAction(c.key)}
-                    disabled={currentSubscription.currentPlan === c.key}
+              {comparePlans.map((c) => {
+                const isCurrent = currentSubscription.currentPlan === c.key;
+                const isLoading = activeCheckoutPlan === c.key;
+                const buttonLabel = getPlanActionLabel(
+                  c.key,
+                  currentSubscription.currentPlan
+                );
+
+                return (
+                  <div
+                    key={c.key}
                     className={[
-                      "mt-6 w-full rounded-xl px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60",
-                      c.name === "Free"
-                        ? "bg-white/10 text-white border border-white/10 hover:bg-white/15"
-                        : c.name === "Essential"
+                      "bg-black/40 p-8",
+                      selectedPlan === c.key
+                        ? "ring-1 ring-inset ring-white/20"
+                        : "",
+                      isCurrent ? "ring-1 ring-inset ring-emerald-300/35" : "",
+                    ].join(" ")}
+                  >
+                    <div className="text-xl font-semibold">{c.name}</div>
+                    <div className="mt-2 flex items-end gap-2">
+                      <div className="text-5xl font-semibold">{c.price}</div>
+                      <div className="pb-1 text-white/50">/ month</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void handlePlanAction(c.key)}
+                      disabled={isCurrent || isLoading}
+                      className={[
+                        "mt-6 w-full rounded-xl px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60",
+                        c.name === "Essential"
                           ? "bg-[#9CC5FF] text-black hover:brightness-95"
                           : c.name === "Advanced"
                             ? "bg-[#EAD39A] text-black hover:brightness-95"
-                            : "bg-[#CDB7FF] text-black hover:brightness-95",
-                    ].join(" ")}
-                  >
-                    {currentSubscription.currentPlan === c.key
-                      ? "Current Plan"
-                      : activeCheckoutPlan === c.key
-                        ? "Processing..."
-                        : c.btn}
-                  </button>
-                </div>
-              ))}
+                            : c.name === "Infinite"
+                              ? "bg-[#CDB7FF] text-black hover:brightness-95"
+                              : "bg-[#53D6FF] text-black hover:brightness-95",
+                      ].join(" ")}
+                    >
+                      {isLoading ? "Processing..." : buttonLabel}
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -844,10 +809,6 @@ export default function PricingClient() {
             <div className="grid grid-cols-1 gap-px bg-white/10 md:grid-cols-5">
               <div className="bg-black/40 p-8 md:col-span-1">
                 <div className="text-2xl font-semibold">Credits</div>
-              </div>
-
-              <div className="bg-black/40 p-8 text-white/70">
-                Start free and upgrade anytime
               </div>
 
               <div className="bg-black/40 p-8">
@@ -860,6 +821,10 @@ export default function PricingClient() {
 
               <div className="bg-black/40 p-8">
                 <div className="text-white/80">24000 credits monthly</div>
+              </div>
+
+              <div className="bg-black/40 p-8">
+                <div className="text-white/80">106000 credits monthly</div>
               </div>
             </div>
           </div>
