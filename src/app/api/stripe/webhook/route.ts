@@ -1,13 +1,24 @@
 import Stripe from "stripe";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
-import { createClient } from "@/app/lib/supabase/server";
+import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2024-06-20",
 });
 
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET!;
+
+const supabase = createSupabaseAdmin(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  }
+);
 
 function getCreditsForPrice(priceId: string): number {
   switch (priceId) {
@@ -24,49 +35,154 @@ function getCreditsForPrice(priceId: string): number {
   }
 }
 
-async function syncSubscriptionRecord(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  subscription: Stripe.Subscription
-) {
+async function resolveUserIdFromCustomer(customerId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("stripe_customers")
+    .select("user_id")
+    .eq("stripe_customer_id", customerId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Could not resolve stripe customer to user:", error);
+    return null;
+  }
+
+  return data?.user_id ?? null;
+}
+
+async function syncSubscriptionRecord(subscription: Stripe.Subscription) {
   const customerId =
     typeof subscription.customer === "string"
       ? subscription.customer
       : subscription.customer?.id ?? null;
 
-  if (!customerId) return;
-
-  const priceId = subscription.items.data[0]?.price?.id ?? null;
-
-  const { data: customerRow, error: customerError } = await supabase
-    .from("stripe_customers")
-    .select("user_id")
-    .eq("stripe_customer_id", customerId)
-    .single();
-
-  if (customerError || !customerRow?.user_id) {
-    console.error("Could not resolve stripe customer to user:", customerError);
+  if (!customerId) {
+    console.error("Subscription missing customer id:", subscription.id);
     return;
   }
 
+  const userId = await resolveUserIdFromCustomer(customerId);
+
+  if (!userId) {
+    console.error("No user found for stripe customer:", customerId);
+    return;
+  }
+
+  const priceId = subscription.items.data[0]?.price?.id ?? null;
+
   const currentPeriodEnd =
     typeof subscription.items.data[0]?.current_period_end === "number"
-      ? new Date(
-          subscription.items.data[0].current_period_end * 1000
-        ).toISOString()
+      ? new Date(subscription.items.data[0].current_period_end * 1000).toISOString()
       : null;
 
-  const { error: upsertError } = await supabase.from("subscriptions").upsert({
-    id: subscription.id,
-    user_id: customerRow.user_id,
-    status: subscription.status,
-    price_id: priceId,
-    current_period_end: currentPeriodEnd,
-    cancel_at_period_end: subscription.cancel_at_period_end ?? false,
-    created_at: new Date().toISOString(),
+  const { error } = await supabase.from("subscriptions").upsert(
+    {
+      id: subscription.id,
+      user_id: userId,
+      status: subscription.status,
+      price_id: priceId,
+      current_period_end: currentPeriodEnd,
+      cancel_at_period_end: subscription.cancel_at_period_end ?? false,
+      created_at: new Date().toISOString(),
+    },
+    {
+      onConflict: "id",
+    }
+  );
+
+  if (error) {
+    console.error("Failed to upsert subscription:", error);
+  }
+}
+
+async function ensureStripeCustomerMapping(session: Stripe.Checkout.Session) {
+  const customerId =
+    typeof session.customer === "string"
+      ? session.customer
+      : session.customer?.id ?? null;
+
+  const userId = session.metadata?.supabase_user_id ?? null;
+
+  if (!customerId || !userId) {
+    console.error("Missing customerId or userId in checkout.session.completed", {
+      customerId,
+      userId,
+      sessionId: session.id,
+    });
+    return;
+  }
+
+  const { error } = await supabase.from("stripe_customers").upsert(
+    {
+      user_id: userId,
+      stripe_customer_id: customerId,
+      created_at: new Date().toISOString(),
+    },
+    {
+      onConflict: "user_id",
+    }
+  );
+
+  if (error) {
+    console.error("Failed to upsert stripe customer:", error);
+  }
+}
+
+async function grantCreditsFromInvoice(invoice: Stripe.Invoice) {
+  const customerId =
+    typeof invoice.customer === "string"
+      ? invoice.customer
+      : invoice.customer?.id ?? null;
+
+  if (!customerId) {
+    console.error("Invoice missing customer id:", invoice.id);
+    return;
+  }
+
+  const rawSubscription = invoice.parent?.subscription_details?.subscription;
+  const subscriptionId = typeof rawSubscription === "string" ? rawSubscription : null;
+
+  if (!subscriptionId) {
+    console.error("Invoice missing subscription id:", invoice.id);
+    return;
+  }
+
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+  await syncSubscriptionRecord(subscription);
+
+  const priceId = subscription.items.data[0]?.price?.id ?? null;
+
+  if (!priceId) {
+    console.error("Subscription missing price id:", subscription.id);
+    return;
+  }
+
+  const credits = getCreditsForPrice(priceId);
+
+  if (credits <= 0) {
+    console.error("No credits configured for price id:", priceId);
+    return;
+  }
+
+  const userId = await resolveUserIdFromCustomer(customerId);
+
+  if (!userId) {
+    console.error("No user found for invoice customer:", customerId);
+    return;
+  }
+
+  const referenceKey = `invoice_${invoice.id}`;
+
+  const { error: grantError } = await supabase.rpc("grant_credits_safe", {
+    p_user_id: userId,
+    p_amount: credits,
+    p_source: "subscription",
+    p_reference_key: referenceKey,
   });
 
-  if (upsertError) {
-    console.error("Failed to upsert subscription:", upsertError);
+  if (grantError) {
+    console.error("Grant credits failed:", grantError);
+    throw new Error(grantError.message || "Failed to grant credits");
   }
 }
 
@@ -85,122 +201,44 @@ export async function POST(req: Request) {
     event = stripe.webhooks.constructEvent(body, signature, endpointSecret);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Invalid signature";
+    console.error("Stripe signature verification failed:", message);
     return NextResponse.json({ error: message }, { status: 400 });
   }
 
-  // Ignore all Stripe test-mode webhook events so fake payments
-  // never grant real credits or modify production subscription data.
-  if (!event.livemode) {
-    return NextResponse.json({
-      received: true,
-      skipped: "Ignoring Stripe test mode webhook",
-    });
-  }
-
-  const supabase = await createClient();
-
   try {
-    if (event.type === "checkout.session.completed") {
-      const session = event.data.object as Stripe.Checkout.Session;
-
-      const customerId =
-        typeof session.customer === "string"
-          ? session.customer
-          : session.customer?.id ?? null;
-      const userId = session.metadata?.supabase_user_id ?? null;
-
-      if (customerId && userId) {
-        const { error } = await supabase.from("stripe_customers").upsert({
-          user_id: userId,
-          stripe_customer_id: customerId,
-        });
-
-        if (error) {
-          console.error("Failed to upsert stripe customer:", error);
-        }
-      }
-    }
-
-    if (
-      event.type === "customer.subscription.created" ||
-      event.type === "customer.subscription.updated" ||
-      event.type === "customer.subscription.deleted"
-    ) {
-      const subscription = event.data.object as Stripe.Subscription;
-      await syncSubscriptionRecord(supabase, subscription);
-    }
-
-    if (event.type === "invoice.paid") {
-      const invoice = event.data.object as Stripe.Invoice;
-
-      const customerId =
-        typeof invoice.customer === "string"
-          ? invoice.customer
-          : invoice.customer?.id ?? null;
-
-      const rawSubscription =
-        invoice.parent?.subscription_details?.subscription;
-      const subscriptionId =
-        typeof rawSubscription === "string" ? rawSubscription : null;
-
-      if (!customerId || !subscriptionId) {
-        return NextResponse.json({
-          received: true,
-          skipped: "Missing customer or subscription id",
-        });
+    switch (event.type) {
+      case "checkout.session.completed": {
+        const session = event.data.object as Stripe.Checkout.Session;
+        await ensureStripeCustomerMapping(session);
+        break;
       }
 
-      const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-
-      await syncSubscriptionRecord(supabase, subscription);
-
-      const priceId = subscription.items.data[0]?.price?.id ?? null;
-
-      if (!priceId) {
-        return NextResponse.json({
-          received: true,
-          skipped: "Missing price id",
-        });
+      case "customer.subscription.created":
+      case "customer.subscription.updated":
+      case "customer.subscription.deleted": {
+        const subscription = event.data.object as Stripe.Subscription;
+        await syncSubscriptionRecord(subscription);
+        break;
       }
 
-      const credits = getCreditsForPrice(priceId);
+      case "invoice.paid":
+      case "invoice_payment.paid": {
+        const invoice = event.data.object as Stripe.Invoice;
+        await grantCreditsFromInvoice(invoice);
+        break;
+      }
 
-      if (credits > 0) {
-        const { data: customer, error: customerError } = await supabase
-          .from("stripe_customers")
-          .select("user_id")
-          .eq("stripe_customer_id", customerId)
-          .single();
-
-        if (customerError) {
-          console.error("Stripe customer lookup failed:", customerError);
-        } else if (customer?.user_id) {
-          const { error: grantError } = await supabase.rpc(
-            "grant_credits_safe",
-            {
-              p_user_id: customer.user_id,
-              p_amount: credits,
-              p_source: "subscription",
-              p_reference_key: `invoice_${invoice.id}`,
-            }
-          );
-
-          if (grantError) {
-            console.error("Grant credits failed:", grantError);
-            return NextResponse.json(
-              { error: grantError.message || "Failed to grant credits" },
-              { status: 500 }
-            );
-          }
-        }
+      default: {
+        console.log("Unhandled Stripe event type:", event.type);
+        break;
       }
     }
 
     return NextResponse.json({ received: true });
   } catch (err) {
-    console.error("Webhook error:", err);
+    console.error("Webhook handler failed:", err);
     return NextResponse.json(
-      { error: "Webhook handler failed" },
+      { error: err instanceof Error ? err.message : "Webhook handler failed" },
       { status: 500 }
     );
   }
