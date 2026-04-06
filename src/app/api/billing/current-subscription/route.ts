@@ -31,7 +31,10 @@ export async function GET() {
 
     if (userError) {
       return NextResponse.json(
-        { error: userError.message || "Failed to get user." },
+        {
+          error: userError.message || "Failed to get user.",
+          debug: { step: "getUser" },
+        },
         { status: 401 }
       );
     }
@@ -42,13 +45,16 @@ export async function GET() {
         status: null,
         currentPeriodEnd: null,
         cancelAtPeriodEnd: false,
+        debug: {
+          reason: "No authenticated user found in route",
+        },
       });
     }
 
     const { data: subscription, error: subscriptionError } = await supabase
       .from("subscriptions")
       .select(
-        "id, status, price_id, current_period_end, cancel_at_period_end, created_at"
+        "id, user_id, status, price_id, current_period_end, cancel_at_period_end, created_at"
       )
       .eq("user_id", user.id)
       .in("status", ["trialing", "active", "past_due", "unpaid"])
@@ -58,7 +64,14 @@ export async function GET() {
 
     if (subscriptionError) {
       return NextResponse.json(
-        { error: subscriptionError.message || "Failed to fetch subscription." },
+        {
+          error: subscriptionError.message || "Failed to fetch subscription.",
+          debug: {
+            userId: user.id,
+            email: user.email ?? null,
+            step: "subscription query",
+          },
+        },
         { status: 500 }
       );
     }
@@ -69,6 +82,11 @@ export async function GET() {
         status: null,
         currentPeriodEnd: null,
         cancelAtPeriodEnd: false,
+        debug: {
+          reason: "No matching subscription row found",
+          userId: user.id,
+          email: user.email ?? null,
+        },
       });
     }
 
@@ -77,11 +95,24 @@ export async function GET() {
       status: subscription.status ?? null,
       currentPeriodEnd: subscription.current_period_end ?? null,
       cancelAtPeriodEnd: subscription.cancel_at_period_end ?? false,
+      debug: {
+        userId: user.id,
+        email: user.email ?? null,
+        subscriptionUserId: subscription.user_id,
+        subscriptionId: subscription.id,
+        priceId: subscription.price_id,
+      },
     });
   } catch (err) {
     const message =
       err instanceof Error ? err.message : "Failed to fetch subscription";
 
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: message,
+        debug: { step: "catch" },
+      },
+      { status: 500 }
+    );
   }
 }
