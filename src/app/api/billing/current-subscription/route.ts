@@ -51,7 +51,7 @@ export async function GET() {
         "id, status, price_id, current_period_end, cancel_at_period_end, created_at"
       )
       .eq("user_id", user.id)
-      .in("status", ["trialing", "active", "past_due", "unpaid", "canceled"])
+      .in("status", ["trialing", "active", "past_due", "unpaid"])
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();

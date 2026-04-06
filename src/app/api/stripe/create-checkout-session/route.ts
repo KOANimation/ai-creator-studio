@@ -6,7 +6,9 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2024-06-20",
 });
 
-function getPriceId(plan: string) {
+type IncomingPlan = "essential" | "advanced" | "infinite" | "studio" | "wonder";
+
+function getPriceId(plan: IncomingPlan) {
   switch (plan) {
     case "essential":
       return process.env.STRIPE_PRICE_ESSENTIAL_MONTHLY!;
@@ -15,10 +17,45 @@ function getPriceId(plan: string) {
     case "infinite":
       return process.env.STRIPE_PRICE_INFINITE_MONTHLY!;
     case "studio":
+    case "wonder":
       return process.env.STRIPE_PRICE_STUDIO_MONTHLY!;
     default:
       return null;
   }
+}
+
+function normalizePlan(plan: unknown): IncomingPlan | null {
+  if (typeof plan !== "string") return null;
+
+  switch (plan) {
+    case "essential":
+    case "advanced":
+    case "infinite":
+    case "studio":
+    case "wonder":
+      return plan;
+    default:
+      return null;
+  }
+}
+
+function getSubscriptionCurrentPeriodEndIso(
+  subscription: Stripe.Subscription
+): string | null {
+  const subscriptionAny = subscription as Stripe.Subscription & {
+    current_period_end?: number | null;
+  };
+
+  const periodEndUnix =
+    typeof subscriptionAny.current_period_end === "number"
+      ? subscriptionAny.current_period_end
+      : null;
+
+  if (periodEndUnix === null) {
+    return null;
+  }
+
+  return new Date(periodEndUnix * 1000).toISOString();
 }
 
 export async function POST(req: Request) {
@@ -33,24 +70,45 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { plan } = await req.json();
-    const priceId = getPriceId(plan);
+    const body = await req.json();
+    const normalizedPlan = normalizePlan(body?.plan);
 
-    if (!priceId) {
+    if (!normalizedPlan) {
       return NextResponse.json(
         { error: "Invalid plan selected" },
         { status: 400 }
       );
     }
 
-    const { data: currentSubscription } = await supabase
-      .from("subscriptions")
-      .select("id, status, price_id, cancel_at_period_end")
-      .eq("user_id", user.id)
-      .in("status", ["active", "trialing"])
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const priceId = getPriceId(normalizedPlan);
+
+    if (!priceId) {
+      return NextResponse.json(
+        { error: "Price not configured for selected plan" },
+        { status: 500 }
+      );
+    }
+
+    const { data: currentSubscription, error: currentSubscriptionError } =
+      await supabase
+        .from("subscriptions")
+        .select("id, status, price_id, cancel_at_period_end")
+        .eq("user_id", user.id)
+        .in("status", ["active", "trialing"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+    if (currentSubscriptionError) {
+      return NextResponse.json(
+        {
+          error:
+            currentSubscriptionError.message ||
+            "Failed to load current subscription",
+        },
+        { status: 500 }
+      );
+    }
 
     if (currentSubscription?.id) {
       if (currentSubscription.price_id === priceId) {
@@ -85,13 +143,7 @@ export async function POST(req: Request) {
       });
 
       const updatedPriceId = updated.items.data[0]?.price?.id ?? priceId;
-
-      const currentPeriodEnd =
-        typeof updated.items.data[0]?.current_period_end === "number"
-          ? new Date(
-              updated.items.data[0].current_period_end * 1000
-            ).toISOString()
-          : null;
+      const currentPeriodEnd = getSubscriptionCurrentPeriodEndIso(updated);
 
       const { error: upsertError } = await supabase.from("subscriptions").upsert(
         {
@@ -102,12 +154,18 @@ export async function POST(req: Request) {
           current_period_end: currentPeriodEnd,
           cancel_at_period_end: updated.cancel_at_period_end ?? false,
           created_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "id",
         }
       );
 
       if (upsertError) {
         return NextResponse.json(
-          { error: upsertError.message || "Failed to save updated subscription" },
+          {
+            error:
+              upsertError.message || "Failed to save updated subscription",
+          },
           { status: 500 }
         );
       }
@@ -120,11 +178,23 @@ export async function POST(req: Request) {
 
     let stripeCustomerId: string | null = null;
 
-    const { data: existingCustomer } = await supabase
-      .from("stripe_customers")
-      .select("stripe_customer_id")
-      .eq("user_id", user.id)
-      .single();
+    const { data: existingCustomer, error: existingCustomerError } =
+      await supabase
+        .from("stripe_customers")
+        .select("stripe_customer_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+    if (existingCustomerError) {
+      return NextResponse.json(
+        {
+          error:
+            existingCustomerError.message ||
+            "Failed to load Stripe customer mapping",
+        },
+        { status: 500 }
+      );
+    }
 
     if (existingCustomer?.stripe_customer_id) {
       stripeCustomerId = existingCustomer.stripe_customer_id;
@@ -140,10 +210,16 @@ export async function POST(req: Request) {
 
       const { error: insertError } = await supabase
         .from("stripe_customers")
-        .upsert({
-          user_id: user.id,
-          stripe_customer_id: stripeCustomerId,
-        });
+        .upsert(
+          {
+            user_id: user.id,
+            stripe_customer_id: stripeCustomerId,
+            created_at: new Date().toISOString(),
+          },
+          {
+            onConflict: "user_id",
+          }
+        );
 
       if (insertError) {
         return NextResponse.json(
@@ -160,8 +236,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const siteUrl =
-      process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
@@ -176,12 +251,12 @@ export async function POST(req: Request) {
       cancel_url: `${siteUrl}/pricing?canceled=1`,
       metadata: {
         supabase_user_id: user.id,
-        plan,
+        plan: normalizedPlan,
       },
       subscription_data: {
         metadata: {
           supabase_user_id: user.id,
-          plan,
+          plan: normalizedPlan,
         },
       },
     });

@@ -138,7 +138,7 @@ function normalizePlanKey(value: string | null | undefined): PlanKey | null {
   }
 }
 
-function mapPlanKeyToStripePlan(planKey: PlanKey) {
+function mapPlanKeyToStripePlan(planKey: PlanKey): "essential" | "advanced" | "infinite" | "studio" {
   switch (planKey) {
     case "essential":
       return "essential";
@@ -148,8 +148,6 @@ function mapPlanKeyToStripePlan(planKey: PlanKey) {
       return "infinite";
     case "wonder":
       return "studio";
-    default:
-      return null;
   }
 }
 
@@ -248,6 +246,14 @@ export default function PricingClient() {
       setSelectedPlan(planParam);
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    const planParam = normalizePlanKey(searchParams.get("plan"));
+
+    if (!planParam && currentSubscription.currentPlan) {
+      setSelectedPlan(currentSubscription.currentPlan);
+    }
+  }, [currentSubscription.currentPlan, searchParams]);
 
   useEffect(() => {
     const syncAuth = async () => {
@@ -363,11 +369,6 @@ export default function PricingClient() {
     }
 
     const stripePlan = mapPlanKeyToStripePlan(planKey);
-
-    if (!stripePlan) {
-      alert("This plan is not available yet.");
-      return;
-    }
 
     try {
       const {
