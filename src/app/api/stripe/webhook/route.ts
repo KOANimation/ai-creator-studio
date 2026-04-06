@@ -266,6 +266,39 @@ async function grantCreditsFromInvoice(
   console.log("Credits granted successfully for invoice:", invoice.id);
 }
 
+async function handleInvoicePaymentPaid(
+  invoicePayment: Record<string, unknown>,
+  eventLivemode: boolean
+): Promise<void> {
+  console.log("Invoice payment event received:", invoicePayment?.id ?? null);
+
+  const linkedInvoice =
+    invoicePayment["invoice"] ?? invoicePayment["invoice_id"] ?? null;
+
+  const invoiceId =
+    typeof linkedInvoice === "string"
+      ? linkedInvoice
+      : linkedInvoice &&
+        typeof linkedInvoice === "object" &&
+        "id" in linkedInvoice &&
+        typeof (linkedInvoice as { id?: unknown }).id === "string"
+      ? (linkedInvoice as { id: string }).id
+      : null;
+
+  console.log("Resolved invoice id from invoice_payment.paid:", invoiceId);
+
+  if (!invoiceId) {
+    console.error(
+      "invoice_payment.paid missing linked invoice id:",
+      invoicePayment?.id ?? null
+    );
+    return;
+  }
+
+  const invoice = await stripe.invoices.retrieve(invoiceId);
+  await grantCreditsFromInvoice(invoice, eventLivemode);
+}
+
 export async function POST(req: Request) {
   const body = await req.text();
   const headerStore = await headers();
@@ -301,10 +334,16 @@ export async function POST(req: Request) {
         break;
       }
 
-      case "invoice.paid":
-      case "invoice_payment.paid": {
+      case "invoice.paid": {
         const invoice = event.data.object as Stripe.Invoice;
         await grantCreditsFromInvoice(invoice, event.livemode);
+        break;
+      }
+
+      case "invoice_payment.paid": {
+        const invoicePayment =
+          event.data.object as unknown as Record<string, unknown>;
+        await handleInvoicePaymentPaid(invoicePayment, event.livemode);
         break;
       }
 
