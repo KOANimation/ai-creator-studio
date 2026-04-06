@@ -35,7 +35,9 @@ function getCreditsForPrice(priceId: string): number {
   }
 }
 
-async function resolveUserIdFromCustomer(customerId: string): Promise<string | null> {
+async function resolveUserIdFromCustomer(
+  customerId: string
+): Promise<string | null> {
   const { data, error } = await supabase
     .from("stripe_customers")
     .select("user_id")
@@ -50,7 +52,32 @@ async function resolveUserIdFromCustomer(customerId: string): Promise<string | n
   return data?.user_id ?? null;
 }
 
-async function syncSubscriptionRecord(subscription: Stripe.Subscription) {
+function getSubscriptionCurrentPeriodEndIso(
+  subscription: Stripe.Subscription
+): string | null {
+  const subscriptionAny = subscription as Stripe.Subscription & {
+    current_period_end?: number | null;
+  };
+
+  const itemPeriodEnd = subscription.items.data[0]?.current_period_end;
+  const directPeriodEnd = subscriptionAny.current_period_end ?? null;
+  const periodEndUnix =
+    typeof itemPeriodEnd === "number"
+      ? itemPeriodEnd
+      : typeof directPeriodEnd === "number"
+      ? directPeriodEnd
+      : null;
+
+  if (periodEndUnix === null) {
+    return null;
+  }
+
+  return new Date(periodEndUnix * 1000).toISOString();
+}
+
+async function syncSubscriptionRecord(
+  subscription: Stripe.Subscription
+): Promise<void> {
   const customerId =
     typeof subscription.customer === "string"
       ? subscription.customer
@@ -69,11 +96,7 @@ async function syncSubscriptionRecord(subscription: Stripe.Subscription) {
   }
 
   const priceId = subscription.items.data[0]?.price?.id ?? null;
-
-  const currentPeriodEnd =
-    typeof subscription.items.data[0]?.current_period_end === "number"
-      ? new Date(subscription.items.data[0].current_period_end * 1000).toISOString()
-      : null;
+  const currentPeriodEnd = getSubscriptionCurrentPeriodEndIso(subscription);
 
   const { error } = await supabase.from("subscriptions").upsert(
     {
@@ -95,7 +118,9 @@ async function syncSubscriptionRecord(subscription: Stripe.Subscription) {
   }
 }
 
-async function ensureStripeCustomerMapping(session: Stripe.Checkout.Session) {
+async function ensureStripeCustomerMapping(
+  session: Stripe.Checkout.Session
+): Promise<void> {
   const customerId =
     typeof session.customer === "string"
       ? session.customer
@@ -105,9 +130,9 @@ async function ensureStripeCustomerMapping(session: Stripe.Checkout.Session) {
 
   if (!customerId || !userId) {
     console.error("Missing customerId or userId in checkout.session.completed", {
+      sessionId: session.id,
       customerId,
       userId,
-      sessionId: session.id,
     });
     return;
   }
@@ -128,19 +153,52 @@ async function ensureStripeCustomerMapping(session: Stripe.Checkout.Session) {
   }
 }
 
-async function grantCreditsFromInvoice(invoice: Stripe.Invoice) {
+function getInvoiceSubscriptionId(invoice: Stripe.Invoice): string | null {
+  const invoiceWithSubscription = invoice as Stripe.Invoice & {
+    subscription?: string | Stripe.Subscription | null;
+    parent?: {
+      subscription_details?: {
+        subscription?: string | Stripe.Subscription | null;
+      } | null;
+    } | null;
+  };
+
+  const rawSubscription =
+    invoiceWithSubscription.subscription ??
+    invoiceWithSubscription.parent?.subscription_details?.subscription ??
+    null;
+
+  if (typeof rawSubscription === "string") {
+    return rawSubscription;
+  }
+
+  if (
+    rawSubscription &&
+    typeof rawSubscription === "object" &&
+    "id" in rawSubscription
+  ) {
+    return rawSubscription.id;
+  }
+
+  return null;
+}
+
+async function grantCreditsFromInvoice(invoice: Stripe.Invoice): Promise<void> {
   const customerId =
     typeof invoice.customer === "string"
       ? invoice.customer
       : invoice.customer?.id ?? null;
 
+  const subscriptionId = getInvoiceSubscriptionId(invoice);
+
+  console.log("Invoice event received:", invoice.id);
+  console.log("Invoice customer:", customerId);
+  console.log("Resolved subscription id:", subscriptionId);
+
   if (!customerId) {
     console.error("Invoice missing customer id:", invoice.id);
     return;
   }
-
-  const rawSubscription = invoice.parent?.subscription_details?.subscription;
-  const subscriptionId = typeof rawSubscription === "string" ? rawSubscription : null;
 
   if (!subscriptionId) {
     console.error("Invoice missing subscription id:", invoice.id);
@@ -158,16 +216,19 @@ async function grantCreditsFromInvoice(invoice: Stripe.Invoice) {
   }
 
   const credits = getCreditsForPrice(priceId);
-
-  if (credits <= 0) {
-    console.error("No credits configured for price id:", priceId);
-    return;
-  }
-
   const userId = await resolveUserIdFromCustomer(customerId);
+
+  console.log("Resolved user id for invoice:", userId);
+  console.log("Resolved subscription price id:", priceId);
+  console.log("Credits for price:", credits);
 
   if (!userId) {
     console.error("No user found for invoice customer:", customerId);
+    return;
+  }
+
+  if (credits <= 0) {
+    console.error("No credits configured for price id:", priceId);
     return;
   }
 
@@ -184,6 +245,8 @@ async function grantCreditsFromInvoice(invoice: Stripe.Invoice) {
     console.error("Grant credits failed:", grantError);
     throw new Error(grantError.message || "Failed to grant credits");
   }
+
+  console.log("Credits granted successfully for invoice:", invoice.id);
 }
 
 export async function POST(req: Request) {
