@@ -138,7 +138,9 @@ function normalizePlanKey(value: string | null | undefined): PlanKey | null {
   }
 }
 
-function mapPlanKeyToStripePlan(planKey: PlanKey): "essential" | "advanced" | "infinite" | "studio" {
+function mapPlanKeyToStripePlan(
+  planKey: PlanKey
+): "essential" | "advanced" | "infinite" | "studio" {
   switch (planKey) {
     case "essential":
       return "essential";
@@ -683,19 +685,19 @@ export default function PricingClient() {
                   ].join(" ")}
                 >
                   {p.badge ? (
-                    <div className="absolute right-4 top-4 rounded-full bg-[#6B70FF] px-3 py-1 text-xs font-semibold text-white">
+                    <div className="absolute right-4 top-4 z-20 rounded-full bg-[#6B70FF] px-3 py-1 text-xs font-semibold text-white">
                       {p.badge}
                     </div>
                   ) : null}
 
                   {isCurrent && (
-                    <div className="absolute left-4 top-4 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-200">
+                    <div className="absolute left-4 top-4 z-20 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-200">
                       Current Plan
                     </div>
                   )}
 
                   {!isCurrent && isSelected && (
-                    <div className="absolute left-4 top-4 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-white">
+                    <div className="absolute left-4 top-4 z-20 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-white">
                       Selected
                     </div>
                   )}
@@ -707,11 +709,13 @@ export default function PricingClient() {
                     aria-label={`Select ${p.name}`}
                   />
 
-                  <div className="relative z-10 text-xl font-semibold">
-                    {p.name}
+                  <div className="relative z-10 min-h-[48px] pt-10">
+                    <div className="text-xl font-semibold leading-tight">
+                      {p.name}
+                    </div>
                   </div>
 
-                  <div className="relative z-10 mt-6 flex items-end gap-2">
+                  <div className="relative z-10 mt-4 flex items-end gap-2">
                     <div className="text-5xl font-semibold tracking-tight">
                       {p.price}
                     </div>
