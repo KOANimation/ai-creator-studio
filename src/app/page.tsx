@@ -1,9 +1,8 @@
-// src/app/page.tsx
 "use client";
 
 import Link from "next/link";
 import Image from "next/image";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Particles from "react-tsparticles";
 import type { Engine } from "tsparticles-engine";
@@ -19,19 +18,11 @@ function GlowDivider() {
   );
 }
 
-/**
- * ✅ REAL auth check via Supabase session
- */
 async function isLoggedIn(): Promise<boolean> {
   const user = await getCurrentUser();
   return !!user;
 }
 
-/**
- * ✅ Auth-gated navigation:
- * - logged in → go to target
- * - else → /login?redirect=<target>
- */
 function useAuthNavigate() {
   const router = useRouter();
 
@@ -49,7 +40,6 @@ function useAuthNavigate() {
   );
 }
 
-/** ✅ Navbar item that uses auth-gated navigation */
 function AuthMenuItem({ href, label }: { href: string; label: string }) {
   const go = useAuthNavigate();
 
@@ -57,7 +47,7 @@ function AuthMenuItem({ href, label }: { href: string; label: string }) {
     <button
       type="button"
       onClick={() => go(href)}
-      className="cursor-pointer w-full flex items-center justify-between rounded-xl px-3 py-2 text-[13px] text-white/75 hover:text-white hover:bg-white/5 transition"
+      className="flex w-full cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-[13px] text-white/75 transition hover:bg-white/5 hover:text-white"
     >
       <span>{label}</span>
       <span className="text-white/30">→</span>
@@ -65,7 +55,6 @@ function AuthMenuItem({ href, label }: { href: string; label: string }) {
   );
 }
 
-/** ✅ CTA button that uses auth-gated navigation */
 function AuthCTAButton({
   href,
   children,
@@ -82,7 +71,7 @@ function AuthCTAButton({
       type="button"
       onClick={() => go(href)}
       className={[
-        "cursor-pointer rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white hover:bg-white/15",
+        "cursor-pointer rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/15",
         className,
       ].join(" ")}
     >
@@ -91,7 +80,6 @@ function AuthCTAButton({
   );
 }
 
-/** ✅ Wallpaper reveal (spotlight) behind the black */
 function WallpaperRevealBackground({
   src = "/wallpaper.jpg",
   radius = 240,
@@ -120,7 +108,6 @@ function WallpaperRevealBackground({
     window.addEventListener("mousemove", onMove, { passive: true });
     window.addEventListener("mouseleave", onLeave);
     window.addEventListener("blur", onLeave);
-
     window.addEventListener("touchstart", onTouch, { passive: true });
     window.addEventListener("touchmove", onTouch, { passive: true });
     window.addEventListener("touchend", onTouchEnd);
@@ -129,7 +116,6 @@ function WallpaperRevealBackground({
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseleave", onLeave);
       window.removeEventListener("blur", onLeave);
-
       window.removeEventListener("touchstart", onTouch);
       window.removeEventListener("touchmove", onTouch);
       window.removeEventListener("touchend", onTouchEnd);
@@ -146,7 +132,7 @@ function WallpaperRevealBackground({
 
   return (
     <>
-      <div className="fixed inset-0 -z-20">
+      <div className="fixed inset-0 -z-30">
         <img
           src={src}
           alt="Wallpaper"
@@ -156,11 +142,54 @@ function WallpaperRevealBackground({
         <div className="absolute inset-0 bg-black/10" />
       </div>
 
-      <div className="pointer-events-none fixed inset-0 -z-10">
+      <div className="pointer-events-none fixed inset-0 -z-20">
         <div className="absolute inset-0" style={{ background: spotlight }} />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(255,255,255,0.05)_0%,rgba(0,0,0,0.55)_55%,rgba(0,0,0,0.90)_100%)]" />
       </div>
+
+      <div className="pointer-events-none fixed inset-0 -z-10 opacity-70">
+        <div className="absolute -left-24 top-20 h-[380px] w-[380px] rounded-full bg-violet-600/20 blur-[140px]" />
+        <div className="absolute right-[-80px] top-[20%] h-[340px] w-[340px] rounded-full bg-blue-500/15 blur-[140px]" />
+        <div className="absolute bottom-[-80px] left-[20%] h-[260px] w-[260px] rounded-full bg-fuchsia-500/10 blur-[120px]" />
+      </div>
     </>
+  );
+}
+
+function ScrollProgress() {
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    const onScroll = () => {
+      const max =
+        document.documentElement.scrollHeight - window.innerHeight || 1;
+      setProgress((window.scrollY / max) * 100);
+    };
+
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  return (
+    <div className="pointer-events-none fixed left-0 right-0 top-0 z-[3000] h-[2px]">
+      <div
+        className="h-full bg-[linear-gradient(to_right,rgba(168,85,247,0.95),rgba(59,130,246,0.95),rgba(34,211,238,0.95))] shadow-[0_0_20px_rgba(168,85,247,0.45)] transition-[width] duration-100"
+        style={{ width: `${progress}%` }}
+      />
+    </div>
+  );
+}
+
+function FloatingOrbs() {
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      <div className="absolute left-[8%] top-[18%] h-4 w-4 animate-pulse rounded-full bg-violet-400/50 blur-[1px]" />
+      <div className="absolute right-[15%] top-[28%] h-3 w-3 animate-pulse rounded-full bg-cyan-400/50 blur-[1px]" />
+      <div className="absolute left-[20%] top-[58%] h-2.5 w-2.5 animate-pulse rounded-full bg-blue-400/50 blur-[1px]" />
+      <div className="absolute right-[28%] top-[62%] h-4 w-4 animate-pulse rounded-full bg-fuchsia-400/40 blur-[1px]" />
+      <div className="absolute bottom-[18%] left-[48%] h-3 w-3 animate-pulse rounded-full bg-white/30 blur-[1px]" />
+    </div>
   );
 }
 
@@ -182,6 +211,7 @@ function VideoCarousel({
     <div className="relative">
       <div className="relative mx-auto w-full max-w-5xl">
         <div className="relative overflow-hidden rounded-[28px] border border-white/10 bg-white/5 shadow-[0_40px_140px_rgba(0,0,0,0.65)] backdrop-blur">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(168,85,247,0.18),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(59,130,246,0.15),transparent_30%)]" />
           <video
             key={active.src}
             className="h-[260px] w-full object-cover sm:h-[360px] md:h-[460px]"
@@ -195,6 +225,10 @@ function VideoCarousel({
 
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(255,255,255,0.06)_0%,rgba(0,0,0,0.55)_62%,rgba(0,0,0,0.88)_100%)]" />
 
+          <div className="pointer-events-none absolute left-5 top-5 z-20 rounded-full border border-white/10 bg-black/35 px-3 py-1 text-xs font-medium text-white/70 backdrop-blur">
+            Reference-to-Video Showcase
+          </div>
+
           <div className="pointer-events-none absolute bottom-5 left-1/2 z-20 w-[min(92%,560px)] -translate-x-1/2">
             <div className="pointer-events-auto flex items-center justify-center gap-3 rounded-2xl border border-white/10 bg-black/45 px-3 py-3 shadow-[0_20px_80px_rgba(0,0,0,0.55)] backdrop-blur">
               {[at(idx - 1), at(idx), at(idx + 1)].map((realIndex) => {
@@ -205,7 +239,7 @@ function VideoCarousel({
                     onClick={() => setIdx(realIndex)}
                     aria-label={`Select ${items[realIndex].title}`}
                     className={[
-                      "cursor-pointer relative overflow-hidden rounded-xl border transition",
+                      "relative overflow-hidden rounded-xl border transition",
                       "focus:outline-none focus:ring-2 focus:ring-white/20",
                       isActive
                         ? "border-white/25 ring-1 ring-white/15"
@@ -232,31 +266,17 @@ function VideoCarousel({
         <button
           aria-label="Previous"
           onClick={prev}
-          className={[
-            "cursor-pointer absolute top-1/2 z-30 -translate-y-1/2",
-            "left-2 md:-left-10",
-            "rounded-full border border-white/10 bg-black/45 p-3 md:p-4",
-            "text-white/90 backdrop-blur hover:bg-black/60",
-            "shadow-[0_18px_70px_rgba(0,0,0,0.55)]",
-            "focus:outline-none focus:ring-2 focus:ring-white/20",
-          ].join(" ")}
+          className="absolute left-2 top-1/2 z-30 -translate-y-1/2 rounded-full border border-white/10 bg-black/45 p-3 text-white/90 shadow-[0_18px_70px_rgba(0,0,0,0.55)] backdrop-blur transition hover:bg-black/60 focus:outline-none focus:ring-2 focus:ring-white/20 md:-left-10 md:p-4"
         >
-          <span className="text-2xl md:text-3xl leading-none">‹</span>
+          <span className="text-2xl leading-none md:text-3xl">‹</span>
         </button>
 
         <button
           aria-label="Next"
           onClick={next}
-          className={[
-            "cursor-pointer absolute top-1/2 z-30 -translate-y-1/2",
-            "right-2 md:-right-10",
-            "rounded-full border border-white/10 bg-black/45 p-3 md:p-4",
-            "text-white/90 backdrop-blur hover:bg-black/60",
-            "shadow-[0_18px_70px_rgba(0,0,0,0.55)]",
-            "focus:outline-none focus:ring-2 focus:ring-white/20",
-          ].join(" ")}
+          className="absolute right-2 top-1/2 z-30 -translate-y-1/2 rounded-full border border-white/10 bg-black/45 p-3 text-white/90 shadow-[0_18px_70px_rgba(0,0,0,0.55)] backdrop-blur transition hover:bg-black/60 focus:outline-none focus:ring-2 focus:ring-white/20 md:-right-10 md:p-4"
         >
-          <span className="text-2xl md:text-3xl leading-none">›</span>
+          <span className="text-2xl leading-none md:text-3xl">›</span>
         </button>
 
         <div className="mt-5 text-center text-white/65">
@@ -267,7 +287,6 @@ function VideoCarousel({
   );
 }
 
-/** Vidu-like "Image to Video" carousel (2 thumbs + chevrons) */
 function ImageToVideoCarousel({
   items,
   initialIndex = 0,
@@ -288,6 +307,7 @@ function ImageToVideoCarousel({
     <div className="relative">
       <div className="relative mx-auto w-full max-w-6xl">
         <div className="relative overflow-hidden rounded-[32px] border border-white/10 bg-white/5 shadow-[0_50px_160px_rgba(0,0,0,0.70)] backdrop-blur">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.16),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.16),transparent_28%)]" />
           <video
             key={active.src}
             className="h-[340px] w-full object-cover sm:h-[440px] md:h-[520px]"
@@ -302,7 +322,11 @@ function ImageToVideoCarousel({
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,rgba(255,255,255,0.035)_0%,rgba(0,0,0,0.46)_58%,rgba(0,0,0,0.90)_100%)]" />
           <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/60 to-transparent" />
 
-          <div className="pointer-events-none absolute bottom-6 right-7 text-white/35 text-sm font-semibold tracking-tight">
+          <div className="pointer-events-none absolute left-5 top-5 z-20 rounded-full border border-white/10 bg-black/35 px-3 py-1 text-xs font-medium text-white/70 backdrop-blur">
+            Image-to-Video Showcase
+          </div>
+
+          <div className="pointer-events-none absolute bottom-6 right-7 text-sm font-semibold tracking-tight text-white/35">
             KOANimation
           </div>
 
@@ -311,7 +335,7 @@ function ImageToVideoCarousel({
               <button
                 onClick={prev}
                 aria-label="Select previous"
-                className="cursor-pointer relative overflow-hidden rounded-xl border border-white/10 hover:border-white/20 transition focus:outline-none focus:ring-2 focus:ring-white/20"
+                className="relative overflow-hidden rounded-xl border border-white/10 transition hover:border-white/20 focus:outline-none focus:ring-2 focus:ring-white/20"
               >
                 <video
                   className="h-[58px] w-[132px] object-cover"
@@ -335,7 +359,7 @@ function ImageToVideoCarousel({
               <button
                 onClick={next}
                 aria-label="Select next"
-                className="cursor-pointer relative overflow-hidden rounded-xl border border-white/10 hover:border-white/20 transition focus:outline-none focus:ring-2 focus:ring-white/20"
+                className="relative overflow-hidden rounded-xl border border-white/10 transition hover:border-white/20 focus:outline-none focus:ring-2 focus:ring-white/20"
               >
                 <video
                   className="h-[58px] w-[132px] object-cover"
@@ -355,31 +379,17 @@ function ImageToVideoCarousel({
         <button
           aria-label="Previous"
           onClick={prev}
-          className={[
-            "cursor-pointer absolute top-1/2 z-30 -translate-y-1/2",
-            "left-2 md:-left-12",
-            "rounded-full border border-white/10 bg-black/45 p-3 md:p-4",
-            "text-white/90 backdrop-blur hover:bg-black/60",
-            "shadow-[0_18px_70px_rgba(0,0,0,0.55)]",
-            "focus:outline-none focus:ring-2 focus:ring-white/20",
-          ].join(" ")}
+          className="absolute left-2 top-1/2 z-30 -translate-y-1/2 rounded-full border border-white/10 bg-black/45 p-3 text-white/90 shadow-[0_18px_70px_rgba(0,0,0,0.55)] backdrop-blur transition hover:bg-black/60 focus:outline-none focus:ring-2 focus:ring-white/20 md:-left-12 md:p-4"
         >
-          <span className="text-2xl md:text-3xl leading-none">‹</span>
+          <span className="text-2xl leading-none md:text-3xl">‹</span>
         </button>
 
         <button
           aria-label="Next"
           onClick={next}
-          className={[
-            "cursor-pointer absolute top-1/2 z-30 -translate-y-1/2",
-            "right-2 md:-right-12",
-            "rounded-full border border-white/10 bg-black/45 p-3 md:p-4",
-            "text-white/90 backdrop-blur hover:bg-black/60",
-            "shadow-[0_18px_70px_rgba(0,0,0,0.55)]",
-            "focus:outline-none focus:ring-2 focus:ring-white/20",
-          ].join(" ")}
+          className="absolute right-2 top-1/2 z-30 -translate-y-1/2 rounded-full border border-white/10 bg-black/45 p-3 text-white/90 shadow-[0_18px_70px_rgba(0,0,0,0.55)] backdrop-blur transition hover:bg-black/60 focus:outline-none focus:ring-2 focus:ring-white/20 md:-right-12 md:p-4"
         >
-          <span className="text-2xl md:text-3xl leading-none">›</span>
+          <span className="text-2xl leading-none md:text-3xl">›</span>
         </button>
       </div>
     </div>
@@ -392,20 +402,33 @@ function FeatureCard({
   mediaSrc,
   ctaHref,
   ctaLabel,
+  glowClass,
+  badge,
 }: {
   title: string;
   desc: string;
   mediaSrc: string;
   ctaHref: string;
   ctaLabel: string;
+  glowClass: string;
+  badge: string;
 }) {
   return (
-    <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-8 shadow-[0_30px_110px_rgba(0,0,0,0.45)] backdrop-blur">
-      <div className="flex items-start justify-between gap-6">
+    <div
+      className={[
+        "relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur",
+        "shadow-[0_30px_110px_rgba(0,0,0,0.45)]",
+        glowClass,
+      ].join(" ")}
+    >
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.04),rgba(255,255,255,0.01)_22%,rgba(0,0,0,0.08)_100%)]" />
+      <div className="pointer-events-none absolute -top-10 left-8 h-28 w-28 rounded-full bg-white/10 blur-3xl opacity-40" />
+
+      <div className="relative z-10 flex items-start justify-between gap-6">
         <div className="max-w-md">
           <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs text-white/70">
             <span className="h-2 w-2 rounded-full bg-white/25" />
-            Feature
+            {badge}
           </div>
           <h3 className="text-xl font-semibold text-white md:text-2xl">
             {title}
@@ -414,7 +437,7 @@ function FeatureCard({
 
           <Link
             href={ctaHref}
-            className="mt-6 inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/35 px-5 py-2.5 text-sm font-semibold text-white/85 backdrop-blur hover:bg-black/50"
+            className="mt-6 inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/35 px-5 py-2.5 text-sm font-semibold text-white/85 backdrop-blur transition hover:bg-black/50"
           >
             {ctaLabel} <span className="text-lg leading-none">→</span>
           </Link>
@@ -453,13 +476,13 @@ function FAQItem({
   return (
     <button
       onClick={onToggle}
-      className="cursor-pointer w-full rounded-2xl border border-white/10 bg-white/5 px-6 py-5 text-left hover:bg-white/7 transition backdrop-blur"
+      className="w-full cursor-pointer rounded-2xl border border-white/10 bg-white/5 px-6 py-5 text-left transition hover:bg-white/[0.07] backdrop-blur"
     >
       <div className="flex items-center justify-between gap-4">
         <span className="text-sm font-semibold text-white/90 sm:text-base">
           {q}
         </span>
-        <span className="text-white/60 text-xl leading-none">
+        <span className="text-xl leading-none text-white/60">
           {open ? "–" : "+"}
         </span>
       </div>
@@ -467,6 +490,216 @@ function FAQItem({
         <div className="mt-3 text-sm leading-relaxed text-white/70">{a}</div>
       )}
     </button>
+  );
+}
+
+function ToolModeCard({
+  title,
+  desc,
+  href,
+  accentClass,
+}: {
+  title: string;
+  desc: string;
+  href: string;
+  accentClass: string;
+}) {
+  const go = useAuthNavigate();
+
+  return (
+    <button
+      type="button"
+      onClick={() => go(href)}
+      className={[
+        "group relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-5 text-left backdrop-blur transition",
+        "hover:border-white/20 hover:bg-white/[0.07]",
+        accentClass,
+      ].join(" ")}
+    >
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.04),rgba(255,255,255,0.01)_20%,rgba(0,0,0,0.08)_100%)]" />
+      <div className="pointer-events-none absolute -right-8 top-0 h-20 w-20 rounded-full bg-white/10 blur-2xl opacity-20 transition group-hover:opacity-35" />
+      <div className="relative z-10">
+        <div className="flex items-center justify-between gap-4">
+          <div className="text-base font-semibold text-white">{title}</div>
+          <div className="text-white/30 transition group-hover:text-white/60">
+            →
+          </div>
+        </div>
+        <p className="mt-3 text-sm leading-relaxed text-white/65">{desc}</p>
+      </div>
+    </button>
+  );
+}
+
+function MetricCard({
+  value,
+  label,
+  glow,
+}: {
+  value: string;
+  label: string;
+  glow: string;
+}) {
+  return (
+    <div
+      className={[
+        "relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur",
+        glow,
+      ].join(" ")}
+    >
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.04),rgba(255,255,255,0.01)_24%,rgba(0,0,0,0.08)_100%)]" />
+      <div className="relative z-10">
+        <div className="text-3xl font-semibold tracking-tight text-white md:text-4xl">
+          {value}
+        </div>
+        <div className="mt-2 text-sm text-white/60">{label}</div>
+      </div>
+    </div>
+  );
+}
+
+function BentoCard({
+  title,
+  desc,
+  mediaSrc,
+  badge,
+  glowClass,
+  tall = false,
+}: {
+  title: string;
+  desc: string;
+  mediaSrc: string;
+  badge: string;
+  glowClass: string;
+  tall?: boolean;
+}) {
+  return (
+    <div
+      className={[
+        "relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.05] p-5 backdrop-blur",
+        "shadow-[0_24px_90px_rgba(0,0,0,0.35)]",
+        glowClass,
+        tall ? "md:row-span-2" : "",
+      ].join(" ")}
+    >
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.045),rgba(255,255,255,0.01)_25%,rgba(0,0,0,0.08)_100%)]" />
+      <div className="relative z-10 flex h-full flex-col">
+        <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs text-white/70">
+          <span className="h-2 w-2 rounded-full bg-white/25" />
+          {badge}
+        </div>
+
+        <div className="mt-4 overflow-hidden rounded-2xl border border-white/10">
+          <video
+            className={tall ? "h-[300px] w-full object-cover md:h-[420px]" : "h-[220px] w-full object-cover"}
+            src={mediaSrc}
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="metadata"
+          />
+        </div>
+
+        <h3 className="mt-5 text-xl font-semibold text-white">{title}</h3>
+        <p className="mt-2 text-sm leading-relaxed text-white/65">{desc}</p>
+      </div>
+    </div>
+  );
+}
+
+function MarqueeRow({ items }: { items: string[] }) {
+  const doubled = [...items, ...items];
+
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/25 py-3 backdrop-blur">
+      <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-24 bg-gradient-to-r from-black/90 to-transparent" />
+      <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-24 bg-gradient-to-l from-black/90 to-transparent" />
+      <div className="animate-[marquee_28s_linear_infinite] whitespace-nowrap">
+        {doubled.map((item, i) => (
+          <span
+            key={`${item}-${i}`}
+            className="mx-3 inline-flex rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-white/70"
+          >
+            {item}
+          </span>
+        ))}
+      </div>
+      <style jsx>{`
+        @keyframes marquee {
+          0% {
+            transform: translateX(0%);
+          }
+          100% {
+            transform: translateX(-50%);
+          }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+function StudioTimeline({
+  items,
+}: {
+  items: { step: string; title: string; desc: string; glow: string }[];
+}) {
+  return (
+    <div className="grid gap-4 lg:grid-cols-4">
+      {items.map((item) => (
+        <div
+          key={item.step}
+          className={[
+            "relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.05] p-5 backdrop-blur",
+            item.glow,
+          ].join(" ")}
+        >
+          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.045),rgba(255,255,255,0.01)_22%,rgba(0,0,0,0.08)_100%)]" />
+          <div className="relative z-10">
+            <div className="inline-flex rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs text-white/60">
+              {item.step}
+            </div>
+            <div className="mt-4 text-lg font-semibold text-white">
+              {item.title}
+            </div>
+            <p className="mt-2 text-sm leading-relaxed text-white/65">
+              {item.desc}
+            </p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function HoverSpotlightSection({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [style, setStyle] = useState<React.CSSProperties>({});
+
+  const handleMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = ref.current?.getBoundingClientRect();
+    if (!rect) return;
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    setStyle({
+      background: `radial-gradient(circle 240px at ${x}px ${y}px, rgba(168,85,247,0.10), rgba(59,130,246,0.06) 35%, transparent 70%)`,
+    });
+  };
+
+  return (
+    <div
+      ref={ref}
+      onMouseMove={handleMove}
+      className="relative overflow-hidden rounded-[36px]"
+    >
+      <div className="pointer-events-none absolute inset-0 transition duration-150" style={style} />
+      {children}
+    </div>
   );
 }
 
@@ -512,9 +745,9 @@ export default function Home() {
 
   return (
     <main className="relative min-h-screen overflow-x-hidden text-white">
+      <ScrollProgress />
       <WallpaperRevealBackground src="/wallpaper.jpg" radius={240} />
 
-      {/* NAV */}
       <header className="fixed inset-x-0 top-0 z-[2000]">
         <div className="mx-auto w-full max-w-7xl px-6">
           <div className="mt-4 flex items-center justify-between rounded-2xl border border-white/10 bg-black/45 px-4 py-3 shadow-[0_18px_70px_rgba(0,0,0,0.55)] backdrop-blur">
@@ -548,16 +781,7 @@ export default function Home() {
 
                 <div className="absolute left-0 top-full h-4 w-full" />
 
-                <div
-                  className={[
-                    "absolute left-0 top-full z-[3000] mt-2 w-64",
-                    "rounded-2xl border border-white/10 bg-black/70 backdrop-blur",
-                    "shadow-[0_18px_70px_rgba(0,0,0,0.55)]",
-                    "opacity-0 translate-y-2 pointer-events-none",
-                    "group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto",
-                    "transition duration-200",
-                  ].join(" ")}
-                >
+                <div className="pointer-events-none absolute left-0 top-full z-[3000] mt-2 w-64 translate-y-2 rounded-2xl border border-white/10 bg-black/70 opacity-0 shadow-[0_18px_70px_rgba(0,0,0,0.55)] backdrop-blur transition duration-200 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100">
                   <div className="p-2">
                     <AuthMenuItem
                       href={TOOL_ROUTES.referenceToVideo}
@@ -571,9 +795,7 @@ export default function Home() {
                       href={TOOL_ROUTES.textToVideo}
                       label="Text to Video"
                     />
-
                     <div className="my-2 h-px bg-white/10" />
-
                     <AuthMenuItem
                       href={TOOL_ROUTES.referenceToImage}
                       label="Reference to Image"
@@ -586,8 +808,8 @@ export default function Home() {
                 </div>
               </div>
 
-              <a className="transition hover:text-white" href="#templates">
-                Templates
+              <a className="transition hover:text-white" href="#showcase">
+                Showcase
               </a>
 
               <Link className="transition hover:text-white" href="/pricing">
@@ -600,19 +822,24 @@ export default function Home() {
             </nav>
 
             <div className="flex items-center gap-3">
-              <AuthCTAButton href="/tools">Try KOANimation</AuthCTAButton>
+              <AuthCTAButton
+                href="/tools"
+                className="shadow-[0_0_35px_rgba(96,165,250,0.18)]"
+              >
+                Try KOANimation
+              </AuthCTAButton>
             </div>
           </div>
         </div>
       </header>
 
-      {/* HERO */}
       <section className="relative min-h-screen overflow-hidden">
         <FloatingMediaWall />
+        <FloatingOrbs />
 
         <div className="absolute inset-0 z-[1] bg-black/55" />
         <div className="absolute inset-0 z-[2] bg-[radial-gradient(circle_at_50%_45%,rgba(0,0,0,0.15)_0%,rgba(0,0,0,0.70)_70%,rgba(0,0,0,0.90)_100%)]" />
-        <div className="absolute inset-0 z-[3] bg-[radial-gradient(circle_at_25%_25%,rgba(168,85,247,0.14),transparent_60%),radial-gradient(circle_at_75%_40%,rgba(147,51,234,0.10),transparent_65%)]" />
+        <div className="absolute inset-0 z-[3] bg-[radial-gradient(circle_at_25%_25%,rgba(168,85,247,0.16),transparent_60%),radial-gradient(circle_at_75%_40%,rgba(59,130,246,0.10),transparent_65%)]" />
 
         <div className="absolute inset-0 z-[4]">
           <Particles
@@ -623,10 +850,10 @@ export default function Home() {
               background: { color: "transparent" },
               fpsLimit: 60,
               particles: {
-                number: { value: 18, density: { enable: true, area: 1100 } },
-                color: { value: "#a855f7" },
+                number: { value: 22, density: { enable: true, area: 1100 } },
+                color: { value: ["#a855f7", "#60a5fa", "#22d3ee"] },
                 opacity: { value: 0.08 },
-                size: { value: { min: 1, max: 2 } },
+                size: { value: { min: 1, max: 2.2 } },
                 move: {
                   enable: true,
                   speed: 0.2,
@@ -646,12 +873,108 @@ export default function Home() {
           />
         </div>
 
-        <div className="pointer-events-none absolute inset-0 z-[1000] flex items-center justify-center px-6 text-center">
-          <div className="select-none">
-            <div className="text-4xl font-semibold tracking-tight text-white drop-shadow-[0_8px_24px_rgba(0,0,0,0.65)] md:text-6xl">
-              Old Soul.
-              <span className="block">New Motion.</span>
-              <span className="block">KOANimation.</span>
+        <div className="relative z-[1000] mx-auto flex min-h-screen w-full max-w-7xl items-center px-6 pt-28">
+          <div className="grid w-full gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+            <div className="max-w-3xl">
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/35 px-4 py-2 text-xs text-white/70 backdrop-blur">
+                <span className="h-2 w-2 rounded-full bg-violet-400/80 shadow-[0_0_12px_rgba(168,85,247,0.7)]" />
+                Cinematic anime motion studio
+              </div>
+
+              <h1 className="mt-6 text-5xl font-semibold tracking-tight text-white drop-shadow-[0_8px_24px_rgba(0,0,0,0.65)] sm:text-6xl md:text-7xl">
+                Old Soul.
+                <span className="block">New Motion.</span>
+                <span className="block bg-[linear-gradient(to_right,#ffffff,#c4b5fd,#7dd3fc)] bg-clip-text text-transparent">
+                  KOANimation.
+                </span>
+              </h1>
+
+              <p className="mt-6 max-w-2xl text-base leading-relaxed text-white/68 md:text-lg">
+                Create stylized anime motion with reference-aware workflows,
+                cinematic camera movement, and studio-grade presentation built
+                for creators who care about aesthetic control.
+              </p>
+
+              <div className="mt-8 flex flex-wrap items-center gap-3">
+                <AuthCTAButton
+                  href="/tools"
+                  className="border-0 bg-white text-black hover:bg-white/90"
+                >
+                  Launch Studio
+                </AuthCTAButton>
+
+                <AuthCTAButton
+                  href={TOOL_ROUTES.referenceToVideo}
+                  className="bg-white/8"
+                >
+                  Explore Workflows
+                </AuthCTAButton>
+              </div>
+
+              <div className="mt-8 grid max-w-2xl gap-3 sm:grid-cols-3">
+                {[
+                  "Reference-consistent motion",
+                  "Image-to-video atmosphere",
+                  "Cinematic anime presentation",
+                ].map((item) => (
+                  <div
+                    key={item}
+                    className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white/72 backdrop-blur"
+                  >
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="relative">
+              <div className="absolute -inset-8 rounded-[40px] bg-[radial-gradient(circle_at_center,rgba(168,85,247,0.18),transparent_55%)] blur-3xl" />
+              <div className="relative overflow-hidden rounded-[30px] border border-white/10 bg-black/35 p-4 shadow-[0_40px_140px_rgba(0,0,0,0.55)] backdrop-blur-xl">
+                <div className="mb-4 flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
+                  <div>
+                    <div className="text-sm font-semibold text-white">
+                      KOANimation Studio
+                    </div>
+                    <div className="mt-1 text-xs text-white/50">
+                      Reference-driven anime motion workflows
+                    </div>
+                  </div>
+                  <div className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs text-emerald-200">
+                    Live
+                  </div>
+                </div>
+
+                <div className="overflow-hidden rounded-[24px] border border-white/10">
+                  <video
+                    className="h-[240px] w-full object-cover sm:h-[320px]"
+                    src="/backgrounds/15.mp4"
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    preload="metadata"
+                  />
+                </div>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                    <div className="text-xs uppercase tracking-[0.18em] text-white/40">
+                      Workflow
+                    </div>
+                    <div className="mt-2 text-sm font-medium text-white/85">
+                      Reference to Video
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                    <div className="text-xs uppercase tracking-[0.18em] text-white/40">
+                      Output
+                    </div>
+                    <div className="mt-2 text-sm font-medium text-white/85">
+                      Stylized cinematic clips
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -659,8 +982,151 @@ export default function Home() {
         <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-[10] h-28 bg-gradient-to-b from-transparent to-black/80" />
       </section>
 
-      {/* Reference to Video */}
-      <section className="relative pb-20 pt-16">
+      <section className="relative -mt-6 pb-10">
+        <div className="mx-auto w-full max-w-7xl px-6">
+          <div className="grid gap-4 md:grid-cols-3">
+            {[
+              {
+                title: "Aesthetic Control",
+                desc: "Design motion with a more intentional visual identity, not random generations.",
+              },
+              {
+                title: "Studio Workflows",
+                desc: "Jump into focused tools for reference-to-video, image-to-video, and text generation.",
+              },
+              {
+                title: "Creator Presentation",
+                desc: "Premium outputs and a polished interface that feels closer to a real studio.",
+              },
+            ].map((item, i) => (
+              <div
+                key={item.title}
+                className={[
+                  "rounded-3xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur",
+                  i === 0
+                    ? "shadow-[0_0_50px_rgba(168,85,247,0.08)]"
+                    : i === 1
+                      ? "shadow-[0_0_50px_rgba(59,130,246,0.07)]"
+                      : "shadow-[0_0_50px_rgba(255,255,255,0.04)]",
+                ].join(" ")}
+              >
+                <div className="text-base font-semibold text-white">
+                  {item.title}
+                </div>
+                <p className="mt-2 text-sm leading-relaxed text-white/65">
+                  {item.desc}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="relative pb-10 pt-8">
+        <div className="mx-auto w-full max-w-7xl px-6">
+          <MarqueeRow
+            items={[
+              "Reference to Video",
+              "Image to Video",
+              "Text to Video",
+              "Reference to Image",
+              "Text to Image",
+              "Anime Motion",
+              "Character Consistency",
+              "Cinematic Camera",
+              "Atmospheric Rendering",
+              "Creator-first Studio",
+            ]}
+          />
+        </div>
+      </section>
+
+      <section className="relative pb-20 pt-12">
+        <div className="mx-auto w-full max-w-7xl px-6">
+          <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs text-white/70">
+                <span className="h-2 w-2 rounded-full bg-cyan-400/80 shadow-[0_0_12px_rgba(34,211,238,0.7)]" />
+                Core modes
+              </div>
+              <h2 className="text-4xl font-semibold tracking-tight text-white md:text-5xl">
+                Choose your workflow
+              </h2>
+              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/65">
+                Start from references, stills, or text prompts depending on how
+                much control you want over the final motion.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <ToolModeCard
+              title="Reference to Video"
+              desc="Match a subject or style and animate with stronger consistency."
+              href={TOOL_ROUTES.referenceToVideo}
+              accentClass="shadow-[0_0_50px_rgba(168,85,247,0.08)]"
+            />
+            <ToolModeCard
+              title="Image to Video"
+              desc="Bring still artwork to life with motion, camera, and atmosphere."
+              href={TOOL_ROUTES.imageToVideo}
+              accentClass="shadow-[0_0_50px_rgba(59,130,246,0.08)]"
+            />
+            <ToolModeCard
+              title="Text to Video"
+              desc="Generate clips from prompt-first cinematic direction."
+              href={TOOL_ROUTES.textToVideo}
+              accentClass="shadow-[0_0_50px_rgba(236,72,153,0.07)]"
+            />
+            <ToolModeCard
+              title="Reference to Image"
+              desc="Create style-aware images with more controlled visual identity."
+              href={TOOL_ROUTES.referenceToImage}
+              accentClass="shadow-[0_0_50px_rgba(234,179,8,0.07)]"
+            />
+            <ToolModeCard
+              title="Text to Image"
+              desc="Generate polished stills ready for concepting or animation input."
+              href={TOOL_ROUTES.textToImage}
+              accentClass="shadow-[0_0_50px_rgba(255,255,255,0.04)]"
+            />
+          </div>
+        </div>
+      </section>
+
+      <section className="relative pb-12">
+        <div className="mx-auto w-full max-w-7xl px-6">
+          <div className="mb-8">
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs text-white/70">
+              <span className="h-2 w-2 rounded-full bg-blue-400/80 shadow-[0_0_12px_rgba(96,165,250,0.7)]" />
+              Why it feels premium
+            </div>
+            <h2 className="text-4xl font-semibold tracking-tight text-white md:text-5xl">
+              Built like a real studio
+            </h2>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            <MetricCard
+              value="5"
+              label="Creative modes on one platform"
+              glow="shadow-[0_0_60px_rgba(168,85,247,0.08)]"
+            />
+            <MetricCard
+              value="∞"
+              label="Stylized directions you can explore"
+              glow="shadow-[0_0_60px_rgba(59,130,246,0.08)]"
+            />
+            <MetricCard
+              value="24/7"
+              label="Always-available creation workflow"
+              glow="shadow-[0_0_60px_rgba(34,211,238,0.08)]"
+            />
+          </div>
+        </div>
+      </section>
+
+      <section id="showcase" className="relative pb-20 pt-10">
         <div className="mx-auto w-full max-w-7xl px-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
@@ -686,9 +1152,18 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Feature Cards */}
       <section id="features" className="relative py-16">
         <div className="mx-auto w-full max-w-7xl px-6">
+          <div className="mb-8">
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs text-white/70">
+              <span className="h-2 w-2 rounded-full bg-violet-400/80 shadow-[0_0_12px_rgba(168,85,247,0.7)]" />
+              Highlights
+            </div>
+            <h2 className="text-4xl font-semibold tracking-tight text-white md:text-5xl">
+              Built for stylish motion creation
+            </h2>
+          </div>
+
           <div className="grid gap-6 md:grid-cols-2">
             <FeatureCard
               title="First & Last Frames Control"
@@ -696,6 +1171,8 @@ export default function Home() {
               mediaSrc="/backgrounds/16.mp4"
               ctaHref="/tools"
               ctaLabel="Get Started"
+              glowClass="shadow-[0_0_80px_rgba(168,85,247,0.08)]"
+              badge="Frame Control"
             />
             <FeatureCard
               title="Anime Art to Video"
@@ -703,13 +1180,69 @@ export default function Home() {
               mediaSrc="/backgrounds/7.mp4"
               ctaHref="/tools"
               ctaLabel="Get Started"
+              glowClass="shadow-[0_0_80px_rgba(59,130,246,0.08)]"
+              badge="Animation"
             />
           </div>
         </div>
       </section>
 
-      {/* Image to Video */}
-      <section id="templates" className="relative pb-20 pt-6">
+      <section className="relative py-10">
+        <div className="mx-auto w-full max-w-7xl px-6">
+          <HoverSpotlightSection>
+            <div className="relative overflow-hidden rounded-[36px] border border-white/10 bg-white/[0.04] p-6 backdrop-blur-xl md:p-8">
+              <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.04),rgba(255,255,255,0.01)_20%,rgba(0,0,0,0.08)_100%)]" />
+              <div className="relative z-10">
+                <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs text-white/70">
+                  <span className="h-2 w-2 rounded-full bg-fuchsia-400/80 shadow-[0_0_12px_rgba(217,70,239,0.7)]" />
+                  Visual playground
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-3">
+                  <BentoCard
+                    title="Noir Mood"
+                    desc="Dark cinematic frames with contrast, rain, glow, and pressure."
+                    mediaSrc="/backgrounds/12.mp4"
+                    badge="Atmosphere"
+                    glowClass="shadow-[0_0_70px_rgba(168,85,247,0.08)]"
+                    tall
+                  />
+                  <BentoCard
+                    title="Painterly Motion"
+                    desc="Bring static illustrations into elegant motion without losing style."
+                    mediaSrc="/backgrounds/14.mp4"
+                    badge="Motion"
+                    glowClass="shadow-[0_0_70px_rgba(59,130,246,0.08)]"
+                  />
+                  <BentoCard
+                    title="Scene Reveal"
+                    desc="Use subtle camera drift and staged composition for drama."
+                    mediaSrc="/backgrounds/17.mp4"
+                    badge="Camera"
+                    glowClass="shadow-[0_0_70px_rgba(34,211,238,0.08)]"
+                  />
+                  <BentoCard
+                    title="Character Presence"
+                    desc="Maintain stronger subject identity while pushing cinematic framing."
+                    mediaSrc="/backgrounds/6.mp4"
+                    badge="Character"
+                    glowClass="shadow-[0_0_70px_rgba(236,72,153,0.08)]"
+                  />
+                  <BentoCard
+                    title="Fantasy Energy"
+                    desc="Use color, movement, and spatial depth for high-impact scenes."
+                    mediaSrc="/backgrounds/2.mp4"
+                    badge="Style"
+                    glowClass="shadow-[0_0_70px_rgba(250,204,21,0.08)]"
+                  />
+                </div>
+              </div>
+            </div>
+          </HoverSpotlightSection>
+        </div>
+      </section>
+
+      <section id="templates" className="relative pb-20 pt-10">
         <div className="mx-auto w-full max-w-7xl px-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div className="flex flex-col gap-3 md:flex-row md:items-baseline md:gap-6">
@@ -741,7 +1274,53 @@ export default function Home() {
         </div>
       </section>
 
-      {/* FAQ */}
+      <section className="relative py-14">
+        <div className="mx-auto w-full max-w-7xl px-6">
+          <div className="mb-8">
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs text-white/70">
+              <span className="h-2 w-2 rounded-full bg-emerald-400/80 shadow-[0_0_12px_rgba(52,211,153,0.7)]" />
+              Workflow
+            </div>
+            <h2 className="text-4xl font-semibold tracking-tight text-white md:text-5xl">
+              From idea to final motion
+            </h2>
+            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/65">
+              A simple creative loop that still feels powerful enough for a real
+              studio pipeline.
+            </p>
+          </div>
+
+          <StudioTimeline
+            items={[
+              {
+                step: "01",
+                title: "Choose a mode",
+                desc: "Start from reference, image, or text depending on how much direction you already have.",
+                glow: "shadow-[0_0_60px_rgba(168,85,247,0.08)]",
+              },
+              {
+                step: "02",
+                title: "Shape the look",
+                desc: "Define mood, framing, motion type, and aesthetic intent for stronger results.",
+                glow: "shadow-[0_0_60px_rgba(59,130,246,0.08)]",
+              },
+              {
+                step: "03",
+                title: "Generate iterations",
+                desc: "Explore multiple passes until the pacing, energy, and atmosphere feel right.",
+                glow: "shadow-[0_0_60px_rgba(236,72,153,0.08)]",
+              },
+              {
+                step: "04",
+                title: "Present your clip",
+                desc: "Export work that feels polished, cinematic, and ready to show on your platform.",
+                glow: "shadow-[0_0_60px_rgba(34,211,238,0.08)]",
+              },
+            ]}
+          />
+        </div>
+      </section>
+
       <section id="resources" className="relative py-16">
         <div className="mx-auto w-full max-w-7xl px-6">
           <div className="grid gap-10 md:grid-cols-2 md:items-start">
@@ -787,10 +1366,10 @@ export default function Home() {
         </div>
       </section>
 
-      {/* CTA */}
       <section className="relative pb-24 pt-8">
         <div className="mx-auto w-full max-w-7xl px-6">
-          <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 backdrop-blur">
+          <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-[0_40px_140px_rgba(0,0,0,0.55)] backdrop-blur">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.16),transparent_32%),radial-gradient(circle_at_left,rgba(168,85,247,0.15),transparent_30%)]" />
             <video
               className="h-[300px] w-full object-cover md:h-[360px]"
               src="/backgrounds/15.mp4"
@@ -800,15 +1379,23 @@ export default function Home() {
               playsInline
               preload="metadata"
             />
-            <div className="absolute inset-0 bg-black/55" />
+            <div className="absolute inset-0 bg-black/60" />
             <div className="absolute inset-0 flex items-center justify-center px-6 text-center">
               <div>
+                <div className="mx-auto mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/35 px-4 py-2 text-xs text-white/70 backdrop-blur">
+                  <span className="h-2 w-2 rounded-full bg-cyan-400/80 shadow-[0_0_12px_rgba(34,211,238,0.7)]" />
+                  Start creating
+                </div>
                 <h3 className="text-4xl font-semibold tracking-tight text-white md:text-5xl">
                   Embrace Your Creativity
                 </h3>
+                <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-white/68 md:text-base">
+                  Step into a more cinematic creation flow and build motion that
+                  feels intentional, atmospheric, and uniquely yours.
+                </p>
                 <AuthCTAButton
                   href={TOOL_ROUTES.referenceToVideo}
-                  className="mt-6 border-0 bg-blue-600 hover:bg-blue-500"
+                  className="mt-6 border-0 bg-blue-600 shadow-[0_0_40px_rgba(37,99,235,0.30)] hover:bg-blue-500"
                 >
                   Try it now
                 </AuthCTAButton>
