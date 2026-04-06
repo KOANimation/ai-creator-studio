@@ -47,10 +47,10 @@ function AuthMenuItem({ href, label }: { href: string; label: string }) {
     <button
       type="button"
       onClick={() => go(href)}
-      className="flex w-full cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-[13px] text-white/75 transition hover:bg-white/5 hover:text-white"
+      className="flex w-full cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-[13px] text-white/75 transition duration-300 hover:bg-white/5 hover:text-white"
     >
       <span>{label}</span>
-      <span className="text-white/30">→</span>
+      <span className="text-white/30 transition group-hover:text-white/60">→</span>
     </button>
   );
 }
@@ -71,7 +71,8 @@ function AuthCTAButton({
       type="button"
       onClick={() => go(href)}
       className={[
-        "cursor-pointer rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/15",
+        "cursor-pointer rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition duration-300",
+        "hover:-translate-y-[1px] hover:bg-white/20 hover:shadow-[0_10px_40px_rgba(255,255,255,0.10)]",
         className,
       ].join(" ")}
     >
@@ -193,6 +194,14 @@ function FloatingOrbs() {
   );
 }
 
+function Sheen() {
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-inherit">
+      <div className="absolute -left-[140%] top-0 h-full w-[80%] rotate-12 bg-[linear-gradient(to_right,transparent,rgba(255,255,255,0.12),transparent)] opacity-0 blur-xl transition duration-700 group-hover:left-[140%] group-hover:opacity-100" />
+    </div>
+  );
+}
+
 function VideoCarousel({
   items,
   initialIndex = 0,
@@ -210,11 +219,12 @@ function VideoCarousel({
   return (
     <div className="relative">
       <div className="relative mx-auto w-full max-w-5xl">
-        <div className="relative overflow-hidden rounded-[28px] border border-white/10 bg-white/5 shadow-[0_40px_140px_rgba(0,0,0,0.65)] backdrop-blur">
+        <div className="group relative overflow-hidden rounded-[28px] border border-white/10 bg-white/5 shadow-[0_40px_140px_rgba(0,0,0,0.65)] backdrop-blur transition duration-500 hover:border-white/20 hover:shadow-[0_50px_160px_rgba(0,0,0,0.72)]">
+          <Sheen />
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(168,85,247,0.18),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(59,130,246,0.15),transparent_30%)]" />
           <video
             key={active.src}
-            className="h-[260px] w-full object-cover sm:h-[360px] md:h-[460px]"
+            className="h-[260px] w-full object-cover transition duration-700 group-hover:scale-[1.02] sm:h-[360px] md:h-[460px]"
             src={active.src}
             autoPlay
             loop
@@ -239,15 +249,15 @@ function VideoCarousel({
                     onClick={() => setIdx(realIndex)}
                     aria-label={`Select ${items[realIndex].title}`}
                     className={[
-                      "relative overflow-hidden rounded-xl border transition",
+                      "relative overflow-hidden rounded-xl border transition duration-300",
                       "focus:outline-none focus:ring-2 focus:ring-white/20",
                       isActive
-                        ? "border-white/25 ring-1 ring-white/15"
-                        : "border-white/10 hover:border-white/20",
+                        ? "border-white/25 ring-1 ring-white/15 shadow-[0_0_20px_rgba(255,255,255,0.08)]"
+                        : "border-white/10 hover:border-white/20 hover:shadow-[0_0_20px_rgba(168,85,247,0.12)]",
                     ].join(" ")}
                   >
                     <video
-                      className="h-14 w-24 object-cover sm:h-16 sm:w-28"
+                      className="h-14 w-24 object-cover transition duration-500 hover:scale-105 sm:h-16 sm:w-28"
                       src={items[realIndex].src}
                       autoPlay
                       loop
@@ -266,7 +276,7 @@ function VideoCarousel({
         <button
           aria-label="Previous"
           onClick={prev}
-          className="absolute left-2 top-1/2 z-30 -translate-y-1/2 rounded-full border border-white/10 bg-black/45 p-3 text-white/90 shadow-[0_18px_70px_rgba(0,0,0,0.55)] backdrop-blur transition hover:bg-black/60 focus:outline-none focus:ring-2 focus:ring-white/20 md:-left-10 md:p-4"
+          className="absolute left-2 top-1/2 z-30 -translate-y-1/2 rounded-full border border-white/10 bg-black/45 p-3 text-white/90 shadow-[0_18px_70px_rgba(0,0,0,0.55)] backdrop-blur transition duration-300 hover:scale-105 hover:bg-black/60 hover:shadow-[0_0_30px_rgba(168,85,247,0.14)] focus:outline-none focus:ring-2 focus:ring-white/20 md:-left-10 md:p-4"
         >
           <span className="text-2xl leading-none md:text-3xl">‹</span>
         </button>
@@ -274,7 +284,7 @@ function VideoCarousel({
         <button
           aria-label="Next"
           onClick={next}
-          className="absolute right-2 top-1/2 z-30 -translate-y-1/2 rounded-full border border-white/10 bg-black/45 p-3 text-white/90 shadow-[0_18px_70px_rgba(0,0,0,0.55)] backdrop-blur transition hover:bg-black/60 focus:outline-none focus:ring-2 focus:ring-white/20 md:-right-10 md:p-4"
+          className="absolute right-2 top-1/2 z-30 -translate-y-1/2 rounded-full border border-white/10 bg-black/45 p-3 text-white/90 shadow-[0_18px_70px_rgba(0,0,0,0.55)] backdrop-blur transition duration-300 hover:scale-105 hover:bg-black/60 hover:shadow-[0_0_30px_rgba(59,130,246,0.14)] focus:outline-none focus:ring-2 focus:ring-white/20 md:-right-10 md:p-4"
         >
           <span className="text-2xl leading-none md:text-3xl">›</span>
         </button>
@@ -306,11 +316,12 @@ function ImageToVideoCarousel({
   return (
     <div className="relative">
       <div className="relative mx-auto w-full max-w-6xl">
-        <div className="relative overflow-hidden rounded-[32px] border border-white/10 bg-white/5 shadow-[0_50px_160px_rgba(0,0,0,0.70)] backdrop-blur">
+        <div className="group relative overflow-hidden rounded-[32px] border border-white/10 bg-white/5 shadow-[0_50px_160px_rgba(0,0,0,0.70)] backdrop-blur transition duration-500 hover:border-white/20 hover:shadow-[0_60px_180px_rgba(0,0,0,0.75)]">
+          <Sheen />
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.16),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.16),transparent_28%)]" />
           <video
             key={active.src}
-            className="h-[340px] w-full object-cover sm:h-[440px] md:h-[520px]"
+            className="h-[340px] w-full object-cover transition duration-700 group-hover:scale-[1.02] sm:h-[440px] md:h-[520px]"
             src={active.src}
             autoPlay
             loop
@@ -335,10 +346,10 @@ function ImageToVideoCarousel({
               <button
                 onClick={prev}
                 aria-label="Select previous"
-                className="relative overflow-hidden rounded-xl border border-white/10 transition hover:border-white/20 focus:outline-none focus:ring-2 focus:ring-white/20"
+                className="relative overflow-hidden rounded-xl border border-white/10 transition duration-300 hover:border-white/20 hover:shadow-[0_0_20px_rgba(168,85,247,0.12)] focus:outline-none focus:ring-2 focus:ring-white/20"
               >
                 <video
-                  className="h-[58px] w-[132px] object-cover"
+                  className="h-[58px] w-[132px] object-cover transition duration-500 hover:scale-105"
                   src={leftThumb.src}
                   autoPlay
                   loop
@@ -359,10 +370,10 @@ function ImageToVideoCarousel({
               <button
                 onClick={next}
                 aria-label="Select next"
-                className="relative overflow-hidden rounded-xl border border-white/10 transition hover:border-white/20 focus:outline-none focus:ring-2 focus:ring-white/20"
+                className="relative overflow-hidden rounded-xl border border-white/10 transition duration-300 hover:border-white/20 hover:shadow-[0_0_20px_rgba(59,130,246,0.12)] focus:outline-none focus:ring-2 focus:ring-white/20"
               >
                 <video
-                  className="h-[58px] w-[132px] object-cover"
+                  className="h-[58px] w-[132px] object-cover transition duration-500 hover:scale-105"
                   src={rightThumb.src}
                   autoPlay
                   loop
@@ -379,7 +390,7 @@ function ImageToVideoCarousel({
         <button
           aria-label="Previous"
           onClick={prev}
-          className="absolute left-2 top-1/2 z-30 -translate-y-1/2 rounded-full border border-white/10 bg-black/45 p-3 text-white/90 shadow-[0_18px_70px_rgba(0,0,0,0.55)] backdrop-blur transition hover:bg-black/60 focus:outline-none focus:ring-2 focus:ring-white/20 md:-left-12 md:p-4"
+          className="absolute left-2 top-1/2 z-30 -translate-y-1/2 rounded-full border border-white/10 bg-black/45 p-3 text-white/90 shadow-[0_18px_70px_rgba(0,0,0,0.55)] backdrop-blur transition duration-300 hover:scale-105 hover:bg-black/60 hover:shadow-[0_0_30px_rgba(168,85,247,0.14)] focus:outline-none focus:ring-2 focus:ring-white/20 md:-left-12 md:p-4"
         >
           <span className="text-2xl leading-none md:text-3xl">‹</span>
         </button>
@@ -387,7 +398,7 @@ function ImageToVideoCarousel({
         <button
           aria-label="Next"
           onClick={next}
-          className="absolute right-2 top-1/2 z-30 -translate-y-1/2 rounded-full border border-white/10 bg-black/45 p-3 text-white/90 shadow-[0_18px_70px_rgba(0,0,0,0.55)] backdrop-blur transition hover:bg-black/60 focus:outline-none focus:ring-2 focus:ring-white/20 md:-right-12 md:p-4"
+          className="absolute right-2 top-1/2 z-30 -translate-y-1/2 rounded-full border border-white/10 bg-black/45 p-3 text-white/90 shadow-[0_18px_70px_rgba(0,0,0,0.55)] backdrop-blur transition duration-300 hover:scale-105 hover:bg-black/60 hover:shadow-[0_0_30px_rgba(59,130,246,0.14)] focus:outline-none focus:ring-2 focus:ring-white/20 md:-right-12 md:p-4"
         >
           <span className="text-2xl leading-none md:text-3xl">›</span>
         </button>
@@ -416,13 +427,15 @@ function FeatureCard({
   return (
     <div
       className={[
-        "relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur",
+        "group relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur transition duration-500",
+        "hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.07]",
         "shadow-[0_30px_110px_rgba(0,0,0,0.45)]",
         glowClass,
       ].join(" ")}
     >
+      <Sheen />
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.04),rgba(255,255,255,0.01)_22%,rgba(0,0,0,0.08)_100%)]" />
-      <div className="pointer-events-none absolute -top-10 left-8 h-28 w-28 rounded-full bg-white/10 blur-3xl opacity-40" />
+      <div className="pointer-events-none absolute -top-10 left-8 h-28 w-28 rounded-full bg-white/10 blur-3xl opacity-40 transition duration-500 group-hover:opacity-70" />
 
       <div className="relative z-10 flex items-start justify-between gap-6">
         <div className="max-w-md">
@@ -437,7 +450,7 @@ function FeatureCard({
 
           <Link
             href={ctaHref}
-            className="mt-6 inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/35 px-5 py-2.5 text-sm font-semibold text-white/85 backdrop-blur transition hover:bg-black/50"
+            className="mt-6 inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/35 px-5 py-2.5 text-sm font-semibold text-white/85 backdrop-blur transition duration-300 hover:-translate-y-[1px] hover:bg-white/15 hover:text-white"
           >
             {ctaLabel} <span className="text-lg leading-none">→</span>
           </Link>
@@ -447,7 +460,7 @@ function FeatureCard({
           <div className="absolute -inset-10 rounded-[40px] bg-white/10 blur-3xl opacity-25" />
           <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/20">
             <video
-              className="h-[160px] w-full object-cover"
+              className="h-[160px] w-full object-cover transition duration-700 group-hover:scale-105"
               src={mediaSrc}
               autoPlay
               loop
@@ -476,13 +489,13 @@ function FAQItem({
   return (
     <button
       onClick={onToggle}
-      className="w-full cursor-pointer rounded-2xl border border-white/10 bg-white/5 px-6 py-5 text-left transition hover:bg-white/[0.07] backdrop-blur"
+      className="group w-full cursor-pointer rounded-2xl border border-white/10 bg-white/5 px-6 py-5 text-left transition duration-300 hover:border-white/20 hover:bg-white/[0.07] backdrop-blur"
     >
       <div className="flex items-center justify-between gap-4">
         <span className="text-sm font-semibold text-white/90 sm:text-base">
           {q}
         </span>
-        <span className="text-xl leading-none text-white/60">
+        <span className="text-xl leading-none text-white/60 transition duration-300 group-hover:text-white/90">
           {open ? "–" : "+"}
         </span>
       </div>
@@ -498,11 +511,13 @@ function ToolModeCard({
   desc,
   href,
   accentClass,
+  hoverAccentClass,
 }: {
   title: string;
   desc: string;
   href: string;
   accentClass: string;
+  hoverAccentClass: string;
 }) {
   const go = useAuthNavigate();
 
@@ -511,17 +526,19 @@ function ToolModeCard({
       type="button"
       onClick={() => go(href)}
       className={[
-        "group relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-5 text-left backdrop-blur transition",
-        "hover:border-white/20 hover:bg-white/[0.07]",
+        "group relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-5 text-left backdrop-blur transition duration-500",
+        "hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.08]",
         accentClass,
+        hoverAccentClass,
       ].join(" ")}
     >
+      <Sheen />
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.04),rgba(255,255,255,0.01)_20%,rgba(0,0,0,0.08)_100%)]" />
-      <div className="pointer-events-none absolute -right-8 top-0 h-20 w-20 rounded-full bg-white/10 blur-2xl opacity-20 transition group-hover:opacity-35" />
+      <div className="pointer-events-none absolute -right-8 top-0 h-20 w-20 rounded-full bg-white/10 blur-2xl opacity-20 transition duration-500 group-hover:opacity-40" />
       <div className="relative z-10">
         <div className="flex items-center justify-between gap-4">
           <div className="text-base font-semibold text-white">{title}</div>
-          <div className="text-white/30 transition group-hover:text-white/60">
+          <div className="text-white/30 transition duration-300 group-hover:translate-x-1 group-hover:text-white/80">
             →
           </div>
         </div>
@@ -543,13 +560,15 @@ function MetricCard({
   return (
     <div
       className={[
-        "relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur",
+        "group relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur transition duration-500",
+        "hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.06]",
         glow,
       ].join(" ")}
     >
+      <Sheen />
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.04),rgba(255,255,255,0.01)_24%,rgba(0,0,0,0.08)_100%)]" />
       <div className="relative z-10">
-        <div className="text-3xl font-semibold tracking-tight text-white md:text-4xl">
+        <div className="text-3xl font-semibold tracking-tight text-white transition duration-300 group-hover:text-white md:text-4xl">
           {value}
         </div>
         <div className="mt-2 text-sm text-white/60">{label}</div>
@@ -576,12 +595,14 @@ function BentoCard({
   return (
     <div
       className={[
-        "relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.05] p-5 backdrop-blur",
+        "group relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.05] p-5 backdrop-blur transition duration-500",
+        "hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.07]",
         "shadow-[0_24px_90px_rgba(0,0,0,0.35)]",
         glowClass,
         tall ? "md:row-span-2" : "",
       ].join(" ")}
     >
+      <Sheen />
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.045),rgba(255,255,255,0.01)_25%,rgba(0,0,0,0.08)_100%)]" />
       <div className="relative z-10 flex h-full flex-col">
         <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs text-white/70">
@@ -591,7 +612,11 @@ function BentoCard({
 
         <div className="mt-4 overflow-hidden rounded-2xl border border-white/10">
           <video
-            className={tall ? "h-[300px] w-full object-cover md:h-[420px]" : "h-[220px] w-full object-cover"}
+            className={
+              tall
+                ? "h-[300px] w-full object-cover transition duration-700 group-hover:scale-105 md:h-[420px]"
+                : "h-[220px] w-full object-cover transition duration-700 group-hover:scale-105"
+            }
             src={mediaSrc}
             autoPlay
             loop
@@ -619,7 +644,7 @@ function MarqueeRow({ items }: { items: string[] }) {
         {doubled.map((item, i) => (
           <span
             key={`${item}-${i}`}
-            className="mx-3 inline-flex rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-white/70"
+            className="mx-3 inline-flex rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-white/70 transition duration-300 hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
           >
             {item}
           </span>
@@ -650,10 +675,12 @@ function StudioTimeline({
         <div
           key={item.step}
           className={[
-            "relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.05] p-5 backdrop-blur",
+            "group relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.05] p-5 backdrop-blur transition duration-500",
+            "hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.07]",
             item.glow,
           ].join(" ")}
         >
+          <Sheen />
           <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.045),rgba(255,255,255,0.01)_22%,rgba(0,0,0,0.08)_100%)]" />
           <div className="relative z-10">
             <div className="inline-flex rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs text-white/60">
@@ -750,7 +777,7 @@ export default function Home() {
 
       <header className="fixed inset-x-0 top-0 z-[2000]">
         <div className="mx-auto w-full max-w-7xl px-6">
-          <div className="mt-4 flex items-center justify-between rounded-2xl border border-white/10 bg-black/45 px-4 py-3 shadow-[0_18px_70px_rgba(0,0,0,0.55)] backdrop-blur">
+          <div className="mt-4 flex items-center justify-between rounded-2xl border border-white/10 bg-black/45 px-4 py-3 shadow-[0_18px_70px_rgba(0,0,0,0.55)] backdrop-blur transition duration-300 hover:border-white/15">
             <div className="flex items-center gap-3">
               <div className="relative h-8 w-8">
                 <Image
@@ -770,7 +797,7 @@ export default function Home() {
             <nav className="hidden items-center gap-7 text-[13px] font-medium tracking-wide text-white/65 md:flex">
               <div className="group relative">
                 <a
-                  className="inline-flex items-center gap-2 transition hover:text-white"
+                  className="inline-flex items-center gap-2 rounded-full px-2 py-1 transition duration-300 hover:bg-white/5 hover:text-white"
                   href="#features"
                 >
                   Features
@@ -808,15 +835,24 @@ export default function Home() {
                 </div>
               </div>
 
-              <a className="transition hover:text-white" href="#showcase">
+              <a
+                className="rounded-full px-2 py-1 transition duration-300 hover:bg-white/5 hover:text-white"
+                href="#showcase"
+              >
                 Showcase
               </a>
 
-              <Link className="transition hover:text-white" href="/pricing">
+              <Link
+                className="rounded-full px-2 py-1 transition duration-300 hover:bg-white/5 hover:text-white"
+                href="/pricing"
+              >
                 Pricing
               </Link>
 
-              <a className="transition hover:text-white" href="#resources">
+              <a
+                className="rounded-full px-2 py-1 transition duration-300 hover:bg-white/5 hover:text-white"
+                href="#resources"
+              >
                 Resources
               </a>
             </nav>
@@ -824,7 +860,7 @@ export default function Home() {
             <div className="flex items-center gap-3">
               <AuthCTAButton
                 href="/tools"
-                className="shadow-[0_0_35px_rgba(96,165,250,0.18)]"
+                className="shadow-[0_0_35px_rgba(96,165,250,0.18)] hover:shadow-[0_0_50px_rgba(96,165,250,0.28)]"
               >
                 Try KOANimation
               </AuthCTAButton>
@@ -876,7 +912,7 @@ export default function Home() {
         <div className="relative z-[1000] mx-auto flex min-h-screen w-full max-w-7xl items-center px-6 pt-28">
           <div className="grid w-full gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
             <div className="max-w-3xl">
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/35 px-4 py-2 text-xs text-white/70 backdrop-blur">
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/35 px-4 py-2 text-xs text-white/70 backdrop-blur transition duration-300 hover:border-white/15 hover:bg-white/[0.06]">
                 <span className="h-2 w-2 rounded-full bg-violet-400/80 shadow-[0_0_12px_rgba(168,85,247,0.7)]" />
                 Cinematic anime motion studio
               </div>
@@ -905,7 +941,7 @@ export default function Home() {
 
                 <AuthCTAButton
                   href={TOOL_ROUTES.referenceToVideo}
-                  className="bg-white/8"
+                  className="bg-white/8 hover:bg-white/18"
                 >
                   Explore Workflows
                 </AuthCTAButton>
@@ -916,10 +952,18 @@ export default function Home() {
                   "Reference-consistent motion",
                   "Image-to-video atmosphere",
                   "Cinematic anime presentation",
-                ].map((item) => (
+                ].map((item, i) => (
                   <div
                     key={item}
-                    className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white/72 backdrop-blur"
+                    className={[
+                      "group rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white/72 backdrop-blur transition duration-300",
+                      "hover:-translate-y-1 hover:border-white/20 hover:text-white",
+                      i === 0
+                        ? "hover:bg-violet-500/[0.12] hover:shadow-[0_0_30px_rgba(168,85,247,0.12)]"
+                        : i === 1
+                          ? "hover:bg-cyan-500/[0.10] hover:shadow-[0_0_30px_rgba(34,211,238,0.12)]"
+                          : "hover:bg-blue-500/[0.10] hover:shadow-[0_0_30px_rgba(59,130,246,0.12)]",
+                    ].join(" ")}
                   >
                     {item}
                   </div>
@@ -929,8 +973,9 @@ export default function Home() {
 
             <div className="relative">
               <div className="absolute -inset-8 rounded-[40px] bg-[radial-gradient(circle_at_center,rgba(168,85,247,0.18),transparent_55%)] blur-3xl" />
-              <div className="relative overflow-hidden rounded-[30px] border border-white/10 bg-black/35 p-4 shadow-[0_40px_140px_rgba(0,0,0,0.55)] backdrop-blur-xl">
-                <div className="mb-4 flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
+              <div className="group relative overflow-hidden rounded-[30px] border border-white/10 bg-black/35 p-4 shadow-[0_40px_140px_rgba(0,0,0,0.55)] backdrop-blur-xl transition duration-500 hover:border-white/20 hover:shadow-[0_50px_165px_rgba(0,0,0,0.65)]">
+                <Sheen />
+                <div className="mb-4 flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 transition duration-300 group-hover:bg-white/[0.06]">
                   <div>
                     <div className="text-sm font-semibold text-white">
                       KOANimation Studio
@@ -946,7 +991,7 @@ export default function Home() {
 
                 <div className="overflow-hidden rounded-[24px] border border-white/10">
                   <video
-                    className="h-[240px] w-full object-cover sm:h-[320px]"
+                    className="h-[240px] w-full object-cover transition duration-700 group-hover:scale-105 sm:h-[320px]"
                     src="/backgrounds/15.mp4"
                     autoPlay
                     loop
@@ -957,7 +1002,7 @@ export default function Home() {
                 </div>
 
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition duration-300 hover:bg-violet-500/[0.10] hover:shadow-[0_0_30px_rgba(168,85,247,0.12)]">
                     <div className="text-xs uppercase tracking-[0.18em] text-white/40">
                       Workflow
                     </div>
@@ -965,7 +1010,7 @@ export default function Home() {
                       Reference to Video
                     </div>
                   </div>
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition duration-300 hover:bg-cyan-500/[0.10] hover:shadow-[0_0_30px_rgba(34,211,238,0.12)]">
                     <div className="text-xs uppercase tracking-[0.18em] text-white/40">
                       Output
                     </div>
@@ -989,33 +1034,36 @@ export default function Home() {
               {
                 title: "Aesthetic Control",
                 desc: "Design motion with a more intentional visual identity, not random generations.",
+                hover: "hover:bg-violet-500/[0.10] hover:shadow-[0_0_45px_rgba(168,85,247,0.12)]",
               },
               {
                 title: "Studio Workflows",
                 desc: "Jump into focused tools for reference-to-video, image-to-video, and text generation.",
+                hover: "hover:bg-blue-500/[0.10] hover:shadow-[0_0_45px_rgba(59,130,246,0.12)]",
               },
               {
                 title: "Creator Presentation",
                 desc: "Premium outputs and a polished interface that feels closer to a real studio.",
+                hover: "hover:bg-cyan-500/[0.10] hover:shadow-[0_0_45px_rgba(34,211,238,0.12)]",
               },
-            ].map((item, i) => (
+            ].map((item) => (
               <div
                 key={item.title}
                 className={[
-                  "rounded-3xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur",
-                  i === 0
-                    ? "shadow-[0_0_50px_rgba(168,85,247,0.08)]"
-                    : i === 1
-                      ? "shadow-[0_0_50px_rgba(59,130,246,0.07)]"
-                      : "shadow-[0_0_50px_rgba(255,255,255,0.04)]",
+                  "group relative rounded-3xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur transition duration-500",
+                  "hover:-translate-y-1 hover:border-white/20",
+                  item.hover,
                 ].join(" ")}
               >
-                <div className="text-base font-semibold text-white">
-                  {item.title}
+                <Sheen />
+                <div className="relative z-10">
+                  <div className="text-base font-semibold text-white">
+                    {item.title}
+                  </div>
+                  <p className="mt-2 text-sm leading-relaxed text-white/65">
+                    {item.desc}
+                  </p>
                 </div>
-                <p className="mt-2 text-sm leading-relaxed text-white/65">
-                  {item.desc}
-                </p>
               </div>
             ))}
           </div>
@@ -1065,30 +1113,35 @@ export default function Home() {
               desc="Match a subject or style and animate with stronger consistency."
               href={TOOL_ROUTES.referenceToVideo}
               accentClass="shadow-[0_0_50px_rgba(168,85,247,0.08)]"
+              hoverAccentClass="hover:bg-violet-500/[0.12] hover:shadow-[0_0_50px_rgba(168,85,247,0.16)]"
             />
             <ToolModeCard
               title="Image to Video"
               desc="Bring still artwork to life with motion, camera, and atmosphere."
               href={TOOL_ROUTES.imageToVideo}
               accentClass="shadow-[0_0_50px_rgba(59,130,246,0.08)]"
+              hoverAccentClass="hover:bg-blue-500/[0.12] hover:shadow-[0_0_50px_rgba(59,130,246,0.16)]"
             />
             <ToolModeCard
               title="Text to Video"
               desc="Generate clips from prompt-first cinematic direction."
               href={TOOL_ROUTES.textToVideo}
               accentClass="shadow-[0_0_50px_rgba(236,72,153,0.07)]"
+              hoverAccentClass="hover:bg-fuchsia-500/[0.12] hover:shadow-[0_0_50px_rgba(236,72,153,0.15)]"
             />
             <ToolModeCard
               title="Reference to Image"
               desc="Create style-aware images with more controlled visual identity."
               href={TOOL_ROUTES.referenceToImage}
               accentClass="shadow-[0_0_50px_rgba(234,179,8,0.07)]"
+              hoverAccentClass="hover:bg-amber-400/[0.12] hover:shadow-[0_0_50px_rgba(234,179,8,0.16)]"
             />
             <ToolModeCard
               title="Text to Image"
               desc="Generate polished stills ready for concepting or animation input."
               href={TOOL_ROUTES.textToImage}
               accentClass="shadow-[0_0_50px_rgba(255,255,255,0.04)]"
+              hoverAccentClass="hover:bg-white/[0.10] hover:shadow-[0_0_50px_rgba(255,255,255,0.10)]"
             />
           </div>
         </div>
@@ -1110,17 +1163,17 @@ export default function Home() {
             <MetricCard
               value="5"
               label="Creative modes on one platform"
-              glow="shadow-[0_0_60px_rgba(168,85,247,0.08)]"
+              glow="shadow-[0_0_60px_rgba(168,85,247,0.08)] hover:shadow-[0_0_60px_rgba(168,85,247,0.16)]"
             />
             <MetricCard
               value="∞"
               label="Stylized directions you can explore"
-              glow="shadow-[0_0_60px_rgba(59,130,246,0.08)]"
+              glow="shadow-[0_0_60px_rgba(59,130,246,0.08)] hover:shadow-[0_0_60px_rgba(59,130,246,0.16)]"
             />
             <MetricCard
               value="24/7"
               label="Always-available creation workflow"
-              glow="shadow-[0_0_60px_rgba(34,211,238,0.08)]"
+              glow="shadow-[0_0_60px_rgba(34,211,238,0.08)] hover:shadow-[0_0_60px_rgba(34,211,238,0.16)]"
             />
           </div>
         </div>
@@ -1171,7 +1224,7 @@ export default function Home() {
               mediaSrc="/backgrounds/16.mp4"
               ctaHref="/tools"
               ctaLabel="Get Started"
-              glowClass="shadow-[0_0_80px_rgba(168,85,247,0.08)]"
+              glowClass="shadow-[0_0_80px_rgba(168,85,247,0.08)] hover:shadow-[0_0_90px_rgba(168,85,247,0.16)]"
               badge="Frame Control"
             />
             <FeatureCard
@@ -1180,7 +1233,7 @@ export default function Home() {
               mediaSrc="/backgrounds/7.mp4"
               ctaHref="/tools"
               ctaLabel="Get Started"
-              glowClass="shadow-[0_0_80px_rgba(59,130,246,0.08)]"
+              glowClass="shadow-[0_0_80px_rgba(59,130,246,0.08)] hover:shadow-[0_0_90px_rgba(59,130,246,0.16)]"
               badge="Animation"
             />
           </div>
@@ -1204,7 +1257,7 @@ export default function Home() {
                     desc="Dark cinematic frames with contrast, rain, glow, and pressure."
                     mediaSrc="/backgrounds/12.mp4"
                     badge="Atmosphere"
-                    glowClass="shadow-[0_0_70px_rgba(168,85,247,0.08)]"
+                    glowClass="shadow-[0_0_70px_rgba(168,85,247,0.08)] hover:shadow-[0_0_80px_rgba(168,85,247,0.16)]"
                     tall
                   />
                   <BentoCard
@@ -1212,28 +1265,28 @@ export default function Home() {
                     desc="Bring static illustrations into elegant motion without losing style."
                     mediaSrc="/backgrounds/14.mp4"
                     badge="Motion"
-                    glowClass="shadow-[0_0_70px_rgba(59,130,246,0.08)]"
+                    glowClass="shadow-[0_0_70px_rgba(59,130,246,0.08)] hover:shadow-[0_0_80px_rgba(59,130,246,0.16)]"
                   />
                   <BentoCard
                     title="Scene Reveal"
                     desc="Use subtle camera drift and staged composition for drama."
                     mediaSrc="/backgrounds/17.mp4"
                     badge="Camera"
-                    glowClass="shadow-[0_0_70px_rgba(34,211,238,0.08)]"
+                    glowClass="shadow-[0_0_70px_rgba(34,211,238,0.08)] hover:shadow-[0_0_80px_rgba(34,211,238,0.16)]"
                   />
                   <BentoCard
                     title="Character Presence"
                     desc="Maintain stronger subject identity while pushing cinematic framing."
                     mediaSrc="/backgrounds/6.mp4"
                     badge="Character"
-                    glowClass="shadow-[0_0_70px_rgba(236,72,153,0.08)]"
+                    glowClass="shadow-[0_0_70px_rgba(236,72,153,0.08)] hover:shadow-[0_0_80px_rgba(236,72,153,0.16)]"
                   />
                   <BentoCard
                     title="Fantasy Energy"
                     desc="Use color, movement, and spatial depth for high-impact scenes."
                     mediaSrc="/backgrounds/2.mp4"
                     badge="Style"
-                    glowClass="shadow-[0_0_70px_rgba(250,204,21,0.08)]"
+                    glowClass="shadow-[0_0_70px_rgba(250,204,21,0.08)] hover:shadow-[0_0_80px_rgba(250,204,21,0.16)]"
                   />
                 </div>
               </div>
@@ -1296,25 +1349,25 @@ export default function Home() {
                 step: "01",
                 title: "Choose a mode",
                 desc: "Start from reference, image, or text depending on how much direction you already have.",
-                glow: "shadow-[0_0_60px_rgba(168,85,247,0.08)]",
+                glow: "shadow-[0_0_60px_rgba(168,85,247,0.08)] hover:shadow-[0_0_70px_rgba(168,85,247,0.16)]",
               },
               {
                 step: "02",
                 title: "Shape the look",
                 desc: "Define mood, framing, motion type, and aesthetic intent for stronger results.",
-                glow: "shadow-[0_0_60px_rgba(59,130,246,0.08)]",
+                glow: "shadow-[0_0_60px_rgba(59,130,246,0.08)] hover:shadow-[0_0_70px_rgba(59,130,246,0.16)]",
               },
               {
                 step: "03",
                 title: "Generate iterations",
                 desc: "Explore multiple passes until the pacing, energy, and atmosphere feel right.",
-                glow: "shadow-[0_0_60px_rgba(236,72,153,0.08)]",
+                glow: "shadow-[0_0_60px_rgba(236,72,153,0.08)] hover:shadow-[0_0_70px_rgba(236,72,153,0.16)]",
               },
               {
                 step: "04",
                 title: "Present your clip",
                 desc: "Export work that feels polished, cinematic, and ready to show on your platform.",
-                glow: "shadow-[0_0_60px_rgba(34,211,238,0.08)]",
+                glow: "shadow-[0_0_60px_rgba(34,211,238,0.08)] hover:shadow-[0_0_70px_rgba(34,211,238,0.16)]",
               },
             ]}
           />
@@ -1368,10 +1421,11 @@ export default function Home() {
 
       <section className="relative pb-24 pt-8">
         <div className="mx-auto w-full max-w-7xl px-6">
-          <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-[0_40px_140px_rgba(0,0,0,0.55)] backdrop-blur">
+          <div className="group relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-[0_40px_140px_rgba(0,0,0,0.55)] backdrop-blur transition duration-500 hover:border-white/20 hover:shadow-[0_55px_180px_rgba(0,0,0,0.68)]">
+            <Sheen />
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.16),transparent_32%),radial-gradient(circle_at_left,rgba(168,85,247,0.15),transparent_30%)]" />
             <video
-              className="h-[300px] w-full object-cover md:h-[360px]"
+              className="h-[300px] w-full object-cover transition duration-700 group-hover:scale-[1.03] md:h-[360px]"
               src="/backgrounds/15.mp4"
               autoPlay
               loop
@@ -1395,7 +1449,7 @@ export default function Home() {
                 </p>
                 <AuthCTAButton
                   href={TOOL_ROUTES.referenceToVideo}
-                  className="mt-6 border-0 bg-blue-600 shadow-[0_0_40px_rgba(37,99,235,0.30)] hover:bg-blue-500"
+                  className="mt-6 border-0 bg-blue-600 shadow-[0_0_40px_rgba(37,99,235,0.30)] hover:bg-blue-500 hover:shadow-[0_0_60px_rgba(37,99,235,0.42)]"
                 >
                   Try it now
                 </AuthCTAButton>
@@ -1407,19 +1461,33 @@ export default function Home() {
             <GlowDivider />
           </div>
 
-          <div className="mt-10 flex items-center justify-between text-sm text-white/50">
-            <span>© {new Date().getFullYear()} KOANimation</span>
-            <div className="flex gap-4">
-              <a className="hover:text-white/80" href="#features">
+          <div className="mt-10 grid gap-4 md:grid-cols-[1fr_auto] md:items-center">
+            <span className="text-sm text-white/50">
+              © {new Date().getFullYear()} KOANimation
+            </span>
+            <div className="flex flex-wrap gap-3 text-sm text-white/50">
+              <a
+                className="rounded-full px-3 py-1 transition duration-300 hover:bg-white/5 hover:text-white/80"
+                href="#features"
+              >
                 Features
               </a>
-              <a className="hover:text-white/80" href="#resources">
+              <a
+                className="rounded-full px-3 py-1 transition duration-300 hover:bg-white/5 hover:text-white/80"
+                href="#resources"
+              >
                 FAQ
               </a>
-              <Link className="hover:text-white/80" href="/pricing">
+              <Link
+                className="rounded-full px-3 py-1 transition duration-300 hover:bg-white/5 hover:text-white/80"
+                href="/pricing"
+              >
                 Pricing
               </Link>
-              <Link className="hover:text-white/80" href="/roadmap">
+              <Link
+                className="rounded-full px-3 py-1 transition duration-300 hover:bg-white/5 hover:text-white/80"
+                href="/roadmap"
+              >
                 Roadmap
               </Link>
             </div>

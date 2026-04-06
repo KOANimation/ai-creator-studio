@@ -3,6 +3,14 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import {
+  BadgeHelp,
+  CreditCard,
+  CircleAlert,
+  RefreshCw,
+  Wallet,
+  ChevronDown,
+} from "lucide-react";
 import { createClient } from "@/app/lib/supabase/client";
 
 type PlanKey = "essential" | "advanced" | "infinite" | "wonder";
@@ -25,18 +33,22 @@ const FAQS = [
   {
     q: "How to Subscribe?",
     a: "Choose a plan, click Subscribe, and complete checkout. Your credits refresh based on your plan cycle.",
+    icon: CreditCard,
   },
   {
     q: "Why Can't I Subscribe?",
     a: "Most common reasons: payment method blocked, region restrictions, or an existing subscription still active.",
+    icon: CircleAlert,
   },
   {
     q: "Will I Be Automatically Charged by KOANimation?",
     a: "Subscriptions renew automatically until cancelled.",
+    icon: RefreshCw,
   },
   {
     q: "Can I Get a Refund?",
     a: "Refunds should generally only apply to billing errors, not already consumed credits.",
+    icon: Wallet,
   },
 ];
 
@@ -877,7 +889,7 @@ export default function PricingClient() {
 
           <div className="mt-10 overflow-hidden rounded-3xl border border-white/10 bg-black/16 backdrop-blur-xl">
             <div className="grid grid-cols-1 gap-px bg-white/10 md:grid-cols-5">
-              <div className="bg-black/40 p-8 md:col-span-1">
+              <div className="bg-black/40 p-8">
                 <div className="text-2xl font-semibold">Credits</div>
               </div>
 
@@ -944,32 +956,53 @@ export default function PricingClient() {
             Frequently Asked Questions
           </h2>
 
-          <div className="mt-12 divide-y divide-white/10 rounded-3xl border border-white/10 bg-black/16 backdrop-blur-xl">
+          <div className="mt-12 overflow-hidden rounded-3xl border border-white/10 bg-black/16 backdrop-blur-xl">
             {FAQS.map((f, i) => {
               const open = faqOpen === i;
+              const Icon = f.icon ?? BadgeHelp;
+
               return (
                 <button
                   key={f.q}
                   onClick={() => setFaqOpen(open ? null : i)}
-                  className="w-full px-6 py-6 text-left transition hover:bg-white/[0.03]"
+                  className="group w-full border-b border-white/10 px-6 py-6 text-left transition last:border-b-0 hover:bg-white/[0.03]"
                 >
                   <div className="flex items-center justify-between gap-6">
-                    <div className="flex items-center gap-3">
-                      <span className="grid h-8 w-8 place-items-center rounded-full border border-white/15 bg-white/[0.02] text-white/80">
-                        #
+                    <div className="flex items-center gap-4">
+                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/15 bg-white/[0.03] text-white/80 shadow-[0_0_20px_rgba(255,255,255,0.04)]">
+                        <Icon size={18} strokeWidth={1.9} />
                       </span>
-                      <span className="text-lg font-semibold">{f.q}</span>
+                      <span className="text-lg font-semibold text-white/92">
+                        {f.q}
+                      </span>
                     </div>
-                    <span className="text-2xl leading-none text-white/60">
-                      {open ? "˄" : "˅"}
+
+                    <span
+                      className={[
+                        "shrink-0 rounded-full border border-white/10 bg-white/[0.03] p-2 text-white/60 transition duration-300",
+                        open
+                          ? "rotate-180 text-white"
+                          : "group-hover:text-white/85",
+                      ].join(" ")}
+                    >
+                      <ChevronDown size={18} strokeWidth={2} />
                     </span>
                   </div>
 
-                  {open ? (
-                    <div className="mt-4 text-sm leading-relaxed text-white/65">
-                      {f.a}
+                  <div
+                    className={[
+                      "grid transition-all duration-300 ease-out",
+                      open
+                        ? "mt-4 grid-rows-[1fr] opacity-100"
+                        : "grid-rows-[0fr] opacity-0",
+                    ].join(" ")}
+                  >
+                    <div className="overflow-hidden">
+                      <div className="pr-14 text-sm leading-relaxed text-white/65">
+                        {f.a}
+                      </div>
                     </div>
-                  ) : null}
+                  </div>
                 </button>
               );
             })}
