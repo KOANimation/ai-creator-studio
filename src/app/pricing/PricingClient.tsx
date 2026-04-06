@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/app/lib/supabase/client";
 
-type PlanKey = "standard" | "premium" | "ultimate" | "enterprise";
+type PlanKey = "essential" | "advanced" | "infinite" | "wonder";
 
 type CurrentSubscription = {
   currentPlan: PlanKey | null;
@@ -15,10 +15,10 @@ type CurrentSubscription = {
 };
 
 const PLAN_PRICES: Record<PlanKey, number> = {
-  standard: 8,
-  premium: 16,
-  ultimate: 28,
-  enterprise: 120,
+  essential: 14,
+  advanced: 29,
+  infinite: 56,
+  wonder: 120,
 };
 
 const FAQS = [
@@ -112,15 +112,41 @@ function WallpaperRevealBackground({
   );
 }
 
-function mapPlanKeyToStripePlan(planKey: PlanKey) {
-  switch (planKey) {
+function normalizePlanKey(value: string | null | undefined): PlanKey | null {
+  if (!value) return null;
+
+  switch (value.toLowerCase()) {
+    case "essential":
     case "standard":
       return "essential";
+
+    case "advanced":
     case "premium":
       return "advanced";
+
+    case "infinite":
     case "ultimate":
       return "infinite";
+
+    case "wonder":
+    case "studio":
     case "enterprise":
+      return "wonder";
+
+    default:
+      return null;
+  }
+}
+
+function mapPlanKeyToStripePlan(planKey: PlanKey) {
+  switch (planKey) {
+    case "essential":
+      return "essential";
+    case "advanced":
+      return "advanced";
+    case "infinite":
+      return "infinite";
+    case "wonder":
       return "studio";
     default:
       return null;
@@ -133,14 +159,14 @@ function getPricingPath(plan: PlanKey) {
 
 function getPlanDisplayName(plan: PlanKey | null) {
   switch (plan) {
-    case "standard":
-      return "Essential";
-    case "premium":
-      return "Advanced";
-    case "ultimate":
-      return "Infinite";
-    case "enterprise":
-      return "Studio";
+    case "essential":
+      return "Essential Plan";
+    case "advanced":
+      return "Advanced Plan";
+    case "infinite":
+      return "Infinite Plan";
+    case "wonder":
+      return "Wonder Plan";
     default:
       return null;
   }
@@ -168,7 +194,7 @@ export default function PricingClient() {
   const searchParams = useSearchParams();
   const supabase = createClient();
 
-  const [selectedPlan, setSelectedPlan] = useState<PlanKey>("premium");
+  const [selectedPlan, setSelectedPlan] = useState<PlanKey>("advanced");
   const [faqOpen, setFaqOpen] = useState<number | null>(null);
   const [isAuthed, setIsAuthed] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -201,7 +227,7 @@ export default function PricingClient() {
       }
 
       setCurrentSubscription({
-        currentPlan: data.currentPlan ?? null,
+        currentPlan: normalizePlanKey(data.currentPlan),
         status: data.status ?? null,
         currentPeriodEnd: data.currentPeriodEnd ?? null,
         cancelAtPeriodEnd: data.cancelAtPeriodEnd ?? false,
@@ -217,14 +243,8 @@ export default function PricingClient() {
   };
 
   useEffect(() => {
-    const planParam = searchParams.get("plan");
-
-    if (
-      planParam === "standard" ||
-      planParam === "premium" ||
-      planParam === "ultimate" ||
-      planParam === "enterprise"
-    ) {
+    const planParam = normalizePlanKey(searchParams.get("plan"));
+    if (planParam) {
       setSelectedPlan(planParam);
     }
   }, [searchParams]);
@@ -408,9 +428,9 @@ export default function PricingClient() {
   const plans = useMemo(
     () => [
       {
-        key: "standard" as const,
-        name: "Essential",
-        price: 8,
+        key: "essential" as const,
+        name: "Essential Plan",
+        price: 14,
         suffix: "/ month",
         sub: "Monthly subscription",
         buttonStyle:
@@ -430,9 +450,9 @@ export default function PricingClient() {
         ],
       },
       {
-        key: "premium" as const,
-        name: "Advanced",
-        price: 16,
+        key: "advanced" as const,
+        name: "Advanced Plan",
+        price: 29,
         suffix: "/ month",
         sub: "Monthly subscription",
         buttonStyle:
@@ -452,9 +472,9 @@ export default function PricingClient() {
         ],
       },
       {
-        key: "ultimate" as const,
-        name: "Infinite",
-        price: 28,
+        key: "infinite" as const,
+        name: "Infinite Plan",
+        price: 56,
         suffix: "/ month",
         sub: "Monthly subscription",
         buttonStyle:
@@ -475,8 +495,8 @@ export default function PricingClient() {
         ],
       },
       {
-        key: "enterprise" as const,
-        name: "Studio",
+        key: "wonder" as const,
+        name: "Wonder Plan",
         price: 120,
         suffix: "/ month",
         sub: "Monthly subscription",
@@ -502,10 +522,10 @@ export default function PricingClient() {
 
   const comparePlans = useMemo(
     () => [
-      { key: "standard" as const, name: "Essential", price: 8 },
-      { key: "premium" as const, name: "Advanced", price: 16 },
-      { key: "ultimate" as const, name: "Infinite", price: 28 },
-      { key: "enterprise" as const, name: "Studio", price: 120 },
+      { key: "essential" as const, name: "Essential Plan", price: 14 },
+      { key: "advanced" as const, name: "Advanced Plan", price: 29 },
+      { key: "infinite" as const, name: "Infinite Plan", price: 56 },
+      { key: "wonder" as const, name: "Wonder Plan", price: 120 },
     ],
     []
   );
@@ -788,11 +808,11 @@ export default function PricingClient() {
                       disabled={isCurrent || isLoading}
                       className={[
                         "mt-6 w-full rounded-xl px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60",
-                        c.name === "Essential"
+                        c.name === "Essential Plan"
                           ? "bg-[#9CC5FF] text-black hover:brightness-95"
-                          : c.name === "Advanced"
+                          : c.name === "Advanced Plan"
                             ? "bg-[#EAD39A] text-black hover:brightness-95"
-                            : c.name === "Infinite"
+                            : c.name === "Infinite Plan"
                               ? "bg-[#CDB7FF] text-black hover:brightness-95"
                               : "bg-[#53D6FF] text-black hover:brightness-95",
                       ].join(" ")}
