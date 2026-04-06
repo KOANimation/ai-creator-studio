@@ -1,20 +1,20 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/app/lib/supabase/server";
 
-type PlanKey = "standard" | "premium" | "ultimate" | "enterprise" | null;
+type PlanKey = "essential" | "advanced" | "infinite" | "wonder" | null;
 
 function getPlanKeyFromPriceId(priceId: string | null | undefined): PlanKey {
   if (!priceId) return null;
 
   switch (priceId) {
     case process.env.STRIPE_PRICE_ESSENTIAL_MONTHLY:
-      return "standard";
+      return "essential";
     case process.env.STRIPE_PRICE_ADVANCED_MONTHLY:
-      return "premium";
+      return "advanced";
     case process.env.STRIPE_PRICE_INFINITE_MONTHLY:
-      return "ultimate";
+      return "infinite";
     case process.env.STRIPE_PRICE_STUDIO_MONTHLY:
-      return "enterprise";
+      return "wonder";
     default:
       return null;
   }
