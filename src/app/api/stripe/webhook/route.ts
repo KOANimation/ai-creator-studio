@@ -69,8 +69,8 @@ function getSubscriptionCurrentPeriodEndIso(
     typeof itemPeriodEnd === "number"
       ? itemPeriodEnd
       : typeof directPeriodEnd === "number"
-      ? directPeriodEnd
-      : null;
+        ? directPeriodEnd
+        : null;
 
   if (periodEndUnix === null) {
     return null;
@@ -187,7 +187,7 @@ function getInvoiceSubscriptionId(invoice: Stripe.Invoice): string | null {
   return null;
 }
 
-async function grantCreditsFromInvoice(
+async function applySubscriptionCreditsFromInvoice(
   invoice: Stripe.Invoice,
   eventLivemode: boolean
 ): Promise<void> {
@@ -249,21 +249,42 @@ async function grantCreditsFromInvoice(
     return;
   }
 
+  const invoiceAny = invoice as Stripe.Invoice & {
+    billing_reason?: string | null;
+  };
+
+  const billingReason =
+    typeof invoiceAny.billing_reason === "string"
+      ? invoiceAny.billing_reason
+      : null;
+
+  const isRenewal = billingReason === "subscription_cycle";
   const referenceKey = `invoice_${invoice.id}`;
 
-  const { error: grantError } = await supabase.rpc("grant_credits_safe", {
-    p_user_id: userId,
-    p_amount: credits,
-    p_source: "subscription",
-    p_reference_key: referenceKey,
-  });
+  const { error: applyError } = await supabase.rpc(
+    "apply_subscription_credits",
+    {
+      p_user_id: userId,
+      p_new_allowance: credits,
+      p_reference_key: referenceKey,
+      p_is_renewal: isRenewal,
+    }
+  );
 
-  if (grantError) {
-    console.error("Grant credits failed:", grantError);
-    throw new Error(grantError.message || "Failed to grant credits");
+  if (applyError) {
+    console.error("Apply subscription credits failed:", applyError);
+    throw new Error(
+      applyError.message || "Failed to apply subscription credits"
+    );
   }
 
-  console.log("Credits granted successfully for invoice:", invoice.id);
+  console.log("Subscription credits applied successfully for invoice:", {
+    invoiceId: invoice.id,
+    userId,
+    credits,
+    billingReason,
+    isRenewal,
+  });
 }
 
 async function handleInvoicePaymentPaid(
@@ -279,11 +300,11 @@ async function handleInvoicePaymentPaid(
     typeof linkedInvoice === "string"
       ? linkedInvoice
       : linkedInvoice &&
-        typeof linkedInvoice === "object" &&
-        "id" in linkedInvoice &&
-        typeof (linkedInvoice as { id?: unknown }).id === "string"
-      ? (linkedInvoice as { id: string }).id
-      : null;
+          typeof linkedInvoice === "object" &&
+          "id" in linkedInvoice &&
+          typeof (linkedInvoice as { id?: unknown }).id === "string"
+        ? (linkedInvoice as { id: string }).id
+        : null;
 
   console.log("Resolved invoice id from invoice_payment.paid:", invoiceId);
 
@@ -296,7 +317,7 @@ async function handleInvoicePaymentPaid(
   }
 
   const invoice = await stripe.invoices.retrieve(invoiceId);
-  await grantCreditsFromInvoice(invoice, eventLivemode);
+  await applySubscriptionCreditsFromInvoice(invoice, eventLivemode);
 }
 
 export async function POST(req: Request) {
@@ -336,7 +357,7 @@ export async function POST(req: Request) {
 
       case "invoice.paid": {
         const invoice = event.data.object as Stripe.Invoice;
-        await grantCreditsFromInvoice(invoice, event.livemode);
+        await applySubscriptionCreditsFromInvoice(invoice, event.livemode);
         break;
       }
 
