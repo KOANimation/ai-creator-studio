@@ -2,7 +2,14 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useRouter } from "next/navigation";
 import Particles from "react-tsparticles";
 import type { Engine } from "tsparticles-engine";
@@ -26,9 +33,15 @@ import {
   Sparkles,
   Wand2,
   Zap,
+  Play,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
+import gsap from "gsap";
+import useEmblaCarousel from "embla-carousel-react";
+import Marquee from "react-fast-marquee";
+import Balancer from "react-wrap-balancer";
+import useMeasure from "react-use-measure";
 
 function cn(...inputs: Array<string | undefined | false | null>) {
   return twMerge(clsx(inputs));
@@ -70,7 +83,7 @@ function SectionEyebrow({
   dotClass = "bg-violet-400/80 shadow-[0_0_12px_rgba(168,85,247,0.7)]",
 }: {
   label: string;
-  icon?: React.ReactNode;
+  icon?: ReactNode;
   dotClass?: string;
 }) {
   return (
@@ -112,7 +125,7 @@ function Reveal({
   y = 28,
   once = true,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
   className?: string;
   delay?: number;
   y?: number;
@@ -164,7 +177,7 @@ function AuthCTAButton({
   className = "",
 }: {
   href: string;
-  children: React.ReactNode;
+  children: ReactNode;
   className?: string;
 }) {
   const go = useAuthNavigate();
@@ -190,7 +203,7 @@ function GlassCard({
   className = "",
   hover = true,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
   className?: string;
   hover?: boolean;
 }) {
@@ -343,61 +356,93 @@ function FloatingOrbs() {
   );
 }
 
-function VideoCarousel({
+function EmblaVideoCarousel({
   items,
-  initialIndex = 0,
+  title,
+  large = false,
 }: {
   items: { title: string; src: string }[];
-  initialIndex?: number;
+  title: string;
+  large?: boolean;
 }) {
-  const [idx, setIdx] = useState(initialIndex);
-  const active = items[idx];
+  const [emblaRef, emblaApi] = useEmblaCarousel({
+    loop: true,
+    align: "center",
+  });
+  const [selectedIndex, setSelectedIndex] = useState(0);
 
-  const prev = () => setIdx((i) => (i - 1 + items.length) % items.length);
-  const next = () => setIdx((i) => (i + 1) % items.length);
-  const at = (i: number) => (i + items.length) % items.length;
+  const onSelect = useCallback(() => {
+    if (!emblaApi) return;
+    setSelectedIndex(emblaApi.selectedScrollSnap());
+  }, [emblaApi]);
+
+  useEffect(() => {
+    if (!emblaApi) return;
+    onSelect();
+    emblaApi.on("select", onSelect);
+    return () => {
+      emblaApi.off("select", onSelect);
+    };
+  }, [emblaApi, onSelect]);
+
+  const scrollPrev = () => emblaApi?.scrollPrev();
+  const scrollNext = () => emblaApi?.scrollNext();
+  const active = items[selectedIndex] ?? items[0];
 
   return (
     <div className="relative">
-      <div className="relative mx-auto w-full max-w-5xl">
+      <div className="relative mx-auto w-full max-w-6xl">
         <GlassCard className="overflow-hidden">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(168,85,247,0.18),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(59,130,246,0.15),transparent_30%)]" />
-          <video
-            key={active.src}
-            className="h-[260px] w-full object-cover transition duration-700 group-hover:scale-[1.02] sm:h-[360px] md:h-[460px]"
-            src={active.src}
-            autoPlay
-            loop
-            muted
-            playsInline
-            preload="metadata"
-          />
 
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(255,255,255,0.06)_0%,rgba(0,0,0,0.55)_62%,rgba(0,0,0,0.88)_100%)]" />
-
-          <div className="pointer-events-none absolute left-5 top-5 z-20 rounded-full border border-white/10 bg-black/35 px-3 py-1 text-xs font-medium text-white/70 backdrop-blur">
-            Reference-to-Video Showcase
+          <div className="overflow-hidden" ref={emblaRef}>
+            <div className="flex">
+              {items.map((item) => (
+                <div key={item.src} className="min-w-0 flex-[0_0_100%]">
+                  <video
+                    className={cn(
+                      "w-full object-cover transition duration-700 group-hover:scale-[1.02]",
+                      large
+                        ? "h-[340px] sm:h-[440px] md:h-[520px]"
+                        : "h-[260px] sm:h-[360px] md:h-[460px]"
+                    )}
+                    src={item.src}
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    preload="metadata"
+                  />
+                </div>
+              ))}
+            </div>
           </div>
 
-          <div className="pointer-events-none absolute bottom-5 left-1/2 z-20 w-[min(92%,560px)] -translate-x-1/2">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(255,255,255,0.05)_0%,rgba(0,0,0,0.52)_62%,rgba(0,0,0,0.88)_100%)]" />
+
+          <div className="pointer-events-none absolute left-5 top-5 z-20 rounded-full border border-white/10 bg-black/35 px-3 py-1 text-xs font-medium text-white/70 backdrop-blur">
+            {title}
+          </div>
+
+          <div className="pointer-events-none absolute bottom-6 left-1/2 z-20 w-[min(92%,620px)] -translate-x-1/2">
             <div className="pointer-events-auto flex items-center justify-center gap-3 rounded-2xl border border-white/10 bg-black/45 px-3 py-3 shadow-[0_20px_80px_rgba(0,0,0,0.55)] backdrop-blur">
-              {[at(idx - 1), at(idx), at(idx + 1)].map((realIndex) => {
-                const isActive = realIndex === idx;
+              {items.map((item, index) => {
+                const isActive = index === selectedIndex;
                 return (
                   <button
-                    key={items[realIndex].src}
-                    onClick={() => setIdx(realIndex)}
-                    aria-label={`Select ${items[realIndex].title}`}
+                    key={item.src}
+                    onClick={() => emblaApi?.scrollTo(index)}
+                    aria-label={`Select ${item.title}`}
                     className={cn(
                       "relative overflow-hidden rounded-xl border transition duration-300 focus:outline-none focus:ring-2 focus:ring-white/20",
                       isActive
                         ? "border-white/25 ring-1 ring-white/15 shadow-[0_0_20px_rgba(255,255,255,0.08)]"
-                        : "border-white/10 hover:border-white/20 hover:shadow-[0_0_20px_rgba(168,85,247,0.12)]"
+                        : "border-white/10 hover:border-white/20"
                     )}
                   >
                     <video
-                      className="h-14 w-24 object-cover transition duration-500 hover:scale-105 sm:h-16 sm:w-28"
-                      src={items[realIndex].src}
+                      className="h-14 w-24 object-cover sm:h-16 sm:w-28"
+                      src={item.src}
                       autoPlay
                       loop
                       muted
@@ -414,132 +459,23 @@ function VideoCarousel({
 
         <button
           aria-label="Previous"
-          onClick={prev}
-          className="absolute left-2 top-1/2 z-30 -translate-y-1/2 rounded-full border border-white/10 bg-black/45 p-3 text-white/90 shadow-[0_18px_70px_rgba(0,0,0,0.55)] backdrop-blur transition duration-300 hover:scale-105 hover:bg-black/60 hover:shadow-[0_0_30px_rgba(168,85,247,0.14)] focus:outline-none focus:ring-2 focus:ring-white/20 md:-left-10 md:p-4"
+          onClick={scrollPrev}
+          className="absolute left-2 top-1/2 z-30 -translate-y-1/2 rounded-full border border-white/10 bg-black/45 p-3 text-white/90 shadow-[0_18px_70px_rgba(0,0,0,0.55)] backdrop-blur transition duration-300 hover:scale-105 hover:bg-black/60 md:-left-10 md:p-4"
         >
           <ChevronLeft className="h-6 w-6 md:h-7 md:w-7" />
         </button>
 
         <button
           aria-label="Next"
-          onClick={next}
-          className="absolute right-2 top-1/2 z-30 -translate-y-1/2 rounded-full border border-white/10 bg-black/45 p-3 text-white/90 shadow-[0_18px_70px_rgba(0,0,0,0.55)] backdrop-blur transition duration-300 hover:scale-105 hover:bg-black/60 hover:shadow-[0_0_30px_rgba(59,130,246,0.14)] focus:outline-none focus:ring-2 focus:ring-white/20 md:-right-10 md:p-4"
+          onClick={scrollNext}
+          className="absolute right-2 top-1/2 z-30 -translate-y-1/2 rounded-full border border-white/10 bg-black/45 p-3 text-white/90 shadow-[0_18px_70px_rgba(0,0,0,0.55)] backdrop-blur transition duration-300 hover:scale-105 hover:bg-black/60 md:-right-10 md:p-4"
         >
           <ChevronRight className="h-6 w-6 md:h-7 md:w-7" />
         </button>
 
         <div className="mt-5 text-center text-white/65">
-          <span className="text-sm">{active.title}</span>
+          <span className="text-sm">{active?.title}</span>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function ImageToVideoCarousel({
-  items,
-  initialIndex = 0,
-}: {
-  items: { title: string; src: string }[];
-  initialIndex?: number;
-}) {
-  const [idx, setIdx] = useState(initialIndex);
-  const active = items[idx];
-
-  const prev = () => setIdx((i) => (i - 1 + items.length) % items.length);
-  const next = () => setIdx((i) => (i + 1) % items.length);
-
-  const leftThumb = items[(idx - 1 + items.length) % items.length];
-  const rightThumb = items[(idx + 1) % items.length];
-
-  return (
-    <div className="relative">
-      <div className="relative mx-auto w-full max-w-6xl">
-        <GlassCard className="overflow-hidden">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.16),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.16),transparent_28%)]" />
-          <video
-            key={active.src}
-            className="h-[340px] w-full object-cover transition duration-700 group-hover:scale-[1.02] sm:h-[440px] md:h-[520px]"
-            src={active.src}
-            autoPlay
-            loop
-            muted
-            playsInline
-            preload="metadata"
-          />
-
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,rgba(255,255,255,0.035)_0%,rgba(0,0,0,0.46)_58%,rgba(0,0,0,0.90)_100%)]" />
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/60 to-transparent" />
-
-          <div className="pointer-events-none absolute left-5 top-5 z-20 rounded-full border border-white/10 bg-black/35 px-3 py-1 text-xs font-medium text-white/70 backdrop-blur">
-            Image-to-Video Showcase
-          </div>
-
-          <div className="pointer-events-none absolute bottom-6 right-7 text-sm font-semibold tracking-tight text-white/35">
-            KOANimation
-          </div>
-
-          <div className="pointer-events-none absolute bottom-6 left-1/2 z-20 w-[min(92%,520px)] -translate-x-1/2">
-            <div className="pointer-events-auto flex items-center justify-center gap-4 rounded-[18px] border border-white/10 bg-black/50 px-4 py-3 shadow-[0_22px_95px_rgba(0,0,0,0.62)] backdrop-blur">
-              <button
-                onClick={prev}
-                aria-label="Select previous"
-                className="relative overflow-hidden rounded-xl border border-white/10 transition duration-300 hover:border-white/20 hover:shadow-[0_0_20px_rgba(168,85,247,0.12)] focus:outline-none focus:ring-2 focus:ring-white/20"
-              >
-                <video
-                  className="h-[58px] w-[132px] object-cover transition duration-500 hover:scale-105"
-                  src={leftThumb.src}
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  preload="metadata"
-                />
-                <div className="pointer-events-none absolute inset-0 bg-black/15" />
-              </button>
-
-              <div className="flex items-center gap-0.5 text-white/35">
-                <ChevronRight className="h-5 w-5" />
-                <ChevronRight className="h-5 w-5" />
-                <ChevronRight className="h-5 w-5" />
-                <ChevronRight className="h-5 w-5" />
-              </div>
-
-              <button
-                onClick={next}
-                aria-label="Select next"
-                className="relative overflow-hidden rounded-xl border border-white/10 transition duration-300 hover:border-white/20 hover:shadow-[0_0_20px_rgba(59,130,246,0.12)] focus:outline-none focus:ring-2 focus:ring-white/20"
-              >
-                <video
-                  className="h-[58px] w-[132px] object-cover transition duration-500 hover:scale-105"
-                  src={rightThumb.src}
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  preload="metadata"
-                />
-                <div className="pointer-events-none absolute inset-0 bg-black/15" />
-              </button>
-            </div>
-          </div>
-        </GlassCard>
-
-        <button
-          aria-label="Previous"
-          onClick={prev}
-          className="absolute left-2 top-1/2 z-30 -translate-y-1/2 rounded-full border border-white/10 bg-black/45 p-3 text-white/90 shadow-[0_18px_70px_rgba(0,0,0,0.55)] backdrop-blur transition duration-300 hover:scale-105 hover:bg-black/60 hover:shadow-[0_0_30px_rgba(168,85,247,0.14)] focus:outline-none focus:ring-2 focus:ring-white/20 md:-left-12 md:p-4"
-        >
-          <ChevronLeft className="h-6 w-6 md:h-7 md:w-7" />
-        </button>
-
-        <button
-          aria-label="Next"
-          onClick={next}
-          className="absolute right-2 top-1/2 z-30 -translate-y-1/2 rounded-full border border-white/10 bg-black/45 p-3 text-white/90 shadow-[0_18px_70px_rgba(0,0,0,0.55)] backdrop-blur transition duration-300 hover:scale-105 hover:bg-black/60 hover:shadow-[0_0_30px_rgba(59,130,246,0.14)] focus:outline-none focus:ring-2 focus:ring-white/20 md:-right-12 md:p-4"
-        >
-          <ChevronRight className="h-6 w-6 md:h-7 md:w-7" />
-        </button>
       </div>
     </div>
   );
@@ -556,7 +492,7 @@ function ToolModeCard({
   desc: string;
   href: string;
   accentClass: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
 }) {
   const go = useAuthNavigate();
 
@@ -736,6 +672,8 @@ function FAQItem({
   open: boolean;
   onToggle: () => void;
 }) {
+  const [measureRef, bounds] = useMeasure();
+
   return (
     <button
       onClick={onToggle}
@@ -749,22 +687,28 @@ function FAQItem({
           {open ? "–" : "+"}
         </span>
       </div>
-      {open && (
-        <div className="mt-3 text-sm leading-relaxed text-white/70">{a}</div>
-      )}
+
+      <div
+        className="overflow-hidden transition-[height,opacity,margin] duration-300"
+        style={{
+          height: open ? bounds.height : 0,
+          opacity: open ? 1 : 0,
+          marginTop: open ? 12 : 0,
+        }}
+      >
+        <div ref={measureRef} className="text-sm leading-relaxed text-white/70">
+          {a}
+        </div>
+      </div>
     </button>
   );
 }
 
 function MarqueeRow({ items }: { items: string[] }) {
-  const doubled = [...items, ...items];
-
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/25 py-3 backdrop-blur">
-      <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-24 bg-gradient-to-r from-black/90 to-transparent" />
-      <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-24 bg-gradient-to-l from-black/90 to-transparent" />
-      <div className="animate-[marquee_28s_linear_infinite] whitespace-nowrap">
-        {doubled.map((item, i) => (
+    <div className="overflow-hidden rounded-2xl border border-white/10 bg-black/25 py-3 backdrop-blur">
+      <Marquee speed={34} gradient={false} pauseOnHover>
+        {items.concat(items).map((item, i) => (
           <span
             key={`${item}-${i}`}
             className="mx-3 inline-flex rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-white/70 transition duration-300 hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
@@ -772,17 +716,7 @@ function MarqueeRow({ items }: { items: string[] }) {
             {item}
           </span>
         ))}
-      </div>
-      <style jsx>{`
-        @keyframes marquee {
-          0% {
-            transform: translateX(0%);
-          }
-          100% {
-            transform: translateX(-50%);
-          }
-        }
-      `}</style>
+      </Marquee>
     </div>
   );
 }
@@ -818,7 +752,7 @@ function StudioTimeline({
 function HoverSpotlightSection({
   children,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [style, setStyle] = useState<React.CSSProperties>({});
@@ -897,6 +831,43 @@ export default function Home() {
 
   const particlesInit = useCallback(async (engine: Engine) => {
     await loadSlim(engine);
+  }, []);
+
+  const heroRef = useRef<HTMLDivElement | null>(null);
+  const heroBadgeRef = useRef<HTMLDivElement | null>(null);
+  const heroTitleRef = useRef<HTMLHeadingElement | null>(null);
+  const heroTextRef = useRef<HTMLParagraphElement | null>(null);
+  const heroButtonsRef = useRef<HTMLDivElement | null>(null);
+  const heroChipsRef = useRef<HTMLDivElement | null>(null);
+  const heroPreviewRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      gsap.set(
+        [
+          heroBadgeRef.current,
+          heroTitleRef.current,
+          heroTextRef.current,
+          heroButtonsRef.current,
+          heroChipsRef.current,
+          heroPreviewRef.current,
+        ],
+        {
+          opacity: 0,
+          y: 28,
+        }
+      );
+
+      const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
+      tl.to(heroBadgeRef.current, { opacity: 1, y: 0, duration: 0.55 })
+        .to(heroTitleRef.current, { opacity: 1, y: 0, duration: 0.75 }, "-=0.2")
+        .to(heroTextRef.current, { opacity: 1, y: 0, duration: 0.6 }, "-=0.4")
+        .to(heroButtonsRef.current, { opacity: 1, y: 0, duration: 0.55 }, "-=0.35")
+        .to(heroChipsRef.current, { opacity: 1, y: 0, duration: 0.55 }, "-=0.3")
+        .to(heroPreviewRef.current, { opacity: 1, y: 0, duration: 0.8 }, "-=0.55");
+    }, heroRef);
+
+    return () => ctx.revert();
   }, []);
 
   const showcase = useMemo(
@@ -1036,7 +1007,7 @@ export default function Home() {
         </div>
       </header>
 
-      <section className="relative min-h-screen overflow-hidden">
+      <section ref={heroRef} className="relative min-h-screen overflow-hidden">
         <FloatingMediaWall />
         <FloatingOrbs />
 
@@ -1080,189 +1051,158 @@ export default function Home() {
 
         <div className="relative z-[1000] mx-auto flex min-h-screen w-full max-w-7xl items-center px-6 pt-28">
           <div className="grid w-full gap-12 lg:grid-cols-[1.08fr_0.92fr] lg:items-center">
-            <Reveal>
-              <div className="max-w-3xl">
+            <div className="max-w-3xl">
+              <div ref={heroBadgeRef}>
                 <SectionEyebrow
                   label="Luxury anime motion studio"
                   icon={<Sparkles className="h-3.5 w-3.5 text-violet-300" />}
                 />
+              </div>
 
-                <motion.h1
-                  initial={{ opacity: 0, y: 28 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{
-                    duration: 0.85,
-                    delay: 0.08,
-                    ease: [0.22, 1, 0.36, 1],
-                  }}
-                  className="mt-6 text-5xl font-semibold tracking-[-0.05em] text-white drop-shadow-[0_8px_24px_rgba(0,0,0,0.65)] sm:text-6xl md:text-7xl"
-                >
+              <h1
+                ref={heroTitleRef}
+                className="mt-6 text-5xl font-semibold tracking-[-0.05em] text-white drop-shadow-[0_8px_24px_rgba(0,0,0,0.65)] sm:text-6xl md:text-7xl"
+              >
+                <Balancer>
                   Old Soul.
                   <span className="block">New Motion.</span>
                   <span className="block bg-[linear-gradient(to_right,#ffffff,#ddd6fe,#7dd3fc)] bg-clip-text text-transparent">
                     KOANimation.
                   </span>
-                </motion.h1>
+                </Balancer>
+              </h1>
 
-                <motion.p
-                  initial={{ opacity: 0, y: 24 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{
-                    duration: 0.75,
-                    delay: 0.18,
-                    ease: [0.22, 1, 0.36, 1],
-                  }}
-                  className="mt-7 max-w-2xl text-base leading-relaxed text-white/68 md:text-lg"
+              <p
+                ref={heroTextRef}
+                className="mt-7 max-w-2xl text-base leading-relaxed text-white/68 md:text-lg"
+              >
+                Create stylized anime motion with reference-aware workflows,
+                cinematic camera movement, and a premium studio interface built
+                for creators who care about atmosphere, identity, and control.
+              </p>
+
+              <div
+                ref={heroButtonsRef}
+                className="mt-8 flex flex-wrap items-center gap-3"
+              >
+                <AuthCTAButton
+                  href="/tools"
+                  className="border-0 bg-white text-black hover:bg-white/90"
                 >
-                  Create stylized anime motion with reference-aware workflows,
-                  cinematic camera movement, and a premium studio interface built
-                  for creators who care about atmosphere, identity, and control.
-                </motion.p>
+                  Launch Studio
+                </AuthCTAButton>
 
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{
-                    duration: 0.7,
-                    delay: 0.28,
-                    ease: [0.22, 1, 0.36, 1],
-                  }}
-                  className="mt-8 flex flex-wrap items-center gap-3"
+                <AuthCTAButton
+                  href={TOOL_ROUTES.referenceToVideo}
+                  className="bg-white/8 hover:bg-white/18"
                 >
-                  <AuthCTAButton
-                    href="/tools"
-                    className="border-0 bg-white text-black hover:bg-white/90"
-                  >
-                    Launch Studio
-                  </AuthCTAButton>
-
-                  <AuthCTAButton
-                    href={TOOL_ROUTES.referenceToVideo}
-                    className="bg-white/8 hover:bg-white/18"
-                  >
-                    Explore Workflows
-                  </AuthCTAButton>
-                </motion.div>
-
-                <motion.div
-                  initial={{ opacity: 0, y: 22 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{
-                    duration: 0.7,
-                    delay: 0.36,
-                    ease: [0.22, 1, 0.36, 1],
-                  }}
-                  className="mt-8 grid max-w-2xl gap-3 sm:grid-cols-3"
-                >
-                  {[
-                    {
-                      text: "Reference-consistent motion",
-                      hover:
-                        "hover:bg-violet-500/[0.12] hover:shadow-[0_0_30px_rgba(168,85,247,0.12)]",
-                    },
-                    {
-                      text: "Image-to-video atmosphere",
-                      hover:
-                        "hover:bg-cyan-500/[0.10] hover:shadow-[0_0_30px_rgba(34,211,238,0.12)]",
-                    },
-                    {
-                      text: "Cinematic anime presentation",
-                      hover:
-                        "hover:bg-blue-500/[0.10] hover:shadow-[0_0_30px_rgba(59,130,246,0.12)]",
-                    },
-                  ].map((item, i) => (
-                    <motion.div
-                      key={item.text}
-                      initial={{ opacity: 0, y: 18 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{
-                        duration: 0.55,
-                        delay: 0.4 + i * 0.07,
-                        ease: [0.22, 1, 0.36, 1],
-                      }}
-                      className={cn(
-                        "rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white/72 backdrop-blur transition duration-300",
-                        "hover:-translate-y-1 hover:border-white/20 hover:text-white",
-                        item.hover
-                      )}
-                    >
-                      {item.text}
-                    </motion.div>
-                  ))}
-                </motion.div>
+                  Explore Workflows
+                </AuthCTAButton>
               </div>
-            </Reveal>
 
-            <Reveal delay={0.15}>
-              <div className="relative">
-                <div className="absolute -inset-8 rounded-[40px] bg-[radial-gradient(circle_at_center,rgba(168,85,247,0.16),transparent_55%)] blur-3xl" />
-                <motion.div
-                  animate={{ y: [0, -8, 0] }}
-                  transition={{
-                    duration: 8,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                  }}
-                >
-                  <Tilt
-                    tiltMaxAngleX={3}
-                    tiltMaxAngleY={3}
-                    glareEnable
-                    glareMaxOpacity={0.08}
-                    scale={1.01}
-                    transitionSpeed={2200}
-                    className="rounded-[30px]"
+              <div
+                ref={heroChipsRef}
+                className="mt-8 grid max-w-2xl gap-3 sm:grid-cols-3"
+              >
+                {[
+                  {
+                    text: "Reference-consistent motion",
+                    hover:
+                      "hover:bg-violet-500/[0.12] hover:shadow-[0_0_30px_rgba(168,85,247,0.12)]",
+                  },
+                  {
+                    text: "Image-to-video atmosphere",
+                    hover:
+                      "hover:bg-cyan-500/[0.10] hover:shadow-[0_0_30px_rgba(34,211,238,0.12)]",
+                  },
+                  {
+                    text: "Cinematic anime presentation",
+                    hover:
+                      "hover:bg-blue-500/[0.10] hover:shadow-[0_0_30px_rgba(59,130,246,0.12)]",
+                  },
+                ].map((item) => (
+                  <div
+                    key={item.text}
+                    className={cn(
+                      "rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white/72 backdrop-blur transition duration-300",
+                      "hover:-translate-y-1 hover:border-white/20 hover:text-white",
+                      item.hover
+                    )}
                   >
-                    <GlassCard className="overflow-hidden p-4 shadow-[0_42px_160px_rgba(0,0,0,0.58)]">
-                      <div className="mb-4 flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 transition duration-300 group-hover:bg-white/[0.06]">
-                        <div>
-                          <div className="text-sm font-semibold text-white">
-                            KOANimation Studio
-                          </div>
-                          <div className="mt-1 text-xs text-white/50">
-                            Reference-driven anime motion workflows
-                          </div>
-                        </div>
-                        <div className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs text-emerald-200">
-                          Live
-                        </div>
-                      </div>
-
-                      <div className="overflow-hidden rounded-[24px] border border-white/10">
-                        <video
-                          className="h-[240px] w-full object-cover transition duration-700 group-hover:scale-105 sm:h-[320px]"
-                          src="/backgrounds/15.mp4"
-                          autoPlay
-                          loop
-                          muted
-                          playsInline
-                          preload="metadata"
-                        />
-                      </div>
-
-                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition duration-300 hover:bg-violet-500/[0.10] hover:shadow-[0_0_30px_rgba(168,85,247,0.12)]">
-                          <div className="text-xs uppercase tracking-[0.18em] text-white/40">
-                            Workflow
-                          </div>
-                          <div className="mt-2 text-sm font-medium text-white/85">
-                            Reference to Video
-                          </div>
-                        </div>
-                        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition duration-300 hover:bg-cyan-500/[0.10] hover:shadow-[0_0_30px_rgba(34,211,238,0.12)]">
-                          <div className="text-xs uppercase tracking-[0.18em] text-white/40">
-                            Output
-                          </div>
-                          <div className="mt-2 text-sm font-medium text-white/85">
-                            Stylized cinematic clips
-                          </div>
-                        </div>
-                      </div>
-                    </GlassCard>
-                  </Tilt>
-                </motion.div>
+                    {item.text}
+                  </div>
+                ))}
               </div>
-            </Reveal>
+            </div>
+
+            <div ref={heroPreviewRef} className="relative">
+              <div className="absolute -inset-8 rounded-[40px] bg-[radial-gradient(circle_at_center,rgba(168,85,247,0.16),transparent_55%)] blur-3xl" />
+              <motion.div
+                animate={{ y: [0, -8, 0] }}
+                transition={{
+                  duration: 8,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+              >
+                <Tilt
+                  tiltMaxAngleX={3}
+                  tiltMaxAngleY={3}
+                  glareEnable
+                  glareMaxOpacity={0.08}
+                  scale={1.01}
+                  transitionSpeed={2200}
+                  className="rounded-[30px]"
+                >
+                  <GlassCard className="overflow-hidden p-4 shadow-[0_42px_160px_rgba(0,0,0,0.58)]">
+                    <div className="mb-4 flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 transition duration-300 group-hover:bg-white/[0.06]">
+                      <div>
+                        <div className="text-sm font-semibold text-white">
+                          KOANimation Studio
+                        </div>
+                        <div className="mt-1 text-xs text-white/50">
+                          Reference-driven anime motion workflows
+                        </div>
+                      </div>
+                      <div className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs text-emerald-200">
+                        Live
+                      </div>
+                    </div>
+
+                    <div className="overflow-hidden rounded-[24px] border border-white/10">
+                      <video
+                        className="h-[240px] w-full object-cover transition duration-700 group-hover:scale-105 sm:h-[320px]"
+                        src="/backgrounds/15.mp4"
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                        preload="metadata"
+                      />
+                    </div>
+
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition duration-300 hover:bg-violet-500/[0.10] hover:shadow-[0_0_30px_rgba(168,85,247,0.12)]">
+                        <div className="text-xs uppercase tracking-[0.18em] text-white/40">
+                          Workflow
+                        </div>
+                        <div className="mt-2 text-sm font-medium text-white/85">
+                          Reference to Video
+                        </div>
+                      </div>
+                      <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition duration-300 hover:bg-cyan-500/[0.10] hover:shadow-[0_0_30px_rgba(34,211,238,0.12)]">
+                        <div className="text-xs uppercase tracking-[0.18em] text-white/40">
+                          Output
+                        </div>
+                        <div className="mt-2 text-sm font-medium text-white/85">
+                          Stylized cinematic clips
+                        </div>
+                      </div>
+                    </div>
+                  </GlassCard>
+                </Tilt>
+              </motion.div>
+            </div>
           </div>
         </div>
 
@@ -1336,7 +1276,7 @@ export default function Home() {
               icon={<Layers3 className="h-3.5 w-3.5 text-cyan-300" />}
             />
             <h2 className="mt-4 text-4xl font-semibold tracking-[-0.03em] text-white md:text-5xl">
-              Choose your workflow
+              <Balancer>Choose your workflow</Balancer>
             </h2>
             <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/65">
               Start from references, stills, or text prompts depending on how
@@ -1402,7 +1342,7 @@ export default function Home() {
               icon={<Zap className="h-3.5 w-3.5 text-blue-300" />}
             />
             <h2 className="mt-4 text-4xl font-semibold tracking-[-0.03em] text-white md:text-5xl">
-              Built like a real studio
+              <Balancer>Built like a real studio</Balancer>
             </h2>
           </Reveal>
 
@@ -1438,7 +1378,7 @@ export default function Home() {
             <div>
               <SectionEyebrow label="Showcase" />
               <h2 className="mt-4 text-4xl font-semibold tracking-[-0.03em] text-white md:text-5xl">
-                Reference to Video
+                <Balancer>Reference to Video</Balancer>
               </h2>
               <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/65">
                 Create videos that align with reference subjects, such as
@@ -1454,7 +1394,10 @@ export default function Home() {
           </Reveal>
 
           <Reveal className="mt-10" delay={0.08}>
-            <VideoCarousel items={showcase} initialIndex={0} />
+            <EmblaVideoCarousel
+              items={showcase}
+              title="Reference-to-Video Showcase"
+            />
           </Reveal>
         </div>
       </section>
@@ -1464,7 +1407,7 @@ export default function Home() {
           <Reveal className="mb-8">
             <SectionEyebrow label="Highlights" />
             <h2 className="mt-4 text-4xl font-semibold tracking-[-0.03em] text-white md:text-5xl">
-              Built for stylish motion creation
+              <Balancer>Built for stylish motion creation</Balancer>
             </h2>
           </Reveal>
 
@@ -1570,7 +1513,7 @@ export default function Home() {
                   icon={<ImageIcon className="h-3.5 w-3.5 text-cyan-300" />}
                 />
                 <h2 className="mt-4 text-[42px] font-semibold tracking-[-0.03em] text-white md:text-5xl">
-                  Image to Video
+                  <Balancer>Image to Video</Balancer>
                 </h2>
               </div>
 
@@ -1590,7 +1533,11 @@ export default function Home() {
           </Reveal>
 
           <Reveal className="mt-10" delay={0.08}>
-            <ImageToVideoCarousel items={imageToVideo} initialIndex={0} />
+            <EmblaVideoCarousel
+              items={imageToVideo}
+              title="Image-to-Video Showcase"
+              large
+            />
           </Reveal>
         </div>
       </section>
@@ -1603,7 +1550,7 @@ export default function Home() {
               icon={<Layers3 className="h-3.5 w-3.5 text-emerald-300" />}
             />
             <h2 className="mt-4 text-4xl font-semibold tracking-[-0.03em] text-white md:text-5xl">
-              From idea to final motion
+              <Balancer>From idea to final motion</Balancer>
             </h2>
             <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/65">
               A simple creative loop that still feels powerful enough for a real
@@ -1650,7 +1597,7 @@ export default function Home() {
               icon={<Sparkles className="h-3.5 w-3.5 text-fuchsia-300" />}
             />
             <h2 className="mt-4 text-4xl font-semibold tracking-[-0.03em] text-white md:text-5xl">
-              Why creators stay
+              <Balancer>Why creators stay</Balancer>
             </h2>
           </Reveal>
 
@@ -1694,12 +1641,13 @@ export default function Home() {
                     icon={<Wand2 className="h-3.5 w-3.5 text-amber-300" />}
                   />
                   <h2 className="mt-4 text-4xl font-semibold tracking-[-0.03em] text-white md:text-5xl">
-                    Beauty with structure
+                    <Balancer>Beauty with structure</Balancer>
                   </h2>
                   <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/68 md:text-base">
-                    The goal is not to drown the screen in effects. It is to make
-                    every interaction feel purposeful, cinematic, and elegant —
-                    like a premium studio environment rather than a noisy AI tool.
+                    The goal is not to drown the screen in effects. It is to
+                    make every interaction feel purposeful, cinematic, and
+                    elegant — like a premium studio environment rather than a
+                    noisy AI tool.
                   </p>
                 </div>
 
@@ -1738,11 +1686,13 @@ export default function Home() {
               <div>
                 <SectionEyebrow label="Resources" />
                 <h2 className="mt-4 text-5xl font-semibold leading-[0.95] tracking-[-0.04em] text-white">
-                  Frequently
-                  <br />
-                  Asked
-                  <br />
-                  Questions
+                  <Balancer>
+                    Frequently
+                    <br />
+                    Asked
+                    <br />
+                    Questions
+                  </Balancer>
                 </h2>
                 <p className="mt-4 max-w-sm text-sm leading-relaxed text-white/65">
                   Find answers about features, usage, workflow, and how to get
@@ -1799,10 +1749,10 @@ export default function Home() {
                 <div>
                   <SectionEyebrow
                     label="Start creating"
-                    icon={<Sparkles className="h-3.5 w-3.5 text-cyan-300" />}
+                    icon={<Play className="h-3.5 w-3.5 text-cyan-300" />}
                   />
                   <h3 className="mt-4 text-4xl font-semibold tracking-[-0.03em] text-white md:text-5xl">
-                    Embrace Your Creativity
+                    <Balancer>Embrace Your Creativity</Balancer>
                   </h3>
                   <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-white/68 md:text-base">
                     Step into a more cinematic creation flow and build motion
