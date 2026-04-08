@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   BadgeHelp,
@@ -10,6 +11,15 @@ import {
   RefreshCw,
   Wallet,
   ChevronDown,
+  Sparkles,
+  Zap,
+  ShieldCheck,
+  Wand2,
+  ArrowRight,
+  Check,
+  Gem,
+  Layers3,
+  Play,
 } from "lucide-react";
 import { createClient } from "@/app/lib/supabase/client";
 
@@ -51,6 +61,58 @@ const FAQS = [
     icon: Wallet,
   },
 ];
+
+function cn(...classes: Array<string | false | null | undefined>) {
+  return classes.filter(Boolean).join(" ");
+}
+
+function GlowDivider() {
+  return (
+    <div className="relative h-px w-full overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-violet-400/20 to-transparent blur-sm" />
+    </div>
+  );
+}
+
+function SectionEyebrow({
+  label,
+  icon,
+}: {
+  label: string;
+  icon?: ReactNode;
+}) {
+  return (
+    <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-white/72 backdrop-blur-xl">
+      {icon ?? (
+        <span className="h-2 w-2 rounded-full bg-violet-400 shadow-[0_0_12px_rgba(168,85,247,0.8)]" />
+      )}
+      {label}
+    </div>
+  );
+}
+
+function GlassPanel({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.05] backdrop-blur-xl",
+        "shadow-[0_24px_90px_rgba(0,0,0,0.32)]",
+        className
+      )}
+    >
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.05),rgba(255,255,255,0.012)_22%,rgba(0,0,0,0.08)_100%)]" />
+      <div className="pointer-events-none absolute inset-[1px] rounded-[23px] border border-white/[0.06]" />
+      {children}
+    </div>
+  );
+}
 
 function WallpaperRevealBackground({
   src = "/wallpaper.jpg",
@@ -99,26 +161,32 @@ function WallpaperRevealBackground({
   const spotlight = active
     ? `radial-gradient(circle ${radius}px at ${pos.x}px ${pos.y}px,
         rgba(0,0,0,0) 0%,
-        rgba(0,0,0,0) 45%,
-        rgba(0,0,0,0.90) 72%,
+        rgba(0,0,0,0) 42%,
+        rgba(0,0,0,0.88) 72%,
         rgba(0,0,0,0.96) 100%)`
     : `rgba(0,0,0,0.92)`;
 
   return (
     <>
-      <div className="fixed inset-0 -z-20">
+      <div className="fixed inset-0 -z-30">
         <img
           src={src}
           alt="Wallpaper"
           className="h-full w-full object-cover"
           draggable={false}
         />
-        <div className="absolute inset-0 bg-black/10" />
+        <div className="absolute inset-0 bg-black/12" />
       </div>
 
-      <div className="pointer-events-none fixed inset-0 -z-10">
+      <div className="pointer-events-none fixed inset-0 -z-20">
         <div className="absolute inset-0" style={{ background: spotlight }} />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(255,255,255,0.05)_0%,rgba(0,0,0,0.55)_55%,rgba(0,0,0,0.90)_100%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(255,255,255,0.04)_0%,rgba(0,0,0,0.58)_55%,rgba(0,0,0,0.92)_100%)]" />
+      </div>
+
+      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+        <div className="absolute -left-[10%] top-[6%] h-[28rem] w-[28rem] rounded-full bg-[radial-gradient(circle,rgba(168,85,247,0.12),transparent_62%)] blur-3xl" />
+        <div className="absolute right-[2%] top-[18%] h-[24rem] w-[24rem] rounded-full bg-[radial-gradient(circle,rgba(59,130,246,0.09),transparent_62%)] blur-3xl" />
+        <div className="absolute left-[35%] bottom-[8%] h-[20rem] w-[20rem] rounded-full bg-[radial-gradient(circle,rgba(34,211,238,0.05),transparent_62%)] blur-3xl" />
       </div>
     </>
   );
@@ -131,20 +199,16 @@ function normalizePlanKey(value: string | null | undefined): PlanKey | null {
     case "essential":
     case "standard":
       return "essential";
-
     case "advanced":
     case "premium":
       return "advanced";
-
     case "infinite":
     case "ultimate":
       return "infinite";
-
     case "wonder":
     case "studio":
     case "enterprise":
       return "wonder";
-
     default:
       return null;
   }
@@ -188,13 +252,8 @@ function getPlanActionLabel(
   planKey: PlanKey,
   currentPlan: PlanKey | null
 ): string {
-  if (!currentPlan) {
-    return "Subscribe Now";
-  }
-
-  if (currentPlan === planKey) {
-    return "Current Plan";
-  }
+  if (!currentPlan) return "Subscribe Now";
+  if (currentPlan === planKey) return "Current Plan";
 
   return PLAN_PRICES[planKey] > PLAN_PRICES[currentPlan]
     ? "Upgrade Plan"
@@ -263,7 +322,6 @@ export default function PricingClient() {
 
   useEffect(() => {
     const planParam = normalizePlanKey(searchParams.get("plan"));
-
     if (!planParam && currentSubscription.currentPlan) {
       setSelectedPlan(currentSubscription.currentPlan);
     }
@@ -456,10 +514,12 @@ export default function PricingClient() {
         selectedGlowClass:
           "ring-2 ring-[#9CC5FF]/35 shadow-[0_0_0_1px_rgba(156,197,255,0.18),0_0_42px_rgba(156,197,255,0.18),0_30px_90px_rgba(0,0,0,0.6)]",
         currentGlowClass:
-          "ring-2 ring-[#9CC5FF]/40 shadow-[0_0_0_1px_rgba(156,197,255,0.22),0_0_48px_rgba(156,197,255,0.22),0_30px_95px_rgba(0,0,0,0.62)]",
+          "ring-2 ring-emerald-300/35 shadow-[0_0_0_1px_rgba(156,197,255,0.22),0_0_48px_rgba(156,197,255,0.22),0_30px_95px_rgba(0,0,0,0.62)]",
         auraClass:
           "bg-[radial-gradient(circle_at_top,rgba(156,197,255,0.18),transparent_42%)]",
         badgeGlowClass: "",
+        accentLine: "from-[#9CC5FF] to-[#d8e8ff]",
+        icon: Sparkles,
         creditBox: {
           title: "4000 credits monthly",
           sub: "Starter creator plan",
@@ -486,10 +546,12 @@ export default function PricingClient() {
         selectedGlowClass:
           "ring-2 ring-[#EAD39A]/35 shadow-[0_0_0_1px_rgba(234,211,154,0.18),0_0_42px_rgba(234,211,154,0.18),0_30px_90px_rgba(0,0,0,0.6)]",
         currentGlowClass:
-          "ring-2 ring-[#EAD39A]/40 shadow-[0_0_0_1px_rgba(234,211,154,0.22),0_0_48px_rgba(234,211,154,0.22),0_30px_95px_rgba(0,0,0,0.62)]",
+          "ring-2 ring-emerald-300/35 shadow-[0_0_0_1px_rgba(234,211,154,0.22),0_0_48px_rgba(234,211,154,0.22),0_30px_95px_rgba(0,0,0,0.62)]",
         auraClass:
           "bg-[radial-gradient(circle_at_top,rgba(234,211,154,0.18),transparent_42%)]",
         badgeGlowClass: "",
+        accentLine: "from-[#EAD39A] to-[#fff1cf]",
+        icon: Wand2,
         creditBox: {
           title: "12000 credits monthly",
           sub: "For serious creators and teams",
@@ -516,10 +578,12 @@ export default function PricingClient() {
         selectedGlowClass:
           "ring-2 ring-[#CDB7FF]/45 shadow-[0_0_0_1px_rgba(205,183,255,0.25),0_0_56px_rgba(205,183,255,0.28),0_35px_110px_rgba(0,0,0,0.68)]",
         currentGlowClass:
-          "ring-2 ring-[#CDB7FF]/50 shadow-[0_0_0_1px_rgba(205,183,255,0.28),0_0_62px_rgba(205,183,255,0.30),0_35px_115px_rgba(0,0,0,0.7)]",
+          "ring-2 ring-emerald-300/35 shadow-[0_0_0_1px_rgba(205,183,255,0.28),0_0_62px_rgba(205,183,255,0.30),0_35px_115px_rgba(0,0,0,0.7)]",
         auraClass:
           "bg-[radial-gradient(circle_at_top,rgba(205,183,255,0.24),transparent_42%)]",
         badgeGlowClass: "shadow-[0_0_18px_rgba(107,112,255,0.45)]",
+        accentLine: "from-[#CDB7FF] to-[#efe7ff]",
+        icon: Zap,
         creditBox: {
           title: "24000 credits monthly",
           sub: "Best for power users",
@@ -547,10 +611,12 @@ export default function PricingClient() {
         selectedGlowClass:
           "ring-2 ring-[#53D6FF]/40 shadow-[0_0_0_1px_rgba(83,214,255,0.20),0_0_50px_rgba(83,214,255,0.24),0_35px_105px_rgba(0,0,0,0.66)]",
         currentGlowClass:
-          "ring-2 ring-[#53D6FF]/50 shadow-[0_0_0_1px_rgba(83,214,255,0.24),0_0_60px_rgba(83,214,255,0.28),0_35px_115px_rgba(0,0,0,0.7)]",
+          "ring-2 ring-emerald-300/35 shadow-[0_0_0_1px_rgba(83,214,255,0.24),0_0_60px_rgba(83,214,255,0.28),0_35px_115px_rgba(0,0,0,0.7)]",
         auraClass:
           "bg-[radial-gradient(circle_at_top,rgba(83,214,255,0.22),transparent_42%)]",
         badgeGlowClass: "shadow-[0_0_18px_rgba(107,112,255,0.45)]",
+        accentLine: "from-[#53D6FF] to-[#d8f7ff]",
+        icon: Gem,
         creditBox: {
           title: "106000 credits monthly",
           sub: "Studio-level usage and scaling",
@@ -583,82 +649,132 @@ export default function PricingClient() {
     <main className="relative min-h-screen overflow-x-hidden text-white">
       <WallpaperRevealBackground src="/wallpaper.jpg" radius={240} />
 
-      <header className="sticky top-0 z-[2000] border-b border-white/10 bg-black/45 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-3">
-            <Link href="/" className="font-semibold tracking-tight">
-              KOANimation
-            </Link>
-            <span className="hidden text-sm text-white/35 md:block">
-              Pricing
-            </span>
-          </div>
+      <header className="sticky top-0 z-[2000] px-6 pt-4">
+        <div className="mx-auto max-w-7xl">
+          <div className="flex items-center justify-between rounded-[26px] border border-white/10 bg-[linear-gradient(to_right,rgba(8,8,12,0.72),rgba(16,16,24,0.58),rgba(8,8,12,0.72))] px-5 py-3 shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur transition duration-300 hover:border-white/15">
+            <div className="flex items-center gap-3 md:gap-4">
+              <div className="relative -ml-2 flex h-[60px] w-[60px] items-center justify-center overflow-visible md:h-[68px] md:w-[68px]">
+                <div className="relative h-[60px] w-[60px] -translate-y-[2px] md:h-[68px] md:w-[68px]">
+                  <Image
+                    src="/koanimationlogo.png"
+                    alt="KOANimation logo"
+                    fill
+                    priority
+                    className="object-contain drop-shadow-[0_0_18px_rgba(168,85,247,0.45)]"
+                  />
+                </div>
+              </div>
 
-          <div className="flex items-center gap-3 text-sm text-white/70">
-            <Link className="hover:text-white" href="/#features">
-              Features
-            </Link>
-            <Link className="hover:text-white" href="/#templates">
-              Templates
-            </Link>
-            <Link className="hover:text-white" href="/pricing">
-              Pricing
-            </Link>
+              <div className="flex flex-col leading-none">
+                <span className="text-[1.05rem] font-semibold tracking-tight text-white md:text-[1.1rem]">
+                  KOANimation
+                </span>
+                <span className="mt-1 text-[11px] uppercase tracking-[0.24em] text-violet-200/55">
+                  Pricing
+                </span>
+              </div>
+            </div>
 
-            {isAuthed && currentSubscription.currentPlan ? (
+            <div className="hidden items-center gap-6 text-sm text-white/70 md:flex">
+              <Link className="transition hover:text-white" href="/#features">
+                Features
+              </Link>
+              <Link className="transition hover:text-white" href="/#templates">
+                Templates
+              </Link>
+              <Link className="transition hover:text-white" href="/pricing">
+                Pricing
+              </Link>
+              <Link className="transition hover:text-white" href="/#resources">
+                FAQ
+              </Link>
+            </div>
+
+            <div className="flex items-center gap-3 text-sm">
+              {isAuthed && currentSubscription.currentPlan ? (
+                <button
+                  type="button"
+                  onClick={() => void handleManageSubscription()}
+                  className="hidden rounded-full border border-white/15 bg-white/5 px-4 py-2 text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60 md:inline-flex"
+                  disabled={isManagingBilling}
+                >
+                  {isManagingBilling ? "Opening..." : "Manage subscription"}
+                </button>
+              ) : null}
+
               <button
                 type="button"
-                onClick={() => void handleManageSubscription()}
-                className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={isManagingBilling}
+                onClick={handleTryKoa}
+                className="rounded-full border border-white/15 bg-white/10 px-4 py-2 font-semibold text-white transition hover:bg-white/15"
               >
-                {isManagingBilling ? "Opening..." : "Manage subscription"}
+                Try KOANimation
               </button>
-            ) : null}
-
-            <button
-              type="button"
-              onClick={handleTryKoa}
-              className="ml-2 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-white hover:bg-white/10"
-            >
-              Try KOANimation
-            </button>
+            </div>
           </div>
         </div>
       </header>
 
-      <section className="relative overflow-hidden pt-24">
+      <section className="relative overflow-hidden pt-20">
         <div className="pointer-events-none absolute inset-0">
-          <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(0,0,0,0.0),rgba(0,0,0,0.65),rgba(0,0,0,1))]" />
-          <div className="absolute inset-0 opacity-[0.22] [background-image:linear-gradient(rgba(255,255,255,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.06)_1px,transparent_1px)] [background-size:60px_60px]" />
+          <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(0,0,0,0.0),rgba(0,0,0,0.58),rgba(0,0,0,0.96))]" />
+          <div className="absolute inset-0 opacity-[0.16] [background-image:linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:64px_64px]" />
         </div>
 
-        <div className="relative mx-auto max-w-7xl px-6 pb-10 text-center">
-          <h1 className="text-4xl font-semibold tracking-tight md:text-6xl">
-            Choose the best plan for you
-          </h1>
+        <div className="relative mx-auto max-w-7xl px-6 pb-10">
+          <div className="mx-auto max-w-4xl text-center">
+            <SectionEyebrow
+              label="Creator plans"
+              icon={<Sparkles className="h-3.5 w-3.5 text-violet-300" />}
+            />
 
-          <div className="mt-16 grid gap-10 md:grid-cols-5 md:gap-8">
+            <h1 className="mt-6 text-4xl font-semibold tracking-[-0.04em] md:text-6xl">
+              Pricing that feels
+              <span className="block bg-[linear-gradient(to_right,#ffffff,#ddd6fe,#7dd3fc)] bg-clip-text text-transparent">
+                premium and scalable
+              </span>
+            </h1>
+
+            <p className="mx-auto mt-5 max-w-2xl text-sm leading-relaxed text-white/65 md:text-base">
+              Start lean, scale fast, and move into a true studio-level workflow
+              when your output grows. Every plan is built for image and video
+              generation with clear monthly credits.
+            </p>
+          </div>
+
+          <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              { label: "Ultra-Fast\nGeneration", icon: "⚡" },
-              { label: "Multi-Reference\nConsistency", icon: "⬡" },
-              { label: "Off-Peak\nMode", icon: "∞" },
-              { label: "High-Quality\nVideo Generation", icon: "HD" },
-              { label: "Smooth\n2D Animation", icon: "☺" },
+              {
+                label: "Ultra-Fast Generation",
+                icon: <Zap className="h-5 w-5" />,
+              },
+              {
+                label: "Reference Consistency",
+                icon: <Layers3 className="h-5 w-5" />,
+              },
+              {
+                label: "Creator-Focused Workflow",
+                icon: <Wand2 className="h-5 w-5" />,
+              },
+              {
+                label: "Secure Billing & Access",
+                icon: <ShieldCheck className="h-5 w-5" />,
+              },
             ].map((f) => (
-              <div key={f.label} className="flex flex-col items-center gap-3">
-                <div className="grid h-16 w-16 place-items-center rounded-2xl border border-white/15 bg-white/[0.03] shadow-[0_0_40px_rgba(255,255,255,0.08)] backdrop-blur">
-                  <span className="text-xl text-white/85">{f.icon}</span>
+              <GlassPanel key={f.label} className="p-5">
+                <div className="relative z-10 flex items-start gap-4">
+                  <div className="inline-flex rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-white/85">
+                    {f.icon}
+                  </div>
+                  <div className="text-sm font-medium text-white/82">
+                    {f.label}
+                  </div>
                 </div>
-                <div className="whitespace-pre-line text-center text-sm font-semibold text-white/85">
-                  {f.label}
-                </div>
-              </div>
+              </GlassPanel>
             ))}
           </div>
 
           {mounted && (
-            <div className="mt-6 text-sm text-white/45">
+            <div className="mt-7 text-center text-sm text-white/45">
               {isAuthed
                 ? currentPlanName
                   ? `You are logged in. Current plan: ${currentPlanName}.`
@@ -668,7 +784,7 @@ export default function PricingClient() {
           )}
 
           {currentPlanName && (
-            <div className="mx-auto mt-4 inline-flex flex-wrap items-center justify-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/85">
+            <div className="mx-auto mt-5 inline-flex flex-wrap items-center justify-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/85 backdrop-blur-xl">
               <span>Current plan: {currentPlanName}</span>
               {currentSubscription.cancelAtPeriodEnd &&
                 currentSubscription.currentPeriodEnd && (
@@ -682,7 +798,7 @@ export default function PricingClient() {
               <button
                 type="button"
                 onClick={() => void handleManageSubscription()}
-                className="ml-1 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+                className="ml-1 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={isManagingBilling}
               >
                 {isManagingBilling ? "Opening..." : "Manage"}
@@ -691,13 +807,13 @@ export default function PricingClient() {
           )}
 
           {success && (
-            <div className="mx-auto mt-6 max-w-2xl rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+            <div className="mx-auto mt-6 max-w-2xl rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-center text-sm text-emerald-200 backdrop-blur-xl">
               Payment completed. Your subscription is being processed.
             </div>
           )}
 
           {canceled && (
-            <div className="mx-auto mt-6 max-w-2xl rounded-2xl border border-yellow-500/20 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-200">
+            <div className="mx-auto mt-6 max-w-2xl rounded-2xl border border-yellow-500/20 bg-yellow-500/10 px-4 py-3 text-center text-sm text-yellow-200 backdrop-blur-xl">
               Checkout was canceled. You can still choose another plan anytime.
             </div>
           )}
@@ -706,7 +822,7 @@ export default function PricingClient() {
 
       <section className="relative pb-24">
         <div className="mx-auto max-w-7xl px-6">
-          <div className="mt-10 grid gap-6 lg:grid-cols-4">
+          <div className="grid gap-6 lg:grid-cols-4">
             {plans.map((p) => {
               const isSelected = selectedPlan === p.key;
               const isCurrent = currentSubscription.currentPlan === p.key;
@@ -715,40 +831,48 @@ export default function PricingClient() {
                 p.key,
                 currentSubscription.currentPlan
               );
+              const Icon = p.icon;
 
               return (
                 <div
                   key={p.key}
-                  className={[
-                    "group relative overflow-hidden rounded-3xl border bg-black/30 p-6 backdrop-blur-xl transition duration-300",
+                  className={cn(
+                    "group relative overflow-hidden rounded-3xl border bg-black/30 p-6 backdrop-blur-xl transition duration-300 hover:-translate-y-1",
                     p.glowClass,
-                    isSelected ? p.selectedGlowClass : "",
-                    isCurrent ? p.currentGlowClass : "",
-                  ].join(" ")}
+                    isSelected && p.selectedGlowClass,
+                    isCurrent && p.currentGlowClass
+                  )}
                 >
                   <div
-                    className={[
+                    className={cn(
                       "pointer-events-none absolute inset-0 transition duration-300",
                       p.auraClass,
-                      isSelected || isCurrent ? "opacity-100" : "opacity-70",
-                    ].join(" ")}
+                      isSelected || isCurrent ? "opacity-100" : "opacity-70"
+                    )}
                   />
 
                   <div className="pointer-events-none absolute inset-[1px] rounded-[23px] bg-[linear-gradient(to_bottom,rgba(255,255,255,0.04),rgba(255,255,255,0.01)_20%,rgba(0,0,0,0.08)_100%)]" />
 
+                  <div
+                    className={cn(
+                      "pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r opacity-80",
+                      p.accentLine
+                    )}
+                  />
+
                   {p.badge ? (
                     <div
-                      className={[
+                      className={cn(
                         "absolute right-4 top-4 z-20 rounded-full bg-[#6B70FF] px-3 py-1 text-xs font-semibold text-white",
-                        p.badgeGlowClass,
-                      ].join(" ")}
+                        p.badgeGlowClass
+                      )}
                     >
                       {p.badge}
                     </div>
                   ) : null}
 
                   {isCurrent && (
-                    <div className="absolute left-4 top-4 z-20 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-white backdrop-blur-md">
+                    <div className="absolute left-4 top-4 z-20 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 text-xs font-semibold text-emerald-100 backdrop-blur-md">
                       Current Plan
                     </div>
                   )}
@@ -766,21 +890,25 @@ export default function PricingClient() {
                     aria-label={`Select ${p.name}`}
                   />
 
-                  <div className="relative z-10 min-h-[48px] pt-10">
-                    <div className="text-xl font-semibold leading-tight">
-                      {p.name}
+                  <div className="relative z-10 pt-10">
+                    <div className="mb-4 inline-flex rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-white/80">
+                      <Icon className="h-5 w-5" />
                     </div>
-                  </div>
 
-                  <div className="relative z-10 mt-4 flex items-end gap-2">
-                    <div className="text-5xl font-semibold tracking-tight">
-                      {p.price}
+                    <div className="min-h-[52px]">
+                      <div className="text-xl font-semibold leading-tight">
+                        {p.name}
+                      </div>
                     </div>
-                    <div className="pb-1 text-white/50">{p.suffix}</div>
-                  </div>
 
-                  <div className="relative z-10 mt-1 text-sm text-white/55">
-                    {p.sub}
+                    <div className="mt-4 flex items-end gap-2">
+                      <div className="text-5xl font-semibold tracking-tight">
+                        {p.price}
+                      </div>
+                      <div className="pb-1 text-white/50">{p.suffix}</div>
+                    </div>
+
+                    <div className="mt-1 text-sm text-white/55">{p.sub}</div>
                   </div>
 
                   <button
@@ -790,22 +918,26 @@ export default function PricingClient() {
                       void handlePlanAction(p.key);
                     }}
                     disabled={isLoading || isCurrent}
-                    className={[
+                    className={cn(
                       "relative z-10 mt-6 w-full rounded-xl px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60",
-                      p.buttonStyle,
-                    ].join(" ")}
+                      p.buttonStyle
+                    )}
                   >
                     {isLoading ? "Processing..." : buttonLabel}
-                    {!isCurrent && <span className="ml-2 text-white/60">›</span>}
+                    {!isCurrent && (
+                      <span className="ml-2 inline-flex align-middle text-white/60">
+                        <ArrowRight className="h-4 w-4" />
+                      </span>
+                    )}
                   </button>
 
                   <div
-                    className={[
+                    className={cn(
                       "relative z-10 mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-4",
-                      p.creditBox.accent ? "bg-[#3B3F64]/40" : "",
-                    ].join(" ")}
+                      p.creditBox.accent && "bg-[#3B3F64]/40"
+                    )}
                   >
-                    <div className="text-sm font-semibold text-white/85">
+                    <div className="text-sm font-semibold text-white/88">
                       {p.creditBox.title}
                     </div>
                     <div className="mt-1 text-xs text-white/60">
@@ -815,8 +947,10 @@ export default function PricingClient() {
 
                   <div className="relative z-10 mt-6 space-y-3 text-sm text-white/80">
                     {p.bullets.map((b) => (
-                      <div key={b} className="flex gap-2">
-                        <span className="mt-[3px] text-white/60">✓</span>
+                      <div key={b} className="flex gap-3">
+                        <span className="mt-[2px] inline-flex h-5 w-5 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/70">
+                          <Check className="h-3.5 w-3.5" />
+                        </span>
                         <span className="text-white/80">{b}</span>
                       </div>
                     ))}
@@ -830,14 +964,27 @@ export default function PricingClient() {
 
       <section className="relative pb-20">
         <div className="mx-auto max-w-7xl px-6">
-          <h2 className="text-center text-4xl font-semibold tracking-tight md:text-5xl">
-            Compare Plans and Features
-          </h2>
+          <div className="mx-auto max-w-4xl text-center">
+            <SectionEyebrow
+              label="Compare plans"
+              icon={<Layers3 className="h-3.5 w-3.5 text-cyan-300" />}
+            />
+            <h2 className="mt-5 text-4xl font-semibold tracking-[-0.03em] md:text-5xl">
+              Compare plans and features
+            </h2>
+            <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-white/65">
+              A cleaner overview of monthly pricing and credit capacity so you
+              can choose the right fit quickly.
+            </p>
+          </div>
 
-          <div className="mt-12 overflow-hidden rounded-3xl border border-white/10 bg-black/16 backdrop-blur-xl">
+          <GlassPanel className="mt-12 overflow-hidden">
             <div className="grid grid-cols-1 gap-px bg-white/10 md:grid-cols-5">
               <div className="bg-black/40 p-8 md:col-span-1">
                 <div className="text-2xl font-semibold">Compare Plans</div>
+                <div className="mt-3 text-sm text-white/55">
+                  Monthly subscription pricing
+                </div>
               </div>
 
               {comparePlans.map((c) => {
@@ -851,13 +998,11 @@ export default function PricingClient() {
                 return (
                   <div
                     key={c.key}
-                    className={[
-                      "bg-black/40 p-8",
-                      selectedPlan === c.key
-                        ? "ring-1 ring-inset ring-white/20"
-                        : "",
-                      isCurrent ? "ring-1 ring-inset ring-emerald-300/35" : "",
-                    ].join(" ")}
+                    className={cn(
+                      "bg-black/40 p-8 transition",
+                      selectedPlan === c.key && "ring-1 ring-inset ring-white/20",
+                      isCurrent && "ring-1 ring-inset ring-emerald-300/35"
+                    )}
                   >
                     <div className="text-xl font-semibold">{c.name}</div>
                     <div className="mt-2 flex items-end gap-2">
@@ -868,7 +1013,7 @@ export default function PricingClient() {
                       type="button"
                       onClick={() => void handlePlanAction(c.key)}
                       disabled={isCurrent || isLoading}
-                      className={[
+                      className={cn(
                         "mt-6 w-full rounded-xl px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60",
                         c.name === "Essential Plan"
                           ? "bg-[#9CC5FF] text-black hover:brightness-95"
@@ -876,8 +1021,8 @@ export default function PricingClient() {
                             ? "bg-[#EAD39A] text-black hover:brightness-95"
                             : c.name === "Infinite Plan"
                               ? "bg-[#CDB7FF] text-black hover:brightness-95"
-                              : "bg-[#53D6FF] text-black hover:brightness-95",
-                      ].join(" ")}
+                              : "bg-[#53D6FF] text-black hover:brightness-95"
+                      )}
                     >
                       {isLoading ? "Processing..." : buttonLabel}
                     </button>
@@ -885,37 +1030,40 @@ export default function PricingClient() {
                 );
               })}
             </div>
-          </div>
+          </GlassPanel>
 
-          <div className="mt-10 overflow-hidden rounded-3xl border border-white/10 bg-black/16 backdrop-blur-xl">
+          <GlassPanel className="mt-10 overflow-hidden">
             <div className="grid grid-cols-1 gap-px bg-white/10 md:grid-cols-5">
               <div className="bg-black/40 p-8">
                 <div className="text-2xl font-semibold">Credits</div>
+                <div className="mt-3 text-sm text-white/55">
+                  Monthly generation capacity
+                </div>
               </div>
 
               <div className="bg-black/40 p-8">
-                <div className="text-white/80">4000 credits monthly</div>
+                <div className="text-white/85">4000 credits monthly</div>
               </div>
 
               <div className="bg-black/40 p-8">
-                <div className="text-white/80">12000 credits monthly</div>
+                <div className="text-white/85">12000 credits monthly</div>
               </div>
 
               <div className="bg-black/40 p-8">
-                <div className="text-white/80">24000 credits monthly</div>
+                <div className="text-white/85">24000 credits monthly</div>
               </div>
 
               <div className="bg-black/40 p-8">
-                <div className="text-white/80">106000 credits monthly</div>
+                <div className="text-white/85">106000 credits monthly</div>
               </div>
             </div>
-          </div>
+          </GlassPanel>
         </div>
       </section>
 
-      <section className="relative py-24">
+      <section className="relative py-20">
         <div className="mx-auto max-w-7xl px-6">
-          <div className="grid gap-16 md:grid-cols-3">
+          <div className="grid gap-6 md:grid-cols-3">
             {[
               {
                 title: "Security & Private",
@@ -936,15 +1084,17 @@ export default function PricingClient() {
                   "Built for creators worldwide with scalable plans and flexible upgrades.",
               },
             ].map((c) => (
-              <div key={c.title} className="text-center">
-                <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl border border-white/15 bg-white/[0.03] text-xl backdrop-blur">
-                  {c.icon}
+              <GlassPanel key={c.title} className="p-8 text-center">
+                <div className="relative z-10">
+                  <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl border border-white/15 bg-white/[0.03] text-xl backdrop-blur">
+                    {c.icon}
+                  </div>
+                  <h3 className="mt-6 text-xl font-semibold">{c.title}</h3>
+                  <p className="mx-auto mt-4 max-w-sm text-sm leading-relaxed text-white/65">
+                    {c.desc}
+                  </p>
                 </div>
-                <h3 className="mt-6 text-xl font-semibold">{c.title}</h3>
-                <p className="mx-auto mt-4 max-w-sm text-sm leading-relaxed text-white/65">
-                  {c.desc}
-                </p>
-              </div>
+              </GlassPanel>
             ))}
           </div>
         </div>
@@ -952,11 +1102,17 @@ export default function PricingClient() {
 
       <section className="relative pb-28">
         <div className="mx-auto max-w-5xl px-6">
-          <h2 className="text-center text-4xl font-semibold tracking-tight md:text-5xl">
-            Frequently Asked Questions
-          </h2>
+          <div className="text-center">
+            <SectionEyebrow
+              label="Need answers?"
+              icon={<BadgeHelp className="h-3.5 w-3.5 text-violet-300" />}
+            />
+            <h2 className="mt-5 text-4xl font-semibold tracking-[-0.03em] md:text-5xl">
+              Frequently asked questions
+            </h2>
+          </div>
 
-          <div className="mt-12 overflow-hidden rounded-3xl border border-white/10 bg-black/16 backdrop-blur-xl">
+          <GlassPanel className="mt-12 overflow-hidden">
             {FAQS.map((f, i) => {
               const open = faqOpen === i;
               const Icon = f.icon ?? BadgeHelp;
@@ -978,24 +1134,24 @@ export default function PricingClient() {
                     </div>
 
                     <span
-                      className={[
+                      className={cn(
                         "shrink-0 rounded-full border border-white/10 bg-white/[0.03] p-2 text-white/60 transition duration-300",
                         open
                           ? "rotate-180 text-white"
-                          : "group-hover:text-white/85",
-                      ].join(" ")}
+                          : "group-hover:text-white/85"
+                      )}
                     >
                       <ChevronDown size={18} strokeWidth={2} />
                     </span>
                   </div>
 
                   <div
-                    className={[
+                    className={cn(
                       "grid transition-all duration-300 ease-out",
                       open
                         ? "mt-4 grid-rows-[1fr] opacity-100"
-                        : "grid-rows-[0fr] opacity-0",
-                    ].join(" ")}
+                        : "grid-rows-[0fr] opacity-0"
+                    )}
                   >
                     <div className="overflow-hidden">
                       <div className="pr-14 text-sm leading-relaxed text-white/65">
@@ -1006,11 +1162,43 @@ export default function PricingClient() {
                 </button>
               );
             })}
+          </GlassPanel>
+        </div>
+      </section>
+
+      <section className="relative pb-20">
+        <div className="mx-auto max-w-7xl px-6">
+          <GlassPanel className="overflow-hidden">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.14),transparent_32%),radial-gradient(circle_at_left,rgba(168,85,247,0.12),transparent_30%)]" />
+            <div className="relative z-10 flex flex-col items-center justify-center px-6 py-14 text-center">
+              <SectionEyebrow
+                label="Start creating"
+                icon={<Play className="h-3.5 w-3.5 text-cyan-300" />}
+              />
+              <h3 className="mt-5 text-4xl font-semibold tracking-[-0.03em] md:text-5xl">
+                Choose your plan and create without friction
+              </h3>
+              <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-white/68 md:text-base">
+                Upgrade when you need more output, manage billing anytime, and
+                move into a more cinematic creation flow with KOANimation.
+              </p>
+              <button
+                type="button"
+                onClick={handleTryKoa}
+                className="mt-7 rounded-full border-0 bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-[0_0_34px_rgba(37,99,235,0.26)] transition hover:bg-blue-500 hover:shadow-[0_0_50px_rgba(37,99,235,0.35)]"
+              >
+                Try KOANimation
+              </button>
+            </div>
+          </GlassPanel>
+
+          <div className="mt-10">
+            <GlowDivider />
           </div>
         </div>
       </section>
 
-      <footer className="border-t border-white/10 py-10">
+      <footer className="pb-10">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 text-sm text-white/50">
           <span>© {new Date().getFullYear()} KOANimation</span>
           <div className="flex gap-4">
