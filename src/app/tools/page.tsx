@@ -5,7 +5,6 @@ import Image from "next/image";
 import React, {
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -27,7 +26,6 @@ import {
   Sparkles,
   Wand2,
   Zap,
-  Clock3,
   PanelLeft,
   Film,
   History,
@@ -36,6 +34,8 @@ import {
   ShieldCheck,
   Stars,
   Command,
+  House,
+  Coins,
 } from "lucide-react";
 import { createClient } from "@/app/lib/supabase/client";
 
@@ -52,26 +52,24 @@ const VIDEO_TOOLS: {
   {
     key: "reference-to-video",
     label: "Reference to Video",
-    description: "Use a reference to guide video generation with stronger identity and style consistency.",
+    description:
+      "Use a reference to guide video generation with stronger identity and style consistency.",
     icon: <ScanSearch className="h-5 w-5" />,
-    accent:
-      "from-violet-400/25 via-fuchsia-400/10 to-transparent",
+    accent: "from-violet-400/25 via-fuchsia-400/10 to-transparent",
   },
   {
     key: "image-to-video",
     label: "Image to Video",
     description: "Bring a still image to life as a cinematic animated shot.",
     icon: <Clapperboard className="h-5 w-5" />,
-    accent:
-      "from-cyan-400/25 via-sky-400/10 to-transparent",
+    accent: "from-cyan-400/25 via-sky-400/10 to-transparent",
   },
   {
     key: "text-to-video",
     label: "Text to Video",
     description: "Generate a video scene directly from a prompt.",
     icon: <Wand2 className="h-5 w-5" />,
-    accent:
-      "from-amber-300/20 via-orange-300/10 to-transparent",
+    accent: "from-amber-300/20 via-orange-300/10 to-transparent",
   },
 ];
 
@@ -87,16 +85,14 @@ const IMAGE_TOOLS: {
     label: "Reference to Image",
     description: "Use image references to guide a controlled image generation.",
     icon: <Layers3 className="h-5 w-5" />,
-    accent:
-      "from-emerald-400/20 via-cyan-300/10 to-transparent",
+    accent: "from-emerald-400/20 via-cyan-300/10 to-transparent",
   },
   {
     key: "text-to-image",
     label: "Text to Image",
     description: "Generate a polished image from a text prompt.",
     icon: <ImageIcon className="h-5 w-5" />,
-    accent:
-      "from-pink-400/20 via-violet-300/10 to-transparent",
+    accent: "from-pink-400/20 via-violet-300/10 to-transparent",
   },
 ];
 
@@ -278,7 +274,9 @@ function AIProcessingPreview() {
       <div className="relative z-10 p-5">
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-sm font-semibold text-white/92">Live Preview</div>
+            <div className="text-sm font-semibold text-white/92">
+              Live Preview
+            </div>
             <div className="mt-1 text-xs text-white/50">
               Simulated generation preview
             </div>
@@ -298,15 +296,17 @@ function AIProcessingPreview() {
               <div className="absolute inset-0 ai-scanline" />
               <div className="absolute inset-x-3 bottom-2 flex items-center justify-between text-[11px] text-white/60">
                 <span>Frame {i + 1}</span>
-                <span>{i === 0 ? "queued" : i === 1 ? "rendering" : "refining"}</span>
+                <span>
+                  {i === 0 ? "queued" : i === 1 ? "rendering" : "refining"}
+                </span>
               </div>
             </div>
           ))}
         </div>
 
         <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-3 text-xs text-white/55">
-          Tip: this panel can later show real generation progress, estimated time,
-          and finished outputs.
+          Tip: this panel can later show real generation progress, estimated
+          time, and finished outputs.
         </div>
       </div>
     </GlassPanel>
@@ -393,8 +393,12 @@ function RecentCreationsStrip() {
     <GlassPanel className="overflow-hidden">
       <div className="relative z-10 flex items-center justify-between px-5 py-4">
         <div>
-          <div className="text-sm font-semibold text-white/90">Recent creations</div>
-          <div className="mt-1 text-xs text-white/50">Live inspiration strip</div>
+          <div className="text-sm font-semibold text-white/90">
+            Recent creations
+          </div>
+          <div className="mt-1 text-xs text-white/50">
+            Live inspiration strip
+          </div>
         </div>
         <div className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-[11px] text-white/60">
           live feed
@@ -433,13 +437,17 @@ function QuickStat({
   label,
   value,
   icon,
+  className = "",
+  iconClassName = "",
 }: {
   label: string;
   value: string;
   icon: ReactNode;
+  className?: string;
+  iconClassName?: string;
 }) {
   return (
-    <GlassPanel className="p-5">
+    <GlassPanel className={cn("p-5", className)}>
       <div className="relative z-10 flex items-start justify-between gap-4">
         <div>
           <div className="text-xs uppercase tracking-[0.18em] text-white/40">
@@ -447,7 +455,12 @@ function QuickStat({
           </div>
           <div className="mt-3 text-2xl font-semibold text-white">{value}</div>
         </div>
-        <div className="inline-flex rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-white/80">
+        <div
+          className={cn(
+            "inline-flex rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-white/80",
+            iconClassName
+          )}
+        >
           {icon}
         </div>
       </div>
@@ -526,6 +539,10 @@ export default function ToolsPage() {
     const target = `/create/image?tab=${tool}`;
     if (mounted && isAuthed) router.push(target);
     else router.push(`/login?redirect=${encodeURIComponent(target)}`);
+  };
+
+  const goSiteHome = () => {
+    router.push("/");
   };
 
   const heroVideos = useMemo(
@@ -634,13 +651,20 @@ export default function ToolsPage() {
                   <SidebarSectionTitle>Navigation</SidebarSectionTitle>
 
                   <button
-                    onClick={() => router.push("/tools")}
+                    onClick={goSiteHome}
                     className="group flex w-full items-center justify-between rounded-2xl border border-white/20 bg-white/[0.07] px-4 py-3 text-left transition hover:bg-white/[0.1]"
                   >
-                    <div>
-                      <div className="text-sm font-semibold text-white">Home</div>
-                      <div className="mt-1 text-xs text-white/55">
-                        Tool selection and live overview
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5 inline-flex rounded-xl border border-white/10 bg-white/[0.04] p-2 text-white/80">
+                        <House className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <div className="text-sm font-semibold text-white">
+                          Home
+                        </div>
+                        <div className="mt-1 text-xs text-white/55">
+                          Return to the KOANimation homepage
+                        </div>
                       </div>
                     </div>
                     <ChevronRight className="h-4 w-4 text-white/40 transition group-hover:translate-x-1 group-hover:text-white/80" />
@@ -804,7 +828,9 @@ export default function ToolsPage() {
               <QuickStat
                 label="Credits"
                 value={credits === null ? "..." : `${credits}`}
-                icon={<Zap className="h-5 w-5" />}
+                icon={<Coins className="h-5 w-5" />}
+                className="border-yellow-300/20 shadow-[0_0_0_1px_rgba(250,204,21,0.10),0_0_28px_rgba(250,204,21,0.12),0_24px_80px_rgba(0,0,0,0.32)]"
+                iconClassName="border-yellow-300/20 bg-yellow-300/10 text-yellow-200 shadow-[0_0_22px_rgba(250,204,21,0.22)]"
               />
               <QuickStat
                 label="Status"
@@ -833,7 +859,9 @@ export default function ToolsPage() {
                       <div className="text-[11px] font-semibold tracking-[0.18em] text-white/40">
                         AI VIDEO CREATION
                       </div>
-                      <div className="mt-1 text-xl font-semibold">Video tools</div>
+                      <div className="mt-1 text-xl font-semibold">
+                        Video tools
+                      </div>
                     </div>
                     <div className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-[11px] text-white/60">
                       reference / image / text
@@ -863,7 +891,9 @@ export default function ToolsPage() {
                       <div className="text-[11px] font-semibold tracking-[0.18em] text-white/40">
                         AI IMAGE CREATION
                       </div>
-                      <div className="mt-1 text-xl font-semibold">Image tools</div>
+                      <div className="mt-1 text-xl font-semibold">
+                        Image tools
+                      </div>
                     </div>
                     <div className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-[11px] text-white/60">
                       reference / text
@@ -895,7 +925,9 @@ export default function ToolsPage() {
                       <PanelLeft className="h-5 w-5" />
                     </div>
                     <div>
-                      <div className="text-lg font-semibold">Creation flow</div>
+                      <div className="text-lg font-semibold">
+                        Creation flow
+                      </div>
                       <div className="mt-1 text-sm text-white/55">
                         Simple structure, premium feel
                       </div>
