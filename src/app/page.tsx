@@ -50,6 +50,21 @@ function cn(...inputs: Array<string | undefined | false | null>) {
   return twMerge(clsx(inputs));
 }
 
+function useIsMobile(breakpoint = 1024) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia(`(max-width: ${breakpoint}px)`);
+    const onChange = () => setIsMobile(media.matches);
+
+    onChange();
+    media.addEventListener("change", onChange);
+    return () => media.removeEventListener("change", onChange);
+  }, [breakpoint]);
+
+  return isMobile;
+}
+
 function GlowDivider() {
   return (
     <div className="relative h-px w-full">
@@ -97,12 +112,14 @@ function SectionEyebrow({
   );
 }
 
-function useLenisScroll() {
+function useLenisScroll(enabled: boolean) {
   useEffect(() => {
+    if (!enabled) return;
+
     const lenis = new Lenis({
-      duration: 1.1,
+      duration: 0.9,
       smoothWheel: true,
-      touchMultiplier: 1.2,
+      touchMultiplier: 1.05,
     });
 
     let rafId = 0;
@@ -118,7 +135,7 @@ function useLenisScroll() {
       cancelAnimationFrame(rafId);
       lenis.destroy();
     };
-  }, []);
+  }, [enabled]);
 }
 
 function Reveal({
@@ -214,15 +231,15 @@ function GlassCard({
     <div
       className={cn(
         "group relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.05] backdrop-blur-xl",
-        "shadow-[0_24px_90px_rgba(0,0,0,0.36)]",
+        "shadow-[0_24px_90px_rgba(0,0,0,0.30)]",
         hover &&
           "transition duration-500 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.07]",
         className
       )}
     >
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.055),rgba(255,255,255,0.012)_22%,rgba(0,0,0,0.08)_100%)]" />
-      <div className="pointer-events-none absolute inset-[1px] rounded-[23px] border border-white/[0.06]" />
-      <div className="pointer-events-none absolute -left-[140%] top-0 h-full w-[80%] rotate-12 bg-[linear-gradient(to_right,transparent,rgba(255,255,255,0.12),transparent)] opacity-0 blur-xl transition duration-700 group-hover:left-[140%] group-hover:opacity-100" />
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.05),rgba(255,255,255,0.012)_22%,rgba(0,0,0,0.08)_100%)]" />
+      <div className="pointer-events-none absolute inset-[1px] rounded-[23px] border border-white/[0.05]" />
+      <div className="pointer-events-none absolute -left-[140%] top-0 h-full w-[80%] rotate-12 bg-[linear-gradient(to_right,transparent,rgba(255,255,255,0.10),transparent)] opacity-0 blur-xl transition duration-700 group-hover:left-[140%] group-hover:opacity-100" />
       {children}
     </div>
   );
@@ -230,7 +247,7 @@ function GlassCard({
 
 function WallpaperRevealBackground({
   src = "/wallpaper.jpg",
-  radius = 240,
+  radius = 220,
 }: {
   src?: string;
   radius?: number;
@@ -287,24 +304,23 @@ function WallpaperRevealBackground({
           className="h-full w-full object-cover"
           draggable={false}
         />
-        <div className="absolute inset-0 bg-black/20" />
+        <div className="absolute inset-0 bg-black/25" />
       </div>
 
       <div className="pointer-events-none fixed inset-0 -z-30">
         <div className="absolute inset-0" style={{ background: spotlight }} />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(255,255,255,0.04)_0%,rgba(0,0,0,0.55)_55%,rgba(0,0,0,0.92)_100%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(255,255,255,0.035)_0%,rgba(0,0,0,0.55)_55%,rgba(0,0,0,0.92)_100%)]" />
       </div>
 
-      <div className="pointer-events-none fixed inset-0 -z-20 opacity-80">
-        <div className="absolute -left-24 top-10 h-[420px] w-[420px] rounded-full bg-violet-600/15 blur-[150px]" />
-        <div className="absolute right-[-70px] top-[18%] h-[360px] w-[360px] rounded-full bg-blue-500/12 blur-[150px]" />
-        <div className="absolute bottom-[-90px] left-[18%] h-[280px] w-[280px] rounded-full bg-fuchsia-500/10 blur-[130px]" />
+      <div className="pointer-events-none fixed inset-0 -z-20 opacity-75">
+        <div className="absolute -left-24 top-10 h-[380px] w-[380px] rounded-full bg-violet-600/12 blur-[140px]" />
+        <div className="absolute right-[-70px] top-[18%] h-[320px] w-[320px] rounded-full bg-blue-500/10 blur-[140px]" />
+        <div className="absolute bottom-[-90px] left-[18%] h-[240px] w-[240px] rounded-full bg-fuchsia-500/8 blur-[120px]" />
       </div>
 
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute -left-[10%] top-[14%] h-[28rem] w-[28rem] animate-[floatGlow_18s_ease-in-out_infinite] rounded-full bg-[radial-gradient(circle,rgba(168,85,247,0.14),transparent_60%)] blur-3xl" />
-        <div className="absolute right-[4%] top-[36%] h-[24rem] w-[24rem] animate-[floatGlow_22s_ease-in-out_infinite_reverse] rounded-full bg-[radial-gradient(circle,rgba(59,130,246,0.12),transparent_60%)] blur-3xl" />
-        <div className="absolute left-[35%] bottom-[8%] h-[20rem] w-[20rem] animate-[floatGlow_20s_ease-in-out_infinite] rounded-full bg-[radial-gradient(circle,rgba(34,211,238,0.08),transparent_60%)] blur-3xl" />
+        <div className="absolute -left-[10%] top-[14%] h-[24rem] w-[24rem] animate-[floatGlow_18s_ease-in-out_infinite] rounded-full bg-[radial-gradient(circle,rgba(168,85,247,0.12),transparent_60%)] blur-3xl" />
+        <div className="absolute right-[4%] top-[36%] h-[20rem] w-[20rem] animate-[floatGlow_22s_ease-in-out_infinite_reverse] rounded-full bg-[radial-gradient(circle,rgba(59,130,246,0.10),transparent_60%)] blur-3xl" />
       </div>
 
       <style jsx global>{`
@@ -314,7 +330,7 @@ function WallpaperRevealBackground({
             transform: translate3d(0, 0, 0) scale(1);
           }
           50% {
-            transform: translate3d(20px, -18px, 0) scale(1.05);
+            transform: translate3d(18px, -14px, 0) scale(1.04);
           }
         }
       `}</style>
@@ -340,7 +356,7 @@ function ScrollProgress() {
   return (
     <div className="pointer-events-none fixed left-0 right-0 top-0 z-[3000] h-[2px]">
       <div
-        className="h-full bg-[linear-gradient(to_right,rgba(168,85,247,0.95),rgba(59,130,246,0.95),rgba(34,211,238,0.95))] shadow-[0_0_20px_rgba(168,85,247,0.45)] transition-[width] duration-100"
+        className="h-full bg-[linear-gradient(to_right,rgba(168,85,247,0.95),rgba(59,130,246,0.95),rgba(34,211,238,0.95))] shadow-[0_0_20px_rgba(168,85,247,0.35)] transition-[width] duration-100"
         style={{ width: `${progress}%` }}
       />
     </div>
@@ -350,11 +366,10 @@ function ScrollProgress() {
 function FloatingOrbs() {
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
-      <div className="absolute left-[8%] top-[18%] h-4 w-4 animate-pulse rounded-full bg-violet-400/50 blur-[1px]" />
-      <div className="absolute right-[15%] top-[28%] h-3 w-3 animate-pulse rounded-full bg-cyan-400/50 blur-[1px]" />
-      <div className="absolute left-[20%] top-[58%] h-2.5 w-2.5 animate-pulse rounded-full bg-blue-400/50 blur-[1px]" />
-      <div className="absolute right-[28%] top-[62%] h-4 w-4 animate-pulse rounded-full bg-fuchsia-400/40 blur-[1px]" />
-      <div className="absolute bottom-[18%] left-[48%] h-3 w-3 animate-pulse rounded-full bg-white/30 blur-[1px]" />
+      <div className="absolute left-[8%] top-[18%] h-3 w-3 animate-pulse rounded-full bg-violet-400/40 blur-[1px]" />
+      <div className="absolute right-[15%] top-[28%] h-2.5 w-2.5 animate-pulse rounded-full bg-cyan-400/40 blur-[1px]" />
+      <div className="absolute left-[20%] top-[58%] h-2 w-2 animate-pulse rounded-full bg-blue-400/40 blur-[1px]" />
+      <div className="absolute right-[28%] top-[62%] h-3 w-3 animate-pulse rounded-full bg-fuchsia-400/35 blur-[1px]" />
     </div>
   );
 }
@@ -367,51 +382,41 @@ function HeroNebulaCore() {
     const t = state.clock.getElapsedTime();
 
     if (orbRef.current) {
-      orbRef.current.rotation.x = t * 0.18;
-      orbRef.current.rotation.y = t * 0.28;
-      orbRef.current.position.y = Math.sin(t * 0.8) * 0.08;
+      orbRef.current.rotation.x = t * 0.12;
+      orbRef.current.rotation.y = t * 0.18;
+      orbRef.current.position.y = Math.sin(t * 0.8) * 0.05;
     }
 
     if (ringRef.current) {
-      ringRef.current.rotation.z = t * 0.24;
-      ringRef.current.rotation.x = Math.sin(t * 0.3) * 0.15 + 0.8;
-      ringRef.current.position.y = Math.cos(t * 0.7) * 0.05;
+      ringRef.current.rotation.z = t * 0.16;
+      ringRef.current.rotation.x = 0.85 + Math.sin(t * 0.25) * 0.08;
     }
   });
 
   return (
-    <group position={[0.4, 0.2, 0]}>
-      <Float speed={1.6} rotationIntensity={0.25} floatIntensity={0.35}>
+    <group position={[0.5, 0.15, 0]}>
+      <Float speed={1.2} rotationIntensity={0.18} floatIntensity={0.2}>
         <mesh ref={orbRef}>
-          <icosahedronGeometry args={[1.05, 1]} />
+          <icosahedronGeometry args={[0.95, 1]} />
           <meshStandardMaterial
             color="#7c3aed"
             emissive="#60a5fa"
-            emissiveIntensity={0.8}
-            metalness={0.45}
-            roughness={0.15}
+            emissiveIntensity={0.65}
+            metalness={0.35}
+            roughness={0.2}
             transparent
-            opacity={0.82}
+            opacity={0.76}
           />
         </mesh>
 
         <mesh ref={ringRef} rotation={[1, 0, 0]}>
-          <torusGeometry args={[1.65, 0.055, 16, 140]} />
+          <torusGeometry args={[1.45, 0.045, 16, 100]} />
           <meshStandardMaterial
             color="#a855f7"
             emissive="#22d3ee"
-            emissiveIntensity={1.25}
+            emissiveIntensity={1}
             transparent
-            opacity={0.7}
-          />
-        </mesh>
-
-        <mesh scale={1.55}>
-          <sphereGeometry args={[1.0, 32, 32]} />
-          <meshBasicMaterial
-            color="#8b5cf6"
-            transparent
-            opacity={0.06}
+            opacity={0.55}
           />
         </mesh>
       </Float>
@@ -421,11 +426,11 @@ function HeroNebulaCore() {
 
 function HeroNebulaDust() {
   const positions = useMemo(() => {
-    const points = new Float32Array(1800);
+    const points = new Float32Array(900);
     for (let i = 0; i < points.length; i += 3) {
-      points[i] = (Math.random() - 0.5) * 12;
-      points[i + 1] = (Math.random() - 0.5) * 8;
-      points[i + 2] = (Math.random() - 0.5) * 6;
+      points[i] = (Math.random() - 0.5) * 10;
+      points[i + 1] = (Math.random() - 0.5) * 7;
+      points[i + 2] = (Math.random() - 0.5) * 5;
     }
     return points;
   }, []);
@@ -435,8 +440,7 @@ function HeroNebulaDust() {
   useFrame((state) => {
     const t = state.clock.getElapsedTime();
     if (groupRef.current) {
-      groupRef.current.rotation.y = t * 0.035;
-      groupRef.current.rotation.x = Math.sin(t * 0.15) * 0.05;
+      groupRef.current.rotation.y = t * 0.02;
     }
   });
 
@@ -446,10 +450,10 @@ function HeroNebulaDust() {
         <PointMaterial
           transparent
           color="#c4b5fd"
-          size={0.035}
+          size={0.03}
           sizeAttenuation
           depthWrite={false}
-          opacity={0.7}
+          opacity={0.55}
         />
       </Points>
     </group>
@@ -458,17 +462,16 @@ function HeroNebulaDust() {
 
 function HeroScene() {
   return (
-    <div className="pointer-events-none absolute inset-0 z-[2] opacity-70">
+    <div className="pointer-events-none absolute inset-0 z-[2] opacity-60">
       <Canvas
-        dpr={[1, 1.6]}
+        dpr={[1, 1.2]}
         camera={{ position: [0, 0, 5.5], fov: 42 }}
-        gl={{ antialias: true, alpha: true }}
+        gl={{ antialias: false, alpha: true, powerPreference: "high-performance" }}
       >
-        <color attach="background" args={["transparent"]} />
-        <ambientLight intensity={0.8} />
-        <directionalLight position={[3, 4, 5]} intensity={2.4} color="#93c5fd" />
-        <directionalLight position={[-4, -2, 3]} intensity={1.4} color="#c084fc" />
-        <pointLight position={[0, 0, 3]} intensity={2.2} color="#22d3ee" />
+        <ambientLight intensity={0.65} />
+        <directionalLight position={[3, 4, 5]} intensity={1.8} color="#93c5fd" />
+        <directionalLight position={[-4, -2, 3]} intensity={1.0} color="#c084fc" />
+        <pointLight position={[0, 0, 3]} intensity={1.5} color="#22d3ee" />
         <HeroNebulaDust />
         <HeroNebulaCore />
       </Canvas>
@@ -513,7 +516,7 @@ function EmblaVideoCarousel({
     <div className="relative">
       <div className="relative mx-auto w-full max-w-6xl">
         <GlassCard className="overflow-hidden">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(168,85,247,0.18),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(59,130,246,0.15),transparent_30%)]" />
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(168,85,247,0.14),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(59,130,246,0.12),transparent_30%)]" />
 
           <div className="overflow-hidden" ref={emblaRef}>
             <div className="flex">
@@ -521,7 +524,7 @@ function EmblaVideoCarousel({
                 <div key={item.src} className="min-w-0 flex-[0_0_100%]">
                   <video
                     className={cn(
-                      "w-full object-cover transition duration-700 group-hover:scale-[1.02]",
+                      "w-full object-cover transition duration-700 group-hover:scale-[1.015]",
                       large
                         ? "h-[340px] sm:h-[440px] md:h-[520px]"
                         : "h-[260px] sm:h-[360px] md:h-[460px]"
@@ -538,14 +541,14 @@ function EmblaVideoCarousel({
             </div>
           </div>
 
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(255,255,255,0.05)_0%,rgba(0,0,0,0.52)_62%,rgba(0,0,0,0.88)_100%)]" />
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(255,255,255,0.04)_0%,rgba(0,0,0,0.52)_62%,rgba(0,0,0,0.88)_100%)]" />
 
           <div className="pointer-events-none absolute left-5 top-5 z-20 rounded-full border border-white/10 bg-black/35 px-3 py-1 text-xs font-medium text-white/70 backdrop-blur">
             {title}
           </div>
 
           <div className="pointer-events-none absolute bottom-6 left-1/2 z-20 w-[min(92%,620px)] -translate-x-1/2">
-            <div className="pointer-events-auto flex items-center justify-center gap-3 rounded-2xl border border-white/10 bg-black/45 px-3 py-3 shadow-[0_20px_80px_rgba(0,0,0,0.55)] backdrop-blur">
+            <div className="pointer-events-auto flex items-center justify-center gap-3 rounded-2xl border border-white/10 bg-black/45 px-3 py-3 shadow-[0_20px_80px_rgba(0,0,0,0.45)] backdrop-blur">
               {items.map((item, index) => {
                 const isActive = index === selectedIndex;
                 return (
@@ -556,7 +559,7 @@ function EmblaVideoCarousel({
                     className={cn(
                       "relative overflow-hidden rounded-xl border transition duration-300 focus:outline-none focus:ring-2 focus:ring-white/20",
                       isActive
-                        ? "border-white/25 ring-1 ring-white/15 shadow-[0_0_20px_rgba(255,255,255,0.08)]"
+                        ? "border-white/25 ring-1 ring-white/15 shadow-[0_0_18px_rgba(255,255,255,0.06)]"
                         : "border-white/10 hover:border-white/20"
                     )}
                   >
@@ -580,7 +583,7 @@ function EmblaVideoCarousel({
         <button
           aria-label="Previous"
           onClick={scrollPrev}
-          className="absolute left-2 top-1/2 z-30 -translate-y-1/2 rounded-full border border-white/10 bg-black/45 p-3 text-white/90 shadow-[0_18px_70px_rgba(0,0,0,0.55)] backdrop-blur transition duration-300 hover:scale-105 hover:bg-black/60 md:-left-10 md:p-4"
+          className="absolute left-2 top-1/2 z-30 -translate-y-1/2 rounded-full border border-white/10 bg-black/45 p-3 text-white/90 shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur transition duration-300 hover:scale-105 hover:bg-black/60 md:-left-10 md:p-4"
         >
           <ChevronLeft className="h-6 w-6 md:h-7 md:w-7" />
         </button>
@@ -588,7 +591,7 @@ function EmblaVideoCarousel({
         <button
           aria-label="Next"
           onClick={scrollNext}
-          className="absolute right-2 top-1/2 z-30 -translate-y-1/2 rounded-full border border-white/10 bg-black/45 p-3 text-white/90 shadow-[0_18px_70px_rgba(0,0,0,0.55)] backdrop-blur transition duration-300 hover:scale-105 hover:bg-black/60 md:-right-10 md:p-4"
+          className="absolute right-2 top-1/2 z-30 -translate-y-1/2 rounded-full border border-white/10 bg-black/45 p-3 text-white/90 shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur transition duration-300 hover:scale-105 hover:bg-black/60 md:-right-10 md:p-4"
         >
           <ChevronRight className="h-6 w-6 md:h-7 md:w-7" />
         </button>
@@ -621,9 +624,9 @@ function ToolModeCard({
       tiltMaxAngleX={4}
       tiltMaxAngleY={4}
       glareEnable
-      glareMaxOpacity={0.06}
+      glareMaxOpacity={0.05}
       scale={1.01}
-      transitionSpeed={1800}
+      transitionSpeed={1600}
       className="rounded-3xl"
     >
       <button
@@ -638,7 +641,6 @@ function ToolModeCard({
         <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.04),rgba(255,255,255,0.01)_20%,rgba(0,0,0,0.08)_100%)]" />
         <div className="pointer-events-none absolute inset-[1px] rounded-[23px] border border-white/[0.06]" />
         <div className="pointer-events-none absolute -right-8 top-0 h-20 w-20 rounded-full bg-white/10 blur-2xl opacity-20 transition duration-500 group-hover:opacity-40" />
-        <div className="pointer-events-none absolute -left-[140%] top-0 h-full w-[80%] rotate-12 bg-[linear-gradient(to_right,transparent,rgba(255,255,255,0.12),transparent)] opacity-0 blur-xl transition duration-700 group-hover:left-[140%] group-hover:opacity-100" />
         <div className="relative z-10">
           <div className="mb-4 inline-flex rounded-2xl border border-white/10 bg-black/25 p-2 text-white/75">
             {icon}
@@ -696,7 +698,7 @@ function FeatureCard({
 }) {
   return (
     <GlassCard className={cn("p-8", glowClass)}>
-      <div className="pointer-events-none absolute -top-10 left-8 h-28 w-28 rounded-full bg-white/10 blur-3xl opacity-40 transition duration-500 group-hover:opacity-70" />
+      <div className="pointer-events-none absolute -top-10 left-8 h-28 w-28 rounded-full bg-white/10 blur-3xl opacity-35 transition duration-500 group-hover:opacity-60" />
       <div className="relative z-10 flex items-start justify-between gap-6">
         <div className="max-w-md">
           <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs text-white/70">
@@ -717,7 +719,7 @@ function FeatureCard({
         </div>
 
         <div className="relative hidden w-[260px] shrink-0 md:block">
-          <div className="absolute -inset-10 rounded-[40px] bg-white/10 blur-3xl opacity-25" />
+          <div className="absolute -inset-10 rounded-[40px] bg-white/10 blur-3xl opacity-20" />
           <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/20">
             <video
               className="h-[160px] w-full object-cover transition duration-700 group-hover:scale-105"
@@ -827,7 +829,7 @@ function FAQItem({
 function MarqueeRow({ items }: { items: string[] }) {
   return (
     <div className="overflow-hidden rounded-2xl border border-white/10 bg-black/25 py-3 backdrop-blur">
-      <Marquee speed={34} gradient={false} pauseOnHover>
+      <Marquee speed={30} gradient={false} pauseOnHover>
         {items.concat(items).map((item, i) => (
           <span
             key={`${item}-${i}`}
@@ -884,7 +886,7 @@ function HoverSpotlightSection({
     const y = e.clientY - rect.top;
 
     setStyle({
-      background: `radial-gradient(circle 260px at ${x}px ${y}px, rgba(168,85,247,0.11), rgba(59,130,246,0.07) 35%, transparent 72%)`,
+      background: `radial-gradient(circle 240px at ${x}px ${y}px, rgba(168,85,247,0.10), rgba(59,130,246,0.06) 35%, transparent 72%)`,
     });
   };
 
@@ -947,7 +949,13 @@ function BenefitRow({
 }
 
 export default function Home() {
-  useLenisScroll();
+  const prefersReducedMotion = useReducedMotion();
+  const isMobile = useIsMobile();
+
+  const enableHeavyFx = !isMobile && !prefersReducedMotion;
+  const enableLenis = !prefersReducedMotion;
+
+  useLenisScroll(enableLenis);
 
   const particlesInit = useCallback(async (engine: Engine) => {
     await loadSlim(engine);
@@ -979,12 +987,12 @@ export default function Home() {
       );
 
       const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
-      tl.to(heroBadgeRef.current, { opacity: 1, y: 0, duration: 0.55 })
-        .to(heroTitleRef.current, { opacity: 1, y: 0, duration: 0.75 }, "-=0.2")
-        .to(heroTextRef.current, { opacity: 1, y: 0, duration: 0.6 }, "-=0.4")
-        .to(heroButtonsRef.current, { opacity: 1, y: 0, duration: 0.55 }, "-=0.35")
-        .to(heroChipsRef.current, { opacity: 1, y: 0, duration: 0.55 }, "-=0.3")
-        .to(heroPreviewRef.current, { opacity: 1, y: 0, duration: 0.8 }, "-=0.55");
+      tl.to(heroBadgeRef.current, { opacity: 1, y: 0, duration: 0.5 })
+        .to(heroTitleRef.current, { opacity: 1, y: 0, duration: 0.7 }, "-=0.2")
+        .to(heroTextRef.current, { opacity: 1, y: 0, duration: 0.55 }, "-=0.35")
+        .to(heroButtonsRef.current, { opacity: 1, y: 0, duration: 0.5 }, "-=0.28")
+        .to(heroChipsRef.current, { opacity: 1, y: 0, duration: 0.5 }, "-=0.25")
+        .to(heroPreviewRef.current, { opacity: 1, y: 0, duration: 0.65 }, "-=0.45");
     }, heroRef);
 
     return () => ctx.revert();
@@ -1028,7 +1036,7 @@ export default function Home() {
   return (
     <main className="relative min-h-screen overflow-x-hidden text-white">
       <ScrollProgress />
-      <WallpaperRevealBackground src="/wallpaper.jpg" radius={240} />
+      <WallpaperRevealBackground src="/wallpaper.jpg" radius={isMobile ? 160 : 220} />
 
       <header className="fixed inset-x-0 top-0 z-[2000]">
         <div className="mx-auto w-full max-w-7xl px-6">
@@ -1036,7 +1044,7 @@ export default function Home() {
             initial={{ y: -18, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-            className="mt-4 flex items-center justify-between rounded-2xl border border-white/10 bg-black/45 px-4 py-3 shadow-[0_18px_70px_rgba(0,0,0,0.55)] backdrop-blur transition duration-300 hover:border-white/15"
+            className="mt-4 flex items-center justify-between rounded-2xl border border-white/10 bg-black/45 px-4 py-3 shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur transition duration-300 hover:border-white/15"
           >
             <div className="flex items-center gap-3">
               <div className="relative h-8 w-8">
@@ -1066,7 +1074,7 @@ export default function Home() {
 
                 <div className="absolute left-0 top-full h-4 w-full" />
 
-                <div className="pointer-events-none absolute left-0 top-full z-[3000] mt-2 w-64 translate-y-2 rounded-2xl border border-white/10 bg-black/70 opacity-0 shadow-[0_18px_70px_rgba(0,0,0,0.55)] backdrop-blur transition duration-200 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100">
+                <div className="pointer-events-none absolute left-0 top-full z-[3000] mt-2 w-64 translate-y-2 rounded-2xl border border-white/10 bg-black/70 opacity-0 shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur transition duration-200 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100">
                   <div className="p-2">
                     <AuthMenuItem
                       href={TOOL_ROUTES.referenceToVideo}
@@ -1118,7 +1126,7 @@ export default function Home() {
             <div className="flex items-center gap-3">
               <AuthCTAButton
                 href="/tools"
-                className="shadow-[0_0_35px_rgba(96,165,250,0.18)] hover:shadow-[0_0_50px_rgba(96,165,250,0.28)]"
+                className="shadow-[0_0_30px_rgba(96,165,250,0.16)] hover:shadow-[0_0_40px_rgba(96,165,250,0.22)]"
               >
                 Try KOANimation
               </AuthCTAButton>
@@ -1128,47 +1136,46 @@ export default function Home() {
       </header>
 
       <section ref={heroRef} className="relative min-h-screen overflow-hidden">
-        <FloatingMediaWall />
-        <HeroScene />
+        {!isMobile && <FloatingMediaWall />}
+        {enableHeavyFx && <HeroScene />}
         <FloatingOrbs />
 
         <div className="absolute inset-0 z-[1] bg-black/55" />
         <div className="absolute inset-0 z-[3] bg-[radial-gradient(circle_at_50%_45%,rgba(0,0,0,0.12)_0%,rgba(0,0,0,0.70)_70%,rgba(0,0,0,0.92)_100%)]" />
-        <div className="absolute inset-0 z-[4] bg-[radial-gradient(circle_at_25%_25%,rgba(168,85,247,0.15),transparent_58%),radial-gradient(circle_at_75%_40%,rgba(59,130,246,0.10),transparent_65%)]" />
-        <div className="absolute inset-0 z-[5] bg-[linear-gradient(to_right,rgba(0,0,0,0.72)_0%,rgba(0,0,0,0.48)_30%,rgba(0,0,0,0.30)_52%,rgba(0,0,0,0.44)_100%)]" />
-        <div className="absolute left-0 top-0 z-[6] h-full w-[52%] bg-[radial-gradient(circle_at_25%_35%,rgba(0,0,0,0.08),rgba(0,0,0,0.58)_55%,rgba(0,0,0,0.85)_100%)]" />
+        <div className="absolute inset-0 z-[4] bg-[radial-gradient(circle_at_25%_25%,rgba(168,85,247,0.12),transparent_58%),radial-gradient(circle_at_75%_40%,rgba(59,130,246,0.08),transparent_65%)]" />
+        <div className="absolute inset-0 z-[5] bg-[linear-gradient(to_right,rgba(0,0,0,0.72)_0%,rgba(0,0,0,0.50)_32%,rgba(0,0,0,0.32)_55%,rgba(0,0,0,0.46)_100%)]" />
+        <div className="absolute left-0 top-0 z-[6] h-full w-[52%] bg-[radial-gradient(circle_at_25%_35%,rgba(0,0,0,0.10),rgba(0,0,0,0.58)_55%,rgba(0,0,0,0.85)_100%)]" />
 
-        <div className="absolute inset-0 z-[7]">
-          <Particles
-            id="tsparticles"
-            init={particlesInit}
-            options={{
-              fullScreen: false,
-              background: { color: "transparent" },
-              fpsLimit: 60,
-              particles: {
-                number: { value: 20, density: { enable: true, area: 1100 } },
-                color: { value: ["#a855f7", "#60a5fa", "#22d3ee"] },
-                opacity: { value: 0.07 },
-                size: { value: { min: 1, max: 2 } },
-                move: {
-                  enable: true,
-                  speed: 0.18,
-                  direction: "none",
-                  outModes: { default: "out" },
+        {enableHeavyFx && (
+          <div className="absolute inset-0 z-[7]">
+            <Particles
+              id="tsparticles"
+              init={particlesInit}
+              options={{
+                fullScreen: false,
+                background: { color: "transparent" },
+                fpsLimit: 60,
+                particles: {
+                  number: { value: 10, density: { enable: true, area: 1200 } },
+                  color: { value: ["#a855f7", "#60a5fa", "#22d3ee"] },
+                  opacity: { value: 0.05 },
+                  size: { value: { min: 1, max: 2 } },
+                  move: {
+                    enable: true,
+                    speed: 0.12,
+                    direction: "none",
+                    outModes: { default: "out" },
+                  },
+                  links: {
+                    enable: false,
+                  },
                 },
-                links: {
-                  enable: true,
-                  distance: 150,
-                  opacity: 0.035,
-                  color: "#a855f7",
-                },
-              },
-              detectRetina: true,
-            }}
-            className="h-full w-full"
-          />
-        </div>
+                detectRetina: true,
+              }}
+              className="h-full w-full"
+            />
+          </div>
+        )}
 
         <div className="relative z-[1000] mx-auto flex min-h-screen w-full max-w-7xl items-center px-6 pt-28">
           <div className="grid w-full gap-12 lg:grid-cols-[1.08fr_0.92fr] lg:items-center">
@@ -1229,17 +1236,17 @@ export default function Home() {
                   {
                     text: "Reference-consistent motion",
                     hover:
-                      "hover:bg-violet-500/[0.12] hover:shadow-[0_0_30px_rgba(168,85,247,0.12)]",
+                      "hover:bg-violet-500/[0.12] hover:shadow-[0_0_24px_rgba(168,85,247,0.10)]",
                   },
                   {
                     text: "Image-to-video atmosphere",
                     hover:
-                      "hover:bg-cyan-500/[0.10] hover:shadow-[0_0_30px_rgba(34,211,238,0.12)]",
+                      "hover:bg-cyan-500/[0.10] hover:shadow-[0_0_24px_rgba(34,211,238,0.10)]",
                   },
                   {
                     text: "Cinematic anime presentation",
                     hover:
-                      "hover:bg-blue-500/[0.10] hover:shadow-[0_0_30px_rgba(59,130,246,0.12)]",
+                      "hover:bg-blue-500/[0.10] hover:shadow-[0_0_24px_rgba(59,130,246,0.10)]",
                   },
                 ].map((item) => (
                   <div
@@ -1257,9 +1264,9 @@ export default function Home() {
             </div>
 
             <div ref={heroPreviewRef} className="relative">
-              <div className="absolute -inset-8 rounded-[40px] bg-[radial-gradient(circle_at_center,rgba(168,85,247,0.16),transparent_55%)] blur-3xl" />
+              <div className="absolute -inset-8 rounded-[40px] bg-[radial-gradient(circle_at_center,rgba(168,85,247,0.14),transparent_55%)] blur-3xl" />
               <motion.div
-                animate={{ y: [0, -8, 0] }}
+                animate={prefersReducedMotion ? {} : { y: [0, -6, 0] }}
                 transition={{
                   duration: 8,
                   repeat: Infinity,
@@ -1267,15 +1274,15 @@ export default function Home() {
                 }}
               >
                 <Tilt
-                  tiltMaxAngleX={3}
-                  tiltMaxAngleY={3}
-                  glareEnable
-                  glareMaxOpacity={0.08}
+                  tiltMaxAngleX={isMobile ? 0 : 3}
+                  tiltMaxAngleY={isMobile ? 0 : 3}
+                  glareEnable={!isMobile}
+                  glareMaxOpacity={0.06}
                   scale={1.01}
-                  transitionSpeed={2200}
+                  transitionSpeed={1800}
                   className="rounded-[30px]"
                 >
-                  <GlassCard className="overflow-hidden p-4 shadow-[0_42px_160px_rgba(0,0,0,0.58)]">
+                  <GlassCard className="overflow-hidden p-4 shadow-[0_36px_120px_rgba(0,0,0,0.45)]">
                     <div className="mb-4 flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 transition duration-300 group-hover:bg-white/[0.06]">
                       <div>
                         <div className="text-sm font-semibold text-white">
@@ -1303,7 +1310,7 @@ export default function Home() {
                     </div>
 
                     <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                      <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition duration-300 hover:bg-violet-500/[0.10] hover:shadow-[0_0_30px_rgba(168,85,247,0.12)]">
+                      <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition duration-300 hover:bg-violet-500/[0.10]">
                         <div className="text-xs uppercase tracking-[0.18em] text-white/40">
                           Workflow
                         </div>
@@ -1311,7 +1318,7 @@ export default function Home() {
                           Reference to Video
                         </div>
                       </div>
-                      <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition duration-300 hover:bg-cyan-500/[0.10] hover:shadow-[0_0_30px_rgba(34,211,238,0.12)]">
+                      <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition duration-300 hover:bg-cyan-500/[0.10]">
                         <div className="text-xs uppercase tracking-[0.18em] text-white/40">
                           Output
                         </div>
@@ -1337,20 +1344,17 @@ export default function Home() {
               {
                 title: "Aesthetic Control",
                 desc: "Design motion with a more intentional visual identity, not random generations.",
-                hover:
-                  "hover:bg-violet-500/[0.10] hover:shadow-[0_0_45px_rgba(168,85,247,0.12)]",
+                hover: "hover:bg-violet-500/[0.10]",
               },
               {
                 title: "Studio Workflows",
                 desc: "Jump into focused tools for reference-to-video, image-to-video, and text generation.",
-                hover:
-                  "hover:bg-blue-500/[0.10] hover:shadow-[0_0_45px_rgba(59,130,246,0.12)]",
+                hover: "hover:bg-blue-500/[0.10]",
               },
               {
                 title: "Creator Presentation",
                 desc: "Premium outputs and a polished interface that feels closer to a real studio.",
-                hover:
-                  "hover:bg-cyan-500/[0.10] hover:shadow-[0_0_45px_rgba(34,211,238,0.12)]",
+                hover: "hover:bg-cyan-500/[0.10]",
               },
             ].map((item, i) => (
               <Reveal key={item.title} delay={i * 0.06}>
@@ -1411,7 +1415,7 @@ export default function Home() {
                 title="Reference to Video"
                 desc="Match a subject or style and animate with stronger consistency."
                 href={TOOL_ROUTES.referenceToVideo}
-                accentClass="shadow-[0_0_50px_rgba(168,85,247,0.08)] hover:bg-violet-500/[0.12] hover:shadow-[0_0_50px_rgba(168,85,247,0.16)]"
+                accentClass="hover:bg-violet-500/[0.12]"
                 icon={<Film className="h-5 w-5" />}
               />
             </Reveal>
@@ -1420,7 +1424,7 @@ export default function Home() {
                 title="Image to Video"
                 desc="Bring still artwork to life with motion, camera, and atmosphere."
                 href={TOOL_ROUTES.imageToVideo}
-                accentClass="shadow-[0_0_50px_rgba(59,130,246,0.08)] hover:bg-blue-500/[0.12] hover:shadow-[0_0_50px_rgba(59,130,246,0.16)]"
+                accentClass="hover:bg-blue-500/[0.12]"
                 icon={<Clapperboard className="h-5 w-5" />}
               />
             </Reveal>
@@ -1429,7 +1433,7 @@ export default function Home() {
                 title="Text to Video"
                 desc="Generate clips from prompt-first cinematic direction."
                 href={TOOL_ROUTES.textToVideo}
-                accentClass="shadow-[0_0_50px_rgba(236,72,153,0.07)] hover:bg-fuchsia-500/[0.12] hover:shadow-[0_0_50px_rgba(236,72,153,0.15)]"
+                accentClass="hover:bg-fuchsia-500/[0.12]"
                 icon={<Wand2 className="h-5 w-5" />}
               />
             </Reveal>
@@ -1438,7 +1442,7 @@ export default function Home() {
                 title="Reference to Image"
                 desc="Create style-aware images with more controlled visual identity."
                 href={TOOL_ROUTES.referenceToImage}
-                accentClass="shadow-[0_0_50px_rgba(234,179,8,0.07)] hover:bg-amber-400/[0.12] hover:shadow-[0_0_50px_rgba(234,179,8,0.16)]"
+                accentClass="hover:bg-amber-400/[0.12]"
                 icon={<ImageIcon className="h-5 w-5" />}
               />
             </Reveal>
@@ -1447,7 +1451,7 @@ export default function Home() {
                 title="Text to Image"
                 desc="Generate polished stills ready for concepting or animation input."
                 href={TOOL_ROUTES.textToImage}
-                accentClass="shadow-[0_0_50px_rgba(255,255,255,0.04)] hover:bg-white/[0.10] hover:shadow-[0_0_50px_rgba(255,255,255,0.10)]"
+                accentClass="hover:bg-white/[0.10]"
                 icon={<Sparkles className="h-5 w-5" />}
               />
             </Reveal>
@@ -1469,25 +1473,13 @@ export default function Home() {
 
           <div className="grid gap-4 md:grid-cols-3">
             <Reveal delay={0.02}>
-              <MetricCard
-                value="5"
-                label="Creative modes on one platform"
-                glow="shadow-[0_0_60px_rgba(168,85,247,0.08)] hover:shadow-[0_0_60px_rgba(168,85,247,0.16)]"
-              />
+              <MetricCard value="5" label="Creative modes on one platform" glow="" />
             </Reveal>
             <Reveal delay={0.08}>
-              <MetricCard
-                value="∞"
-                label="Stylized directions you can explore"
-                glow="shadow-[0_0_60px_rgba(59,130,246,0.08)] hover:shadow-[0_0_60px_rgba(59,130,246,0.16)]"
-              />
+              <MetricCard value="∞" label="Stylized directions you can explore" glow="" />
             </Reveal>
             <Reveal delay={0.14}>
-              <MetricCard
-                value="24/7"
-                label="Always-available creation workflow"
-                glow="shadow-[0_0_60px_rgba(34,211,238,0.08)] hover:shadow-[0_0_60px_rgba(34,211,238,0.16)]"
-              />
+              <MetricCard value="24/7" label="Always-available creation workflow" glow="" />
             </Reveal>
           </div>
         </div>
@@ -1540,7 +1532,7 @@ export default function Home() {
                 mediaSrc="/backgrounds/16.mp4"
                 ctaHref="/tools"
                 ctaLabel="Get Started"
-                glowClass="shadow-[0_0_80px_rgba(168,85,247,0.08)] hover:shadow-[0_0_90px_rgba(168,85,247,0.16)]"
+                glowClass=""
                 badge="Frame Control"
               />
             </Reveal>
@@ -1551,7 +1543,7 @@ export default function Home() {
                 mediaSrc="/backgrounds/7.mp4"
                 ctaHref="/tools"
                 ctaLabel="Get Started"
-                glowClass="shadow-[0_0_80px_rgba(59,130,246,0.08)] hover:shadow-[0_0_90px_rgba(59,130,246,0.16)]"
+                glowClass=""
                 badge="Animation"
               />
             </Reveal>
@@ -1577,7 +1569,7 @@ export default function Home() {
                       desc="Dark cinematic frames with contrast, rain, glow, and pressure."
                       mediaSrc="/backgrounds/12.mp4"
                       badge="Atmosphere"
-                      glowClass="shadow-[0_0_70px_rgba(168,85,247,0.08)] hover:shadow-[0_0_80px_rgba(168,85,247,0.16)]"
+                      glowClass=""
                       tall
                     />
                   </Reveal>
@@ -1587,7 +1579,7 @@ export default function Home() {
                       desc="Bring static illustrations into elegant motion without losing style."
                       mediaSrc="/backgrounds/14.mp4"
                       badge="Motion"
-                      glowClass="shadow-[0_0_70px_rgba(59,130,246,0.08)] hover:shadow-[0_0_80px_rgba(59,130,246,0.16)]"
+                      glowClass=""
                     />
                   </Reveal>
                   <Reveal delay={0.14}>
@@ -1596,7 +1588,7 @@ export default function Home() {
                       desc="Use subtle camera drift and staged composition for drama."
                       mediaSrc="/backgrounds/17.mp4"
                       badge="Camera"
-                      glowClass="shadow-[0_0_70px_rgba(34,211,238,0.08)] hover:shadow-[0_0_80px_rgba(34,211,238,0.16)]"
+                      glowClass=""
                     />
                   </Reveal>
                   <Reveal delay={0.2}>
@@ -1605,7 +1597,7 @@ export default function Home() {
                       desc="Maintain stronger subject identity while pushing cinematic framing."
                       mediaSrc="/backgrounds/6.mp4"
                       badge="Character"
-                      glowClass="shadow-[0_0_70px_rgba(236,72,153,0.08)] hover:shadow-[0_0_80px_rgba(236,72,153,0.16)]"
+                      glowClass=""
                     />
                   </Reveal>
                   <Reveal delay={0.26}>
@@ -1614,7 +1606,7 @@ export default function Home() {
                       desc="Use color, movement, and spatial depth for high-impact scenes."
                       mediaSrc="/backgrounds/2.mp4"
                       badge="Style"
-                      glowClass="shadow-[0_0_70px_rgba(250,204,21,0.08)] hover:shadow-[0_0_80px_rgba(250,204,21,0.16)]"
+                      glowClass=""
                     />
                   </Reveal>
                 </div>
@@ -1685,25 +1677,25 @@ export default function Home() {
                 step: "01",
                 title: "Choose a mode",
                 desc: "Start from reference, image, or text depending on how much direction you already have.",
-                glow: "shadow-[0_0_60px_rgba(168,85,247,0.08)] hover:shadow-[0_0_70px_rgba(168,85,247,0.16)]",
+                glow: "",
               },
               {
                 step: "02",
                 title: "Shape the look",
                 desc: "Define mood, framing, motion type, and aesthetic intent for stronger results.",
-                glow: "shadow-[0_0_60px_rgba(59,130,246,0.08)] hover:shadow-[0_0_70px_rgba(59,130,246,0.16)]",
+                glow: "",
               },
               {
                 step: "03",
                 title: "Generate iterations",
                 desc: "Explore multiple passes until the pacing, energy, and atmosphere feel right.",
-                glow: "shadow-[0_0_60px_rgba(236,72,153,0.08)] hover:shadow-[0_0_70px_rgba(236,72,153,0.16)]",
+                glow: "",
               },
               {
                 step: "04",
                 title: "Present your clip",
                 desc: "Export work that feels polished, cinematic, and ready to show on your platform.",
-                glow: "shadow-[0_0_60px_rgba(34,211,238,0.08)] hover:shadow-[0_0_70px_rgba(34,211,238,0.16)]",
+                glow: "",
               },
             ]}
           />
@@ -1728,7 +1720,7 @@ export default function Home() {
                 quote="It feels less like a random AI tool and more like a real place to shape aesthetic direction."
                 name="Visual Story Creator"
                 role="Atmospheric anime clips"
-                glow="shadow-[0_0_70px_rgba(168,85,247,0.08)] hover:shadow-[0_0_80px_rgba(168,85,247,0.14)]"
+                glow=""
               />
             </Reveal>
             <Reveal delay={0.08}>
@@ -1736,7 +1728,7 @@ export default function Home() {
                 quote="The interface already makes the output feel more premium. It pushes you into a stronger presentation mindset."
                 name="Motion-first Artist"
                 role="Stylized concept animation"
-                glow="shadow-[0_0_70px_rgba(59,130,246,0.08)] hover:shadow-[0_0_80px_rgba(59,130,246,0.14)]"
+                glow=""
               />
             </Reveal>
             <Reveal delay={0.14}>
@@ -1744,7 +1736,7 @@ export default function Home() {
                 quote="The best part is being able to explore cinematic tone while keeping the subject identity much more intentional."
                 name="Anime Editor"
                 role="Reference-driven workflow"
-                glow="shadow-[0_0_70px_rgba(34,211,238,0.08)] hover:shadow-[0_0_80px_rgba(34,211,238,0.14)]"
+                glow=""
               />
             </Reveal>
           </div>
@@ -1854,10 +1846,10 @@ export default function Home() {
       <section className="relative pb-24 pt-8">
         <div className="mx-auto w-full max-w-7xl px-6">
           <Reveal>
-            <GlassCard className="overflow-hidden shadow-[0_40px_140px_rgba(0,0,0,0.55)] hover:shadow-[0_55px_180px_rgba(0,0,0,0.68)]">
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.16),transparent_32%),radial-gradient(circle_at_left,rgba(168,85,247,0.15),transparent_30%)]" />
+            <GlassCard className="overflow-hidden shadow-[0_40px_140px_rgba(0,0,0,0.45)] hover:shadow-[0_50px_160px_rgba(0,0,0,0.55)]">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.14),transparent_32%),radial-gradient(circle_at_left,rgba(168,85,247,0.12),transparent_30%)]" />
               <video
-                className="h-[300px] w-full object-cover transition duration-700 group-hover:scale-[1.03] md:h-[360px]"
+                className="h-[300px] w-full object-cover transition duration-700 group-hover:scale-[1.02] md:h-[360px]"
                 src="/backgrounds/15.mp4"
                 autoPlay
                 loop
@@ -1881,7 +1873,7 @@ export default function Home() {
                   </p>
                   <AuthCTAButton
                     href={TOOL_ROUTES.referenceToVideo}
-                    className="mt-6 border-0 bg-blue-600 shadow-[0_0_40px_rgba(37,99,235,0.30)] hover:bg-blue-500 hover:shadow-[0_0_60px_rgba(37,99,235,0.42)]"
+                    className="mt-6 border-0 bg-blue-600 shadow-[0_0_34px_rgba(37,99,235,0.26)] hover:bg-blue-500 hover:shadow-[0_0_50px_rgba(37,99,235,0.35)]"
                   >
                     Try it now
                   </AuthCTAButton>
@@ -1915,10 +1907,7 @@ export default function Home() {
                   <a className="transition hover:text-white/85" href="#showcase">
                     Showcase
                   </a>
-                  <a
-                    className="transition hover:text-white/85"
-                    href="#resources"
-                  >
+                  <a className="transition hover:text-white/85" href="#resources">
                     FAQ
                   </a>
                 </div>
@@ -1927,16 +1916,10 @@ export default function Home() {
               <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur">
                 <div className="text-sm font-semibold text-white">Product</div>
                 <div className="mt-3 flex flex-col gap-2 text-sm text-white/58">
-                  <Link
-                    className="transition hover:text-white/85"
-                    href="/pricing"
-                  >
+                  <Link className="transition hover:text-white/85" href="/pricing">
                     Pricing
                   </Link>
-                  <Link
-                    className="transition hover:text-white/85"
-                    href="/roadmap"
-                  >
+                  <Link className="transition hover:text-white/85" href="/roadmap">
                     Roadmap
                   </Link>
                   <Link className="transition hover:text-white/85" href="/tools">
