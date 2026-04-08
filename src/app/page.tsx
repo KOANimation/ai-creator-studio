@@ -40,6 +40,21 @@ function useAuthNavigate() {
   );
 }
 
+function SectionEyebrow({
+  label,
+  dotClass = "bg-violet-400/80 shadow-[0_0_12px_rgba(168,85,247,0.7)]",
+}: {
+  label: string;
+  dotClass?: string;
+}) {
+  return (
+    <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs text-white/70 backdrop-blur">
+      <span className={["h-2 w-2 rounded-full", dotClass].join(" ")} />
+      {label}
+    </div>
+  );
+}
+
 function AuthMenuItem({ href, label }: { href: string; label: string }) {
   const go = useAuthNavigate();
 
@@ -50,7 +65,7 @@ function AuthMenuItem({ href, label }: { href: string; label: string }) {
       className="flex w-full cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-[13px] text-white/75 transition duration-300 hover:bg-white/5 hover:text-white"
     >
       <span>{label}</span>
-      <span className="text-white/30 transition group-hover:text-white/60">→</span>
+      <span className="text-white/30">→</span>
     </button>
   );
 }
@@ -78,6 +93,34 @@ function AuthCTAButton({
     >
       {children}
     </button>
+  );
+}
+
+function GlassCard({
+  children,
+  className = "",
+  hover = true,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  hover?: boolean;
+}) {
+  return (
+    <div
+      className={[
+        "group relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.05] backdrop-blur-xl",
+        "shadow-[0_24px_90px_rgba(0,0,0,0.36)]",
+        hover
+          ? "transition duration-500 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.07]"
+          : "",
+        className,
+      ].join(" ")}
+    >
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.055),rgba(255,255,255,0.012)_22%,rgba(0,0,0,0.08)_100%)]" />
+      <div className="pointer-events-none absolute inset-[1px] rounded-[23px] border border-white/[0.06]" />
+      <div className="pointer-events-none absolute -left-[140%] top-0 h-full w-[80%] rotate-12 bg-[linear-gradient(to_right,transparent,rgba(255,255,255,0.12),transparent)] opacity-0 blur-xl transition duration-700 group-hover:left-[140%] group-hover:opacity-100" />
+      {children}
+    </div>
   );
 }
 
@@ -133,26 +176,44 @@ function WallpaperRevealBackground({
 
   return (
     <>
-      <div className="fixed inset-0 -z-30">
+      <div className="fixed inset-0 -z-40">
         <img
           src={src}
           alt="Wallpaper"
           className="h-full w-full object-cover"
           draggable={false}
         />
-        <div className="absolute inset-0 bg-black/10" />
+        <div className="absolute inset-0 bg-black/20" />
       </div>
 
-      <div className="pointer-events-none fixed inset-0 -z-20">
+      <div className="pointer-events-none fixed inset-0 -z-30">
         <div className="absolute inset-0" style={{ background: spotlight }} />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(255,255,255,0.05)_0%,rgba(0,0,0,0.55)_55%,rgba(0,0,0,0.90)_100%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(255,255,255,0.04)_0%,rgba(0,0,0,0.55)_55%,rgba(0,0,0,0.92)_100%)]" />
       </div>
 
-      <div className="pointer-events-none fixed inset-0 -z-10 opacity-70">
-        <div className="absolute -left-24 top-20 h-[380px] w-[380px] rounded-full bg-violet-600/20 blur-[140px]" />
-        <div className="absolute right-[-80px] top-[20%] h-[340px] w-[340px] rounded-full bg-blue-500/15 blur-[140px]" />
-        <div className="absolute bottom-[-80px] left-[20%] h-[260px] w-[260px] rounded-full bg-fuchsia-500/10 blur-[120px]" />
+      <div className="pointer-events-none fixed inset-0 -z-20 opacity-80">
+        <div className="absolute -left-24 top-10 h-[420px] w-[420px] rounded-full bg-violet-600/15 blur-[150px]" />
+        <div className="absolute right-[-70px] top-[18%] h-[360px] w-[360px] rounded-full bg-blue-500/12 blur-[150px]" />
+        <div className="absolute bottom-[-90px] left-[18%] h-[280px] w-[280px] rounded-full bg-fuchsia-500/10 blur-[130px]" />
       </div>
+
+      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+        <div className="absolute -left-[10%] top-[14%] h-[28rem] w-[28rem] animate-[floatGlow_18s_ease-in-out_infinite] rounded-full bg-[radial-gradient(circle,rgba(168,85,247,0.14),transparent_60%)] blur-3xl" />
+        <div className="absolute right-[4%] top-[36%] h-[24rem] w-[24rem] animate-[floatGlow_22s_ease-in-out_infinite_reverse] rounded-full bg-[radial-gradient(circle,rgba(59,130,246,0.12),transparent_60%)] blur-3xl" />
+        <div className="absolute left-[35%] bottom-[8%] h-[20rem] w-[20rem] animate-[floatGlow_20s_ease-in-out_infinite] rounded-full bg-[radial-gradient(circle,rgba(34,211,238,0.08),transparent_60%)] blur-3xl" />
+      </div>
+
+      <style jsx global>{`
+        @keyframes floatGlow {
+          0%,
+          100% {
+            transform: translate3d(0, 0, 0) scale(1);
+          }
+          50% {
+            transform: translate3d(20px, -18px, 0) scale(1.05);
+          }
+        }
+      `}</style>
     </>
   );
 }
@@ -194,14 +255,6 @@ function FloatingOrbs() {
   );
 }
 
-function Sheen() {
-  return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-inherit">
-      <div className="absolute -left-[140%] top-0 h-full w-[80%] rotate-12 bg-[linear-gradient(to_right,transparent,rgba(255,255,255,0.12),transparent)] opacity-0 blur-xl transition duration-700 group-hover:left-[140%] group-hover:opacity-100" />
-    </div>
-  );
-}
-
 function VideoCarousel({
   items,
   initialIndex = 0,
@@ -219,8 +272,7 @@ function VideoCarousel({
   return (
     <div className="relative">
       <div className="relative mx-auto w-full max-w-5xl">
-        <div className="group relative overflow-hidden rounded-[28px] border border-white/10 bg-white/5 shadow-[0_40px_140px_rgba(0,0,0,0.65)] backdrop-blur transition duration-500 hover:border-white/20 hover:shadow-[0_50px_160px_rgba(0,0,0,0.72)]">
-          <Sheen />
+        <GlassCard className="overflow-hidden">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(168,85,247,0.18),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(59,130,246,0.15),transparent_30%)]" />
           <video
             key={active.src}
@@ -271,7 +323,7 @@ function VideoCarousel({
               })}
             </div>
           </div>
-        </div>
+        </GlassCard>
 
         <button
           aria-label="Previous"
@@ -316,8 +368,7 @@ function ImageToVideoCarousel({
   return (
     <div className="relative">
       <div className="relative mx-auto w-full max-w-6xl">
-        <div className="group relative overflow-hidden rounded-[32px] border border-white/10 bg-white/5 shadow-[0_50px_160px_rgba(0,0,0,0.70)] backdrop-blur transition duration-500 hover:border-white/20 hover:shadow-[0_60px_180px_rgba(0,0,0,0.75)]">
-          <Sheen />
+        <GlassCard className="overflow-hidden">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.16),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.16),transparent_28%)]" />
           <video
             key={active.src}
@@ -385,7 +436,7 @@ function ImageToVideoCarousel({
               </button>
             </div>
           </div>
-        </div>
+        </GlassCard>
 
         <button
           aria-label="Previous"
@@ -407,6 +458,67 @@ function ImageToVideoCarousel({
   );
 }
 
+function ToolModeCard({
+  title,
+  desc,
+  href,
+  accentClass,
+}: {
+  title: string;
+  desc: string;
+  href: string;
+  accentClass: string;
+}) {
+  const go = useAuthNavigate();
+
+  return (
+    <button
+      type="button"
+      onClick={() => go(href)}
+      className={[
+        "group relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-5 text-left backdrop-blur transition duration-500",
+        "hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.08]",
+        accentClass,
+      ].join(" ")}
+    >
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.04),rgba(255,255,255,0.01)_20%,rgba(0,0,0,0.08)_100%)]" />
+      <div className="pointer-events-none absolute inset-[1px] rounded-[23px] border border-white/[0.06]" />
+      <div className="pointer-events-none absolute -right-8 top-0 h-20 w-20 rounded-full bg-white/10 blur-2xl opacity-20 transition duration-500 group-hover:opacity-40" />
+      <div className="pointer-events-none absolute -left-[140%] top-0 h-full w-[80%] rotate-12 bg-[linear-gradient(to_right,transparent,rgba(255,255,255,0.12),transparent)] opacity-0 blur-xl transition duration-700 group-hover:left-[140%] group-hover:opacity-100" />
+      <div className="relative z-10">
+        <div className="flex items-center justify-between gap-4">
+          <div className="text-base font-semibold text-white">{title}</div>
+          <div className="text-white/30 transition duration-300 group-hover:translate-x-1 group-hover:text-white/80">
+            →
+          </div>
+        </div>
+        <p className="mt-3 text-sm leading-relaxed text-white/65">{desc}</p>
+      </div>
+    </button>
+  );
+}
+
+function MetricCard({
+  value,
+  label,
+  glow,
+}: {
+  value: string;
+  label: string;
+  glow: string;
+}) {
+  return (
+    <GlassCard className={["p-6", glow].join(" ")}>
+      <div className="relative z-10">
+        <div className="text-3xl font-semibold tracking-tight text-white transition duration-300 group-hover:text-white md:text-4xl">
+          {value}
+        </div>
+        <div className="mt-2 text-sm text-white/60">{label}</div>
+      </div>
+    </GlassCard>
+  );
+}
+
 function FeatureCard({
   title,
   desc,
@@ -425,18 +537,8 @@ function FeatureCard({
   badge: string;
 }) {
   return (
-    <div
-      className={[
-        "group relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur transition duration-500",
-        "hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.07]",
-        "shadow-[0_30px_110px_rgba(0,0,0,0.45)]",
-        glowClass,
-      ].join(" ")}
-    >
-      <Sheen />
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.04),rgba(255,255,255,0.01)_22%,rgba(0,0,0,0.08)_100%)]" />
+    <GlassCard className={["p-8", glowClass].join(" ")}>
       <div className="pointer-events-none absolute -top-10 left-8 h-28 w-28 rounded-full bg-white/10 blur-3xl opacity-40 transition duration-500 group-hover:opacity-70" />
-
       <div className="relative z-10 flex items-start justify-between gap-6">
         <div className="max-w-md">
           <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs text-white/70">
@@ -471,7 +573,59 @@ function FeatureCard({
           </div>
         </div>
       </div>
-    </div>
+    </GlassCard>
+  );
+}
+
+function BentoCard({
+  title,
+  desc,
+  mediaSrc,
+  badge,
+  glowClass,
+  tall = false,
+}: {
+  title: string;
+  desc: string;
+  mediaSrc: string;
+  badge: string;
+  glowClass: string;
+  tall?: boolean;
+}) {
+  return (
+    <GlassCard
+      className={[
+        "p-5",
+        glowClass,
+        tall ? "md:row-span-2" : "",
+      ].join(" ")}
+    >
+      <div className="relative z-10 flex h-full flex-col">
+        <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs text-white/70">
+          <span className="h-2 w-2 rounded-full bg-white/25" />
+          {badge}
+        </div>
+
+        <div className="mt-4 overflow-hidden rounded-2xl border border-white/10">
+          <video
+            className={
+              tall
+                ? "h-[300px] w-full object-cover transition duration-700 group-hover:scale-105 md:h-[420px]"
+                : "h-[220px] w-full object-cover transition duration-700 group-hover:scale-105"
+            }
+            src={mediaSrc}
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="metadata"
+          />
+        </div>
+
+        <h3 className="mt-5 text-xl font-semibold text-white">{title}</h3>
+        <p className="mt-2 text-sm leading-relaxed text-white/65">{desc}</p>
+      </div>
+    </GlassCard>
   );
 }
 
@@ -503,133 +657,6 @@ function FAQItem({
         <div className="mt-3 text-sm leading-relaxed text-white/70">{a}</div>
       )}
     </button>
-  );
-}
-
-function ToolModeCard({
-  title,
-  desc,
-  href,
-  accentClass,
-  hoverAccentClass,
-}: {
-  title: string;
-  desc: string;
-  href: string;
-  accentClass: string;
-  hoverAccentClass: string;
-}) {
-  const go = useAuthNavigate();
-
-  return (
-    <button
-      type="button"
-      onClick={() => go(href)}
-      className={[
-        "group relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-5 text-left backdrop-blur transition duration-500",
-        "hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.08]",
-        accentClass,
-        hoverAccentClass,
-      ].join(" ")}
-    >
-      <Sheen />
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.04),rgba(255,255,255,0.01)_20%,rgba(0,0,0,0.08)_100%)]" />
-      <div className="pointer-events-none absolute -right-8 top-0 h-20 w-20 rounded-full bg-white/10 blur-2xl opacity-20 transition duration-500 group-hover:opacity-40" />
-      <div className="relative z-10">
-        <div className="flex items-center justify-between gap-4">
-          <div className="text-base font-semibold text-white">{title}</div>
-          <div className="text-white/30 transition duration-300 group-hover:translate-x-1 group-hover:text-white/80">
-            →
-          </div>
-        </div>
-        <p className="mt-3 text-sm leading-relaxed text-white/65">{desc}</p>
-      </div>
-    </button>
-  );
-}
-
-function MetricCard({
-  value,
-  label,
-  glow,
-}: {
-  value: string;
-  label: string;
-  glow: string;
-}) {
-  return (
-    <div
-      className={[
-        "group relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur transition duration-500",
-        "hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.06]",
-        glow,
-      ].join(" ")}
-    >
-      <Sheen />
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.04),rgba(255,255,255,0.01)_24%,rgba(0,0,0,0.08)_100%)]" />
-      <div className="relative z-10">
-        <div className="text-3xl font-semibold tracking-tight text-white transition duration-300 group-hover:text-white md:text-4xl">
-          {value}
-        </div>
-        <div className="mt-2 text-sm text-white/60">{label}</div>
-      </div>
-    </div>
-  );
-}
-
-function BentoCard({
-  title,
-  desc,
-  mediaSrc,
-  badge,
-  glowClass,
-  tall = false,
-}: {
-  title: string;
-  desc: string;
-  mediaSrc: string;
-  badge: string;
-  glowClass: string;
-  tall?: boolean;
-}) {
-  return (
-    <div
-      className={[
-        "group relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.05] p-5 backdrop-blur transition duration-500",
-        "hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.07]",
-        "shadow-[0_24px_90px_rgba(0,0,0,0.35)]",
-        glowClass,
-        tall ? "md:row-span-2" : "",
-      ].join(" ")}
-    >
-      <Sheen />
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.045),rgba(255,255,255,0.01)_25%,rgba(0,0,0,0.08)_100%)]" />
-      <div className="relative z-10 flex h-full flex-col">
-        <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs text-white/70">
-          <span className="h-2 w-2 rounded-full bg-white/25" />
-          {badge}
-        </div>
-
-        <div className="mt-4 overflow-hidden rounded-2xl border border-white/10">
-          <video
-            className={
-              tall
-                ? "h-[300px] w-full object-cover transition duration-700 group-hover:scale-105 md:h-[420px]"
-                : "h-[220px] w-full object-cover transition duration-700 group-hover:scale-105"
-            }
-            src={mediaSrc}
-            autoPlay
-            loop
-            muted
-            playsInline
-            preload="metadata"
-          />
-        </div>
-
-        <h3 className="mt-5 text-xl font-semibold text-white">{title}</h3>
-        <p className="mt-2 text-sm leading-relaxed text-white/65">{desc}</p>
-      </div>
-    </div>
   );
 }
 
@@ -672,16 +699,7 @@ function StudioTimeline({
   return (
     <div className="grid gap-4 lg:grid-cols-4">
       {items.map((item) => (
-        <div
-          key={item.step}
-          className={[
-            "group relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.05] p-5 backdrop-blur transition duration-500",
-            "hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.07]",
-            item.glow,
-          ].join(" ")}
-        >
-          <Sheen />
-          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.045),rgba(255,255,255,0.01)_22%,rgba(0,0,0,0.08)_100%)]" />
+        <GlassCard key={item.step} className={["p-5", item.glow].join(" ")}>
           <div className="relative z-10">
             <div className="inline-flex rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs text-white/60">
               {item.step}
@@ -693,7 +711,7 @@ function StudioTimeline({
               {item.desc}
             </p>
           </div>
-        </div>
+        </GlassCard>
       ))}
     </div>
   );
@@ -714,7 +732,7 @@ function HoverSpotlightSection({
     const y = e.clientY - rect.top;
 
     setStyle({
-      background: `radial-gradient(circle 240px at ${x}px ${y}px, rgba(168,85,247,0.10), rgba(59,130,246,0.06) 35%, transparent 70%)`,
+      background: `radial-gradient(circle 260px at ${x}px ${y}px, rgba(168,85,247,0.11), rgba(59,130,246,0.07) 35%, transparent 72%)`,
     });
   };
 
@@ -726,6 +744,49 @@ function HoverSpotlightSection({
     >
       <div className="pointer-events-none absolute inset-0 transition duration-150" style={style} />
       {children}
+    </div>
+  );
+}
+
+function QuoteCard({
+  quote,
+  name,
+  role,
+  glow,
+}: {
+  quote: string;
+  name: string;
+  role: string;
+  glow: string;
+}) {
+  return (
+    <GlassCard className={["p-6", glow].join(" ")}>
+      <div className="relative z-10">
+        <div className="text-4xl leading-none text-white/20">“</div>
+        <p className="mt-3 text-sm leading-relaxed text-white/70">{quote}</p>
+        <div className="mt-5">
+          <div className="text-sm font-semibold text-white">{name}</div>
+          <div className="text-xs text-white/50">{role}</div>
+        </div>
+      </div>
+    </GlassCard>
+  );
+}
+
+function BenefitRow({
+  title,
+  desc,
+  accent,
+}: {
+  title: string;
+  desc: string;
+  accent: string;
+}) {
+  return (
+    <div className="group relative rounded-2xl border border-white/10 bg-white/[0.04] p-5 transition duration-300 hover:border-white/20 hover:bg-white/[0.07]">
+      <div className={["mb-4 h-2 w-16 rounded-full", accent].join(" ")} />
+      <div className="text-lg font-semibold text-white">{title}</div>
+      <p className="mt-2 text-sm leading-relaxed text-white/65">{desc}</p>
     </div>
   );
 }
@@ -874,10 +935,13 @@ export default function Home() {
         <FloatingOrbs />
 
         <div className="absolute inset-0 z-[1] bg-black/55" />
-        <div className="absolute inset-0 z-[2] bg-[radial-gradient(circle_at_50%_45%,rgba(0,0,0,0.15)_0%,rgba(0,0,0,0.70)_70%,rgba(0,0,0,0.90)_100%)]" />
-        <div className="absolute inset-0 z-[3] bg-[radial-gradient(circle_at_25%_25%,rgba(168,85,247,0.16),transparent_60%),radial-gradient(circle_at_75%_40%,rgba(59,130,246,0.10),transparent_65%)]" />
+        <div className="absolute inset-0 z-[2] bg-[radial-gradient(circle_at_50%_45%,rgba(0,0,0,0.12)_0%,rgba(0,0,0,0.70)_70%,rgba(0,0,0,0.92)_100%)]" />
+        <div className="absolute inset-0 z-[3] bg-[radial-gradient(circle_at_25%_25%,rgba(168,85,247,0.15),transparent_58%),radial-gradient(circle_at_75%_40%,rgba(59,130,246,0.10),transparent_65%)]" />
+        <div className="absolute inset-0 z-[4] bg-[linear-gradient(to_right,rgba(0,0,0,0.70)_0%,rgba(0,0,0,0.48)_30%,rgba(0,0,0,0.32)_52%,rgba(0,0,0,0.44)_100%)]" />
 
-        <div className="absolute inset-0 z-[4]">
+        <div className="absolute left-0 top-0 z-[5] h-full w-[52%] bg-[radial-gradient(circle_at_25%_35%,rgba(0,0,0,0.08),rgba(0,0,0,0.58)_55%,rgba(0,0,0,0.85)_100%)]" />
+
+        <div className="absolute inset-0 z-[6]">
           <Particles
             id="tsparticles"
             init={particlesInit}
@@ -886,20 +950,20 @@ export default function Home() {
               background: { color: "transparent" },
               fpsLimit: 60,
               particles: {
-                number: { value: 22, density: { enable: true, area: 1100 } },
+                number: { value: 20, density: { enable: true, area: 1100 } },
                 color: { value: ["#a855f7", "#60a5fa", "#22d3ee"] },
-                opacity: { value: 0.08 },
-                size: { value: { min: 1, max: 2.2 } },
+                opacity: { value: 0.07 },
+                size: { value: { min: 1, max: 2 } },
                 move: {
                   enable: true,
-                  speed: 0.2,
+                  speed: 0.18,
                   direction: "none",
                   outModes: { default: "out" },
                 },
                 links: {
                   enable: true,
-                  distance: 160,
-                  opacity: 0.04,
+                  distance: 150,
+                  opacity: 0.035,
                   color: "#a855f7",
                 },
               },
@@ -910,25 +974,22 @@ export default function Home() {
         </div>
 
         <div className="relative z-[1000] mx-auto flex min-h-screen w-full max-w-7xl items-center px-6 pt-28">
-          <div className="grid w-full gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+          <div className="grid w-full gap-12 lg:grid-cols-[1.08fr_0.92fr] lg:items-center">
             <div className="max-w-3xl">
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/35 px-4 py-2 text-xs text-white/70 backdrop-blur transition duration-300 hover:border-white/15 hover:bg-white/[0.06]">
-                <span className="h-2 w-2 rounded-full bg-violet-400/80 shadow-[0_0_12px_rgba(168,85,247,0.7)]" />
-                Cinematic anime motion studio
-              </div>
+              <SectionEyebrow label="Luxury anime motion studio" />
 
-              <h1 className="mt-6 text-5xl font-semibold tracking-tight text-white drop-shadow-[0_8px_24px_rgba(0,0,0,0.65)] sm:text-6xl md:text-7xl">
+              <h1 className="mt-6 text-5xl font-semibold tracking-[-0.05em] text-white drop-shadow-[0_8px_24px_rgba(0,0,0,0.65)] sm:text-6xl md:text-7xl">
                 Old Soul.
                 <span className="block">New Motion.</span>
-                <span className="block bg-[linear-gradient(to_right,#ffffff,#c4b5fd,#7dd3fc)] bg-clip-text text-transparent">
+                <span className="block bg-[linear-gradient(to_right,#ffffff,#ddd6fe,#7dd3fc)] bg-clip-text text-transparent">
                   KOANimation.
                 </span>
               </h1>
 
-              <p className="mt-6 max-w-2xl text-base leading-relaxed text-white/68 md:text-lg">
+              <p className="mt-7 max-w-2xl text-base leading-relaxed text-white/68 md:text-lg">
                 Create stylized anime motion with reference-aware workflows,
-                cinematic camera movement, and studio-grade presentation built
-                for creators who care about aesthetic control.
+                cinematic camera movement, and a premium studio interface built
+                for creators who care about atmosphere, identity, and control.
               </p>
 
               <div className="mt-8 flex flex-wrap items-center gap-3">
@@ -949,113 +1010,129 @@ export default function Home() {
 
               <div className="mt-8 grid max-w-2xl gap-3 sm:grid-cols-3">
                 {[
-                  "Reference-consistent motion",
-                  "Image-to-video atmosphere",
-                  "Cinematic anime presentation",
-                ].map((item, i) => (
+                  {
+                    text: "Reference-consistent motion",
+                    hover:
+                      "hover:bg-violet-500/[0.12] hover:shadow-[0_0_30px_rgba(168,85,247,0.12)]",
+                  },
+                  {
+                    text: "Image-to-video atmosphere",
+                    hover:
+                      "hover:bg-cyan-500/[0.10] hover:shadow-[0_0_30px_rgba(34,211,238,0.12)]",
+                  },
+                  {
+                    text: "Cinematic anime presentation",
+                    hover:
+                      "hover:bg-blue-500/[0.10] hover:shadow-[0_0_30px_rgba(59,130,246,0.12)]",
+                  },
+                ].map((item) => (
                   <div
-                    key={item}
+                    key={item.text}
                     className={[
-                      "group rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white/72 backdrop-blur transition duration-300",
+                      "rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white/72 backdrop-blur transition duration-300",
                       "hover:-translate-y-1 hover:border-white/20 hover:text-white",
-                      i === 0
-                        ? "hover:bg-violet-500/[0.12] hover:shadow-[0_0_30px_rgba(168,85,247,0.12)]"
-                        : i === 1
-                          ? "hover:bg-cyan-500/[0.10] hover:shadow-[0_0_30px_rgba(34,211,238,0.12)]"
-                          : "hover:bg-blue-500/[0.10] hover:shadow-[0_0_30px_rgba(59,130,246,0.12)]",
+                      item.hover,
                     ].join(" ")}
                   >
-                    {item}
+                    {item.text}
                   </div>
                 ))}
               </div>
             </div>
 
             <div className="relative">
-              <div className="absolute -inset-8 rounded-[40px] bg-[radial-gradient(circle_at_center,rgba(168,85,247,0.18),transparent_55%)] blur-3xl" />
-              <div className="group relative overflow-hidden rounded-[30px] border border-white/10 bg-black/35 p-4 shadow-[0_40px_140px_rgba(0,0,0,0.55)] backdrop-blur-xl transition duration-500 hover:border-white/20 hover:shadow-[0_50px_165px_rgba(0,0,0,0.65)]">
-                <Sheen />
-                <div className="mb-4 flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 transition duration-300 group-hover:bg-white/[0.06]">
-                  <div>
-                    <div className="text-sm font-semibold text-white">
-                      KOANimation Studio
+              <div className="absolute -inset-8 rounded-[40px] bg-[radial-gradient(circle_at_center,rgba(168,85,247,0.16),transparent_55%)] blur-3xl" />
+              <div className="animate-[previewFloat_8s_ease-in-out_infinite]">
+                <GlassCard className="overflow-hidden p-4 shadow-[0_42px_160px_rgba(0,0,0,0.58)]">
+                  <div className="mb-4 flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 transition duration-300 group-hover:bg-white/[0.06]">
+                    <div>
+                      <div className="text-sm font-semibold text-white">
+                        KOANimation Studio
+                      </div>
+                      <div className="mt-1 text-xs text-white/50">
+                        Reference-driven anime motion workflows
+                      </div>
                     </div>
-                    <div className="mt-1 text-xs text-white/50">
-                      Reference-driven anime motion workflows
+                    <div className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs text-emerald-200">
+                      Live
                     </div>
                   </div>
-                  <div className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs text-emerald-200">
-                    Live
-                  </div>
-                </div>
 
-                <div className="overflow-hidden rounded-[24px] border border-white/10">
-                  <video
-                    className="h-[240px] w-full object-cover transition duration-700 group-hover:scale-105 sm:h-[320px]"
-                    src="/backgrounds/15.mp4"
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    preload="metadata"
-                  />
-                </div>
+                  <div className="overflow-hidden rounded-[24px] border border-white/10">
+                    <video
+                      className="h-[240px] w-full object-cover transition duration-700 group-hover:scale-105 sm:h-[320px]"
+                      src="/backgrounds/15.mp4"
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      preload="metadata"
+                    />
+                  </div>
 
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition duration-300 hover:bg-violet-500/[0.10] hover:shadow-[0_0_30px_rgba(168,85,247,0.12)]">
-                    <div className="text-xs uppercase tracking-[0.18em] text-white/40">
-                      Workflow
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition duration-300 hover:bg-violet-500/[0.10] hover:shadow-[0_0_30px_rgba(168,85,247,0.12)]">
+                      <div className="text-xs uppercase tracking-[0.18em] text-white/40">
+                        Workflow
+                      </div>
+                      <div className="mt-2 text-sm font-medium text-white/85">
+                        Reference to Video
+                      </div>
                     </div>
-                    <div className="mt-2 text-sm font-medium text-white/85">
-                      Reference to Video
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition duration-300 hover:bg-cyan-500/[0.10] hover:shadow-[0_0_30px_rgba(34,211,238,0.12)]">
+                      <div className="text-xs uppercase tracking-[0.18em] text-white/40">
+                        Output
+                      </div>
+                      <div className="mt-2 text-sm font-medium text-white/85">
+                        Stylized cinematic clips
+                      </div>
                     </div>
                   </div>
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition duration-300 hover:bg-cyan-500/[0.10] hover:shadow-[0_0_30px_rgba(34,211,238,0.12)]">
-                    <div className="text-xs uppercase tracking-[0.18em] text-white/40">
-                      Output
-                    </div>
-                    <div className="mt-2 text-sm font-medium text-white/85">
-                      Stylized cinematic clips
-                    </div>
-                  </div>
-                </div>
+                </GlassCard>
               </div>
             </div>
           </div>
         </div>
 
         <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-[10] h-28 bg-gradient-to-b from-transparent to-black/80" />
+
+        <style jsx>{`
+          @keyframes previewFloat {
+            0%,
+            100% {
+              transform: translateY(0px);
+            }
+            50% {
+              transform: translateY(-8px);
+            }
+          }
+        `}</style>
       </section>
 
-      <section className="relative -mt-6 pb-10">
+      <section className="relative -mt-4 pb-10">
         <div className="mx-auto w-full max-w-7xl px-6">
           <div className="grid gap-4 md:grid-cols-3">
             {[
               {
                 title: "Aesthetic Control",
                 desc: "Design motion with a more intentional visual identity, not random generations.",
-                hover: "hover:bg-violet-500/[0.10] hover:shadow-[0_0_45px_rgba(168,85,247,0.12)]",
+                hover:
+                  "hover:bg-violet-500/[0.10] hover:shadow-[0_0_45px_rgba(168,85,247,0.12)]",
               },
               {
                 title: "Studio Workflows",
                 desc: "Jump into focused tools for reference-to-video, image-to-video, and text generation.",
-                hover: "hover:bg-blue-500/[0.10] hover:shadow-[0_0_45px_rgba(59,130,246,0.12)]",
+                hover:
+                  "hover:bg-blue-500/[0.10] hover:shadow-[0_0_45px_rgba(59,130,246,0.12)]",
               },
               {
                 title: "Creator Presentation",
                 desc: "Premium outputs and a polished interface that feels closer to a real studio.",
-                hover: "hover:bg-cyan-500/[0.10] hover:shadow-[0_0_45px_rgba(34,211,238,0.12)]",
+                hover:
+                  "hover:bg-cyan-500/[0.10] hover:shadow-[0_0_45px_rgba(34,211,238,0.12)]",
               },
             ].map((item) => (
-              <div
-                key={item.title}
-                className={[
-                  "group relative rounded-3xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur transition duration-500",
-                  "hover:-translate-y-1 hover:border-white/20",
-                  item.hover,
-                ].join(" ")}
-              >
-                <Sheen />
+              <GlassCard key={item.title} className={["p-5", item.hover].join(" ")}>
                 <div className="relative z-10">
                   <div className="text-base font-semibold text-white">
                     {item.title}
@@ -1064,7 +1141,7 @@ export default function Home() {
                     {item.desc}
                   </p>
                 </div>
-              </div>
+              </GlassCard>
             ))}
           </div>
         </div>
@@ -1091,20 +1168,18 @@ export default function Home() {
 
       <section className="relative pb-20 pt-12">
         <div className="mx-auto w-full max-w-7xl px-6">
-          <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div>
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs text-white/70">
-                <span className="h-2 w-2 rounded-full bg-cyan-400/80 shadow-[0_0_12px_rgba(34,211,238,0.7)]" />
-                Core modes
-              </div>
-              <h2 className="text-4xl font-semibold tracking-tight text-white md:text-5xl">
-                Choose your workflow
-              </h2>
-              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/65">
-                Start from references, stills, or text prompts depending on how
-                much control you want over the final motion.
-              </p>
-            </div>
+          <div className="mb-8">
+            <SectionEyebrow
+              label="Core modes"
+              dotClass="bg-cyan-400/80 shadow-[0_0_12px_rgba(34,211,238,0.7)]"
+            />
+            <h2 className="mt-4 text-4xl font-semibold tracking-[-0.03em] text-white md:text-5xl">
+              Choose your workflow
+            </h2>
+            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/65">
+              Start from references, stills, or text prompts depending on how
+              much control you want over the final motion.
+            </p>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
@@ -1112,36 +1187,31 @@ export default function Home() {
               title="Reference to Video"
               desc="Match a subject or style and animate with stronger consistency."
               href={TOOL_ROUTES.referenceToVideo}
-              accentClass="shadow-[0_0_50px_rgba(168,85,247,0.08)]"
-              hoverAccentClass="hover:bg-violet-500/[0.12] hover:shadow-[0_0_50px_rgba(168,85,247,0.16)]"
+              accentClass="shadow-[0_0_50px_rgba(168,85,247,0.08)] hover:bg-violet-500/[0.12] hover:shadow-[0_0_50px_rgba(168,85,247,0.16)]"
             />
             <ToolModeCard
               title="Image to Video"
               desc="Bring still artwork to life with motion, camera, and atmosphere."
               href={TOOL_ROUTES.imageToVideo}
-              accentClass="shadow-[0_0_50px_rgba(59,130,246,0.08)]"
-              hoverAccentClass="hover:bg-blue-500/[0.12] hover:shadow-[0_0_50px_rgba(59,130,246,0.16)]"
+              accentClass="shadow-[0_0_50px_rgba(59,130,246,0.08)] hover:bg-blue-500/[0.12] hover:shadow-[0_0_50px_rgba(59,130,246,0.16)]"
             />
             <ToolModeCard
               title="Text to Video"
               desc="Generate clips from prompt-first cinematic direction."
               href={TOOL_ROUTES.textToVideo}
-              accentClass="shadow-[0_0_50px_rgba(236,72,153,0.07)]"
-              hoverAccentClass="hover:bg-fuchsia-500/[0.12] hover:shadow-[0_0_50px_rgba(236,72,153,0.15)]"
+              accentClass="shadow-[0_0_50px_rgba(236,72,153,0.07)] hover:bg-fuchsia-500/[0.12] hover:shadow-[0_0_50px_rgba(236,72,153,0.15)]"
             />
             <ToolModeCard
               title="Reference to Image"
               desc="Create style-aware images with more controlled visual identity."
               href={TOOL_ROUTES.referenceToImage}
-              accentClass="shadow-[0_0_50px_rgba(234,179,8,0.07)]"
-              hoverAccentClass="hover:bg-amber-400/[0.12] hover:shadow-[0_0_50px_rgba(234,179,8,0.16)]"
+              accentClass="shadow-[0_0_50px_rgba(234,179,8,0.07)] hover:bg-amber-400/[0.12] hover:shadow-[0_0_50px_rgba(234,179,8,0.16)]"
             />
             <ToolModeCard
               title="Text to Image"
               desc="Generate polished stills ready for concepting or animation input."
               href={TOOL_ROUTES.textToImage}
-              accentClass="shadow-[0_0_50px_rgba(255,255,255,0.04)]"
-              hoverAccentClass="hover:bg-white/[0.10] hover:shadow-[0_0_50px_rgba(255,255,255,0.10)]"
+              accentClass="shadow-[0_0_50px_rgba(255,255,255,0.04)] hover:bg-white/[0.10] hover:shadow-[0_0_50px_rgba(255,255,255,0.10)]"
             />
           </div>
         </div>
@@ -1150,11 +1220,11 @@ export default function Home() {
       <section className="relative pb-12">
         <div className="mx-auto w-full max-w-7xl px-6">
           <div className="mb-8">
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs text-white/70">
-              <span className="h-2 w-2 rounded-full bg-blue-400/80 shadow-[0_0_12px_rgba(96,165,250,0.7)]" />
-              Why it feels premium
-            </div>
-            <h2 className="text-4xl font-semibold tracking-tight text-white md:text-5xl">
+            <SectionEyebrow
+              label="Why it feels premium"
+              dotClass="bg-blue-400/80 shadow-[0_0_12px_rgba(96,165,250,0.7)]"
+            />
+            <h2 className="mt-4 text-4xl font-semibold tracking-[-0.03em] text-white md:text-5xl">
               Built like a real studio
             </h2>
           </div>
@@ -1183,7 +1253,8 @@ export default function Home() {
         <div className="mx-auto w-full max-w-7xl px-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
-              <h2 className="text-4xl font-semibold tracking-tight text-white md:text-5xl">
+              <SectionEyebrow label="Showcase" />
+              <h2 className="mt-4 text-4xl font-semibold tracking-[-0.03em] text-white md:text-5xl">
                 Reference to Video
               </h2>
               <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/65">
@@ -1208,11 +1279,8 @@ export default function Home() {
       <section id="features" className="relative py-16">
         <div className="mx-auto w-full max-w-7xl px-6">
           <div className="mb-8">
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs text-white/70">
-              <span className="h-2 w-2 rounded-full bg-violet-400/80 shadow-[0_0_12px_rgba(168,85,247,0.7)]" />
-              Highlights
-            </div>
-            <h2 className="text-4xl font-semibold tracking-tight text-white md:text-5xl">
+            <SectionEyebrow label="Highlights" />
+            <h2 className="mt-4 text-4xl font-semibold tracking-[-0.03em] text-white md:text-5xl">
               Built for stylish motion creation
             </h2>
           </div>
@@ -1246,12 +1314,12 @@ export default function Home() {
             <div className="relative overflow-hidden rounded-[36px] border border-white/10 bg-white/[0.04] p-6 backdrop-blur-xl md:p-8">
               <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.04),rgba(255,255,255,0.01)_20%,rgba(0,0,0,0.08)_100%)]" />
               <div className="relative z-10">
-                <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs text-white/70">
-                  <span className="h-2 w-2 rounded-full bg-fuchsia-400/80 shadow-[0_0_12px_rgba(217,70,239,0.7)]" />
-                  Visual playground
-                </div>
+                <SectionEyebrow
+                  label="Visual playground"
+                  dotClass="bg-fuchsia-400/80 shadow-[0_0_12px_rgba(217,70,239,0.7)]"
+                />
 
-                <div className="grid gap-4 md:grid-cols-3">
+                <div className="mt-6 grid gap-4 md:grid-cols-3">
                   <BentoCard
                     title="Noir Mood"
                     desc="Dark cinematic frames with contrast, rain, glow, and pressure."
@@ -1299,16 +1367,19 @@ export default function Home() {
         <div className="mx-auto w-full max-w-7xl px-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div className="flex flex-col gap-3 md:flex-row md:items-baseline md:gap-6">
-              <h2 className="text-[42px] font-semibold tracking-[-0.02em] text-white md:text-5xl">
-                Image to Video
-              </h2>
+              <div>
+                <SectionEyebrow
+                  label="Stills into motion"
+                  dotClass="bg-cyan-400/80 shadow-[0_0_12px_rgba(34,211,238,0.7)]"
+                />
+                <h2 className="mt-4 text-[42px] font-semibold tracking-[-0.03em] text-white md:text-5xl">
+                  Image to Video
+                </h2>
+              </div>
 
-              <span className="text-2xl leading-none text-white/20 md:hidden">
-                |
-              </span>
-              <div className="hidden h-10 w-px bg-white/10 md:block" />
+              <div className="hidden h-10 w-px self-center bg-white/10 md:block" />
 
-              <p className="max-w-2xl text-[13px] leading-[1.7] text-white/65 md:text-sm md:leading-relaxed">
+              <p className="max-w-2xl text-[13px] leading-[1.7] text-white/65 md:self-end md:text-sm md:leading-relaxed">
                 Bring still images to life with dynamic motion that aligns with
                 your vision.
               </p>
@@ -1330,11 +1401,11 @@ export default function Home() {
       <section className="relative py-14">
         <div className="mx-auto w-full max-w-7xl px-6">
           <div className="mb-8">
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs text-white/70">
-              <span className="h-2 w-2 rounded-full bg-emerald-400/80 shadow-[0_0_12px_rgba(52,211,153,0.7)]" />
-              Workflow
-            </div>
-            <h2 className="text-4xl font-semibold tracking-tight text-white md:text-5xl">
+            <SectionEyebrow
+              label="Workflow"
+              dotClass="bg-emerald-400/80 shadow-[0_0_12px_rgba(52,211,153,0.7)]"
+            />
+            <h2 className="mt-4 text-4xl font-semibold tracking-[-0.03em] text-white md:text-5xl">
               From idea to final motion
             </h2>
             <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/65">
@@ -1374,11 +1445,93 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="relative py-14">
+        <div className="mx-auto w-full max-w-7xl px-6">
+          <div className="mb-8">
+            <SectionEyebrow
+              label="Creator sentiment"
+              dotClass="bg-fuchsia-400/80 shadow-[0_0_12px_rgba(217,70,239,0.7)]"
+            />
+            <h2 className="mt-4 text-4xl font-semibold tracking-[-0.03em] text-white md:text-5xl">
+              Why creators stay
+            </h2>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-3">
+            <QuoteCard
+              quote="It feels less like a random AI toy and more like a real place to shape aesthetic direction."
+              name="Visual Story Creator"
+              role="Atmospheric anime clips"
+              glow="shadow-[0_0_70px_rgba(168,85,247,0.08)] hover:shadow-[0_0_80px_rgba(168,85,247,0.14)]"
+            />
+            <QuoteCard
+              quote="The interface already makes the output feel more premium. It pushes you into a stronger presentation mindset."
+              name="Motion-first Artist"
+              role="Stylized concept animation"
+              glow="shadow-[0_0_70px_rgba(59,130,246,0.08)] hover:shadow-[0_0_80px_rgba(59,130,246,0.14)]"
+            />
+            <QuoteCard
+              quote="The best part is being able to explore cinematic tone while keeping the subject identity much more intentional."
+              name="Anime Editor"
+              role="Reference-driven workflow"
+              glow="shadow-[0_0_70px_rgba(34,211,238,0.08)] hover:shadow-[0_0_80px_rgba(34,211,238,0.14)]"
+            />
+          </div>
+        </div>
+      </section>
+
+      <section className="relative py-14">
+        <div className="mx-auto w-full max-w-7xl px-6">
+          <GlassCard className="p-8 md:p-10" hover={false}>
+            <div className="relative z-10 grid gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-start">
+              <div>
+                <SectionEyebrow
+                  label="Why it lands"
+                  dotClass="bg-amber-400/80 shadow-[0_0_12px_rgba(250,204,21,0.7)]"
+                />
+                <h2 className="mt-4 text-4xl font-semibold tracking-[-0.03em] text-white md:text-5xl">
+                  Beauty with structure
+                </h2>
+                <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/68 md:text-base">
+                  The goal is not to drown the screen in effects. It is to make
+                  every interaction feel purposeful, cinematic, and elegant —
+                  like a premium studio environment rather than a noisy AI tool.
+                </p>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <BenefitRow
+                  title="Sharper hierarchy"
+                  desc="Cleaner spacing and stronger composition make the page easier to read while still feeling high-end."
+                  accent="bg-[linear-gradient(to_right,rgba(168,85,247,0.95),rgba(59,130,246,0.85))]"
+                />
+                <BenefitRow
+                  title="Luxury glass layers"
+                  desc="Refined borders, inner highlights, and subtle sheen make surfaces feel expensive instead of flat."
+                  accent="bg-[linear-gradient(to_right,rgba(59,130,246,0.95),rgba(34,211,238,0.85))]"
+                />
+                <BenefitRow
+                  title="Controlled motion"
+                  desc="Slow floating light and premium hover transitions add life without making the interface feel chaotic."
+                  accent="bg-[linear-gradient(to_right,rgba(217,70,239,0.95),rgba(168,85,247,0.85))]"
+                />
+                <BenefitRow
+                  title="Better mood"
+                  desc="Darker hero focus zones and softer background handling let your visuals breathe more beautifully."
+                  accent="bg-[linear-gradient(to_right,rgba(250,204,21,0.95),rgba(59,130,246,0.85))]"
+                />
+              </div>
+            </div>
+          </GlassCard>
+        </div>
+      </section>
+
       <section id="resources" className="relative py-16">
         <div className="mx-auto w-full max-w-7xl px-6">
           <div className="grid gap-10 md:grid-cols-2 md:items-start">
             <div>
-              <h2 className="text-5xl font-semibold leading-[0.95] tracking-tight text-white">
+              <SectionEyebrow label="Resources" />
+              <h2 className="mt-4 text-5xl font-semibold leading-[0.95] tracking-[-0.04em] text-white">
                 Frequently
                 <br />
                 Asked
@@ -1421,8 +1574,7 @@ export default function Home() {
 
       <section className="relative pb-24 pt-8">
         <div className="mx-auto w-full max-w-7xl px-6">
-          <div className="group relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-[0_40px_140px_rgba(0,0,0,0.55)] backdrop-blur transition duration-500 hover:border-white/20 hover:shadow-[0_55px_180px_rgba(0,0,0,0.68)]">
-            <Sheen />
+          <GlassCard className="overflow-hidden shadow-[0_40px_140px_rgba(0,0,0,0.55)] hover:shadow-[0_55px_180px_rgba(0,0,0,0.68)]">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.16),transparent_32%),radial-gradient(circle_at_left,rgba(168,85,247,0.15),transparent_30%)]" />
             <video
               className="h-[300px] w-full object-cover transition duration-700 group-hover:scale-[1.03] md:h-[360px]"
@@ -1433,14 +1585,14 @@ export default function Home() {
               playsInline
               preload="metadata"
             />
-            <div className="absolute inset-0 bg-black/60" />
+            <div className="absolute inset-0 bg-black/62" />
             <div className="absolute inset-0 flex items-center justify-center px-6 text-center">
               <div>
-                <div className="mx-auto mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/35 px-4 py-2 text-xs text-white/70 backdrop-blur">
-                  <span className="h-2 w-2 rounded-full bg-cyan-400/80 shadow-[0_0_12px_rgba(34,211,238,0.7)]" />
-                  Start creating
-                </div>
-                <h3 className="text-4xl font-semibold tracking-tight text-white md:text-5xl">
+                <SectionEyebrow
+                  label="Start creating"
+                  dotClass="bg-cyan-400/80 shadow-[0_0_12px_rgba(34,211,238,0.7)]"
+                />
+                <h3 className="mt-4 text-4xl font-semibold tracking-[-0.03em] text-white md:text-5xl">
                   Embrace Your Creativity
                 </h3>
                 <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-white/68 md:text-base">
@@ -1455,42 +1607,65 @@ export default function Home() {
                 </AuthCTAButton>
               </div>
             </div>
-          </div>
+          </GlassCard>
 
           <div className="mt-10">
             <GlowDivider />
           </div>
 
-          <div className="mt-10 grid gap-4 md:grid-cols-[1fr_auto] md:items-center">
-            <span className="text-sm text-white/50">
-              © {new Date().getFullYear()} KOANimation
-            </span>
-            <div className="flex flex-wrap gap-3 text-sm text-white/50">
-              <a
-                className="rounded-full px-3 py-1 transition duration-300 hover:bg-white/5 hover:text-white/80"
-                href="#features"
-              >
-                Features
-              </a>
-              <a
-                className="rounded-full px-3 py-1 transition duration-300 hover:bg-white/5 hover:text-white/80"
-                href="#resources"
-              >
-                FAQ
-              </a>
-              <Link
-                className="rounded-full px-3 py-1 transition duration-300 hover:bg-white/5 hover:text-white/80"
-                href="/pricing"
-              >
-                Pricing
-              </Link>
-              <Link
-                className="rounded-full px-3 py-1 transition duration-300 hover:bg-white/5 hover:text-white/80"
-                href="/roadmap"
-              >
-                Roadmap
-              </Link>
+          <div className="mt-10 grid gap-6 md:grid-cols-[1.1fr_0.9fr]">
+            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur">
+              <div className="text-sm font-semibold text-white">KOANimation</div>
+              <p className="mt-3 max-w-md text-sm leading-relaxed text-white/58">
+                A creator-first studio for aesthetic anime motion, cinematic
+                presentation, and reference-aware workflows.
+              </p>
             </div>
+
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur">
+                <div className="text-sm font-semibold text-white">Explore</div>
+                <div className="mt-3 flex flex-col gap-2 text-sm text-white/58">
+                  <a className="transition hover:text-white/85" href="#features">
+                    Features
+                  </a>
+                  <a className="transition hover:text-white/85" href="#showcase">
+                    Showcase
+                  </a>
+                  <a className="transition hover:text-white/85" href="#resources">
+                    FAQ
+                  </a>
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur">
+                <div className="text-sm font-semibold text-white">Product</div>
+                <div className="mt-3 flex flex-col gap-2 text-sm text-white/58">
+                  <Link className="transition hover:text-white/85" href="/pricing">
+                    Pricing
+                  </Link>
+                  <Link className="transition hover:text-white/85" href="/roadmap">
+                    Roadmap
+                  </Link>
+                  <Link className="transition hover:text-white/85" href="/tools">
+                    Tools
+                  </Link>
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur">
+                <div className="text-sm font-semibold text-white">Studio</div>
+                <div className="mt-3 flex flex-col gap-2 text-sm text-white/58">
+                  <span>Reference workflows</span>
+                  <span>Anime motion</span>
+                  <span>Cinematic output</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 text-sm text-white/45">
+            © {new Date().getFullYear()} KOANimation
           </div>
         </div>
       </section>
