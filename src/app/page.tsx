@@ -42,6 +42,9 @@ import useEmblaCarousel from "embla-carousel-react";
 import Marquee from "react-fast-marquee";
 import Balancer from "react-wrap-balancer";
 import useMeasure from "react-use-measure";
+import { Canvas, useFrame } from "@react-three/fiber";
+import { Float, Points, PointMaterial } from "@react-three/drei";
+import * as THREE from "three";
 
 function cn(...inputs: Array<string | undefined | false | null>) {
   return twMerge(clsx(inputs));
@@ -352,6 +355,123 @@ function FloatingOrbs() {
       <div className="absolute left-[20%] top-[58%] h-2.5 w-2.5 animate-pulse rounded-full bg-blue-400/50 blur-[1px]" />
       <div className="absolute right-[28%] top-[62%] h-4 w-4 animate-pulse rounded-full bg-fuchsia-400/40 blur-[1px]" />
       <div className="absolute bottom-[18%] left-[48%] h-3 w-3 animate-pulse rounded-full bg-white/30 blur-[1px]" />
+    </div>
+  );
+}
+
+function HeroNebulaCore() {
+  const orbRef = useRef<THREE.Mesh>(null);
+  const ringRef = useRef<THREE.Mesh>(null);
+
+  useFrame((state) => {
+    const t = state.clock.getElapsedTime();
+
+    if (orbRef.current) {
+      orbRef.current.rotation.x = t * 0.18;
+      orbRef.current.rotation.y = t * 0.28;
+      orbRef.current.position.y = Math.sin(t * 0.8) * 0.08;
+    }
+
+    if (ringRef.current) {
+      ringRef.current.rotation.z = t * 0.24;
+      ringRef.current.rotation.x = Math.sin(t * 0.3) * 0.15 + 0.8;
+      ringRef.current.position.y = Math.cos(t * 0.7) * 0.05;
+    }
+  });
+
+  return (
+    <group position={[0.4, 0.2, 0]}>
+      <Float speed={1.6} rotationIntensity={0.25} floatIntensity={0.35}>
+        <mesh ref={orbRef}>
+          <icosahedronGeometry args={[1.05, 1]} />
+          <meshStandardMaterial
+            color="#7c3aed"
+            emissive="#60a5fa"
+            emissiveIntensity={0.8}
+            metalness={0.45}
+            roughness={0.15}
+            transparent
+            opacity={0.82}
+          />
+        </mesh>
+
+        <mesh ref={ringRef} rotation={[1, 0, 0]}>
+          <torusGeometry args={[1.65, 0.055, 16, 140]} />
+          <meshStandardMaterial
+            color="#a855f7"
+            emissive="#22d3ee"
+            emissiveIntensity={1.25}
+            transparent
+            opacity={0.7}
+          />
+        </mesh>
+
+        <mesh scale={1.55}>
+          <sphereGeometry args={[1.0, 32, 32]} />
+          <meshBasicMaterial
+            color="#8b5cf6"
+            transparent
+            opacity={0.06}
+          />
+        </mesh>
+      </Float>
+    </group>
+  );
+}
+
+function HeroNebulaDust() {
+  const positions = useMemo(() => {
+    const points = new Float32Array(1800);
+    for (let i = 0; i < points.length; i += 3) {
+      points[i] = (Math.random() - 0.5) * 12;
+      points[i + 1] = (Math.random() - 0.5) * 8;
+      points[i + 2] = (Math.random() - 0.5) * 6;
+    }
+    return points;
+  }, []);
+
+  const groupRef = useRef<THREE.Group>(null);
+
+  useFrame((state) => {
+    const t = state.clock.getElapsedTime();
+    if (groupRef.current) {
+      groupRef.current.rotation.y = t * 0.035;
+      groupRef.current.rotation.x = Math.sin(t * 0.15) * 0.05;
+    }
+  });
+
+  return (
+    <group ref={groupRef}>
+      <Points positions={positions} stride={3} frustumCulled>
+        <PointMaterial
+          transparent
+          color="#c4b5fd"
+          size={0.035}
+          sizeAttenuation
+          depthWrite={false}
+          opacity={0.7}
+        />
+      </Points>
+    </group>
+  );
+}
+
+function HeroScene() {
+  return (
+    <div className="pointer-events-none absolute inset-0 z-[2] opacity-70">
+      <Canvas
+        dpr={[1, 1.6]}
+        camera={{ position: [0, 0, 5.5], fov: 42 }}
+        gl={{ antialias: true, alpha: true }}
+      >
+        <color attach="background" args={["transparent"]} />
+        <ambientLight intensity={0.8} />
+        <directionalLight position={[3, 4, 5]} intensity={2.4} color="#93c5fd" />
+        <directionalLight position={[-4, -2, 3]} intensity={1.4} color="#c084fc" />
+        <pointLight position={[0, 0, 3]} intensity={2.2} color="#22d3ee" />
+        <HeroNebulaDust />
+        <HeroNebulaCore />
+      </Canvas>
     </div>
   );
 }
@@ -1009,15 +1129,16 @@ export default function Home() {
 
       <section ref={heroRef} className="relative min-h-screen overflow-hidden">
         <FloatingMediaWall />
+        <HeroScene />
         <FloatingOrbs />
 
         <div className="absolute inset-0 z-[1] bg-black/55" />
-        <div className="absolute inset-0 z-[2] bg-[radial-gradient(circle_at_50%_45%,rgba(0,0,0,0.12)_0%,rgba(0,0,0,0.70)_70%,rgba(0,0,0,0.92)_100%)]" />
-        <div className="absolute inset-0 z-[3] bg-[radial-gradient(circle_at_25%_25%,rgba(168,85,247,0.15),transparent_58%),radial-gradient(circle_at_75%_40%,rgba(59,130,246,0.10),transparent_65%)]" />
-        <div className="absolute inset-0 z-[4] bg-[linear-gradient(to_right,rgba(0,0,0,0.70)_0%,rgba(0,0,0,0.48)_30%,rgba(0,0,0,0.32)_52%,rgba(0,0,0,0.44)_100%)]" />
-        <div className="absolute left-0 top-0 z-[5] h-full w-[52%] bg-[radial-gradient(circle_at_25%_35%,rgba(0,0,0,0.08),rgba(0,0,0,0.58)_55%,rgba(0,0,0,0.85)_100%)]" />
+        <div className="absolute inset-0 z-[3] bg-[radial-gradient(circle_at_50%_45%,rgba(0,0,0,0.12)_0%,rgba(0,0,0,0.70)_70%,rgba(0,0,0,0.92)_100%)]" />
+        <div className="absolute inset-0 z-[4] bg-[radial-gradient(circle_at_25%_25%,rgba(168,85,247,0.15),transparent_58%),radial-gradient(circle_at_75%_40%,rgba(59,130,246,0.10),transparent_65%)]" />
+        <div className="absolute inset-0 z-[5] bg-[linear-gradient(to_right,rgba(0,0,0,0.72)_0%,rgba(0,0,0,0.48)_30%,rgba(0,0,0,0.30)_52%,rgba(0,0,0,0.44)_100%)]" />
+        <div className="absolute left-0 top-0 z-[6] h-full w-[52%] bg-[radial-gradient(circle_at_25%_35%,rgba(0,0,0,0.08),rgba(0,0,0,0.58)_55%,rgba(0,0,0,0.85)_100%)]" />
 
-        <div className="absolute inset-0 z-[6]">
+        <div className="absolute inset-0 z-[7]">
           <Particles
             id="tsparticles"
             init={particlesInit}
