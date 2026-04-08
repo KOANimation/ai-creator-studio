@@ -27,21 +27,24 @@ import {
   Film,
   ImageIcon,
   Layers3,
+  Play,
   Sparkles,
   Wand2,
   Zap,
-  Play,
+  BadgeCheck,
+  Stars,
+  PanelTop,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import useEmblaCarousel from "embla-carousel-react";
 import Marquee from "react-fast-marquee";
 import Balancer from "react-wrap-balancer";
 import useMeasure from "react-use-measure";
-import { Canvas, useFrame } from "@react-three/fiber";
-import { Float, Points, PointMaterial } from "@react-three/drei";
-import * as THREE from "three";
+
+gsap.registerPlugin(ScrollTrigger);
 
 function cn(...inputs: Array<string | undefined | false | null>) {
   return twMerge(clsx(inputs));
@@ -53,7 +56,6 @@ function useIsMobile(breakpoint = 1024) {
   useEffect(() => {
     const media = window.matchMedia(`(max-width: ${breakpoint}px)`);
     const onChange = () => setIsMobile(media.matches);
-
     onChange();
     media.addEventListener("change", onChange);
     return () => media.removeEventListener("change", onChange);
@@ -64,9 +66,115 @@ function useIsMobile(breakpoint = 1024) {
 
 function GlowDivider() {
   return (
-    <div className="relative h-px w-full">
-      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+    <div className="relative h-px w-full overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+      <div className="absolute inset-0 blur-sm bg-gradient-to-r from-transparent via-violet-400/20 to-transparent" />
     </div>
+  );
+}
+
+function WallpaperRevealBackground({
+  src = "/wallpaper.jpg",
+  radius = 220,
+}: {
+  src?: string;
+  radius?: number;
+}) {
+  const [pos, setPos] = useState({ x: 0, y: 0 });
+  const [active, setActive] = useState(false);
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      setActive(true);
+      setPos({ x: e.clientX, y: e.clientY });
+    };
+
+    const onLeave = () => setActive(false);
+
+    const onTouch = (e: TouchEvent) => {
+      const t = e.touches?.[0];
+      if (!t) return;
+      setActive(true);
+      setPos({ x: t.clientX, y: t.clientY });
+    };
+
+    const onTouchEnd = () => setActive(false);
+
+    window.addEventListener("mousemove", onMove, { passive: true });
+    window.addEventListener("mouseleave", onLeave);
+    window.addEventListener("blur", onLeave);
+    window.addEventListener("touchstart", onTouch, { passive: true });
+    window.addEventListener("touchmove", onTouch, { passive: true });
+    window.addEventListener("touchend", onTouchEnd);
+
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseleave", onLeave);
+      window.removeEventListener("blur", onLeave);
+      window.removeEventListener("touchstart", onTouch);
+      window.removeEventListener("touchmove", onTouch);
+      window.removeEventListener("touchend", onTouchEnd);
+    };
+  }, []);
+
+  const spotlight = active
+    ? `radial-gradient(circle ${radius}px at ${pos.x}px ${pos.y}px,
+        rgba(0,0,0,0) 0%,
+        rgba(0,0,0,0) 40%,
+        rgba(0,0,0,0.78) 68%,
+        rgba(0,0,0,0.94) 100%)`
+    : `rgba(0,0,0,0.90)`;
+
+  return (
+    <>
+      <div className="fixed inset-0 -z-40">
+        <img
+          src={src}
+          alt="Wallpaper"
+          className="h-full w-full object-cover"
+          draggable={false}
+        />
+        <div className="absolute inset-0 bg-black/35" />
+      </div>
+
+      <div className="pointer-events-none fixed inset-0 -z-30">
+        <div className="absolute inset-0" style={{ background: spotlight }} />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(255,255,255,0.02)_0%,rgba(0,0,0,0.58)_55%,rgba(0,0,0,0.94)_100%)]" />
+      </div>
+    </>
+  );
+}
+
+function AmbientBackground({ isMobile }: { isMobile: boolean }) {
+  return (
+    <>
+      <div className="pointer-events-none fixed inset-0 -z-20">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(168,85,247,0.11),transparent_28%),radial-gradient(circle_at_80%_25%,rgba(59,130,246,0.09),transparent_28%),radial-gradient(circle_at_50%_75%,rgba(34,211,238,0.06),transparent_30%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(255,255,255,0.02)_0%,rgba(0,0,0,0.55)_56%,rgba(0,0,0,0.92)_100%)]" />
+      </div>
+
+      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden opacity-90">
+        <div className="absolute -left-[8%] top-[10%] h-[26rem] w-[26rem] animate-[floatGlow_18s_ease-in-out_infinite] rounded-full bg-[radial-gradient(circle,rgba(168,85,247,0.10),transparent_60%)] blur-3xl" />
+        <div className="absolute right-[2%] top-[32%] h-[22rem] w-[22rem] animate-[floatGlow_20s_ease-in-out_infinite_reverse] rounded-full bg-[radial-gradient(circle,rgba(59,130,246,0.08),transparent_60%)] blur-3xl" />
+        {!isMobile && (
+          <div className="absolute left-[36%] bottom-[6%] h-[18rem] w-[18rem] animate-[floatGlow_24s_ease-in-out_infinite] rounded-full bg-[radial-gradient(circle,rgba(34,211,238,0.05),transparent_60%)] blur-3xl" />
+        )}
+      </div>
+
+      <div className="pointer-events-none fixed inset-0 -z-[5] opacity-[0.13] [background-image:linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:72px_72px]" />
+
+      <style jsx global>{`
+        @keyframes floatGlow {
+          0%,
+          100% {
+            transform: translate3d(0, 0, 0) scale(1);
+          }
+          50% {
+            transform: translate3d(18px, -14px, 0) scale(1.04);
+          }
+        }
+      `}</style>
+    </>
   );
 }
 
@@ -89,23 +197,6 @@ function useAuthNavigate() {
       }
     },
     [router]
-  );
-}
-
-function SectionEyebrow({
-  label,
-  icon,
-  dotClass = "bg-violet-400/80 shadow-[0_0_12px_rgba(168,85,247,0.7)]",
-}: {
-  label: string;
-  icon?: ReactNode;
-  dotClass?: string;
-}) {
-  return (
-    <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs text-white/70 backdrop-blur">
-      {icon ? icon : <span className={cn("h-2 w-2 rounded-full", dotClass)} />}
-      {label}
-    </div>
   );
 }
 
@@ -133,6 +224,23 @@ function useLenisScroll(enabled: boolean) {
       lenis.destroy();
     };
   }, [enabled]);
+}
+
+function SectionEyebrow({
+  label,
+  icon,
+}: {
+  label: string;
+  icon?: ReactNode;
+}) {
+  return (
+    <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-white/72 backdrop-blur-xl">
+      {icon ?? (
+        <span className="h-2 w-2 rounded-full bg-violet-400 shadow-[0_0_12px_rgba(168,85,247,0.8)]" />
+      )}
+      {label}
+    </div>
+  );
 }
 
 function Reveal({
@@ -180,7 +288,7 @@ function AuthMenuItem({ href, label }: { href: string; label: string }) {
     <button
       type="button"
       onClick={() => go(href)}
-      className="flex w-full cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-[13px] text-white/75 transition duration-300 hover:bg-white/5 hover:text-white"
+      className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-[13px] text-white/75 transition hover:bg-white/5 hover:text-white"
     >
       <span>{label}</span>
       <ArrowRight className="h-4 w-4 text-white/30" />
@@ -206,7 +314,7 @@ function AuthCTAButton({
       whileTap={{ scale: 0.985 }}
       onClick={() => go(href)}
       className={cn(
-        "cursor-pointer rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition duration-300 hover:bg-white/20 hover:shadow-[0_10px_40px_rgba(255,255,255,0.10)]",
+        "rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/18",
         className
       )}
     >
@@ -228,125 +336,17 @@ function GlassCard({
     <div
       className={cn(
         "group relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.05] backdrop-blur-xl",
-        "shadow-[0_24px_90px_rgba(0,0,0,0.30)]",
+        "shadow-[0_20px_80px_rgba(0,0,0,0.28)]",
         hover &&
           "transition duration-500 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.07]",
         className
       )}
     >
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.05),rgba(255,255,255,0.012)_22%,rgba(0,0,0,0.08)_100%)]" />
-      <div className="pointer-events-none absolute inset-[1px] rounded-[23px] border border-white/[0.05]" />
+      <div className="pointer-events-none absolute inset-[1px] rounded-[23px] border border-white/[0.06]" />
       <div className="pointer-events-none absolute -left-[140%] top-0 h-full w-[80%] rotate-12 bg-[linear-gradient(to_right,transparent,rgba(255,255,255,0.10),transparent)] opacity-0 blur-xl transition duration-700 group-hover:left-[140%] group-hover:opacity-100" />
       {children}
     </div>
-  );
-}
-
-function AmbientBackground({ isMobile }: { isMobile: boolean }) {
-  return (
-    <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(168,85,247,0.10),transparent_28%),radial-gradient(circle_at_80%_25%,rgba(59,130,246,0.08),transparent_28%),radial-gradient(circle_at_50%_75%,rgba(34,211,238,0.06),transparent_30%)]" />
-      <div className="absolute inset-0 opacity-[0.18] [background-image:linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:72px_72px]" />
-      {!isMobile && (
-        <>
-          <div className="absolute -left-[8%] top-[10%] h-[26rem] w-[26rem] animate-[floatGlow_18s_ease-in-out_infinite] rounded-full bg-[radial-gradient(circle,rgba(168,85,247,0.12),transparent_60%)] blur-3xl" />
-          <div className="absolute right-[2%] top-[32%] h-[22rem] w-[22rem] animate-[floatGlow_20s_ease-in-out_infinite_reverse] rounded-full bg-[radial-gradient(circle,rgba(59,130,246,0.10),transparent_60%)] blur-3xl" />
-          <div className="absolute left-[36%] bottom-[6%] h-[18rem] w-[18rem] animate-[floatGlow_24s_ease-in-out_infinite] rounded-full bg-[radial-gradient(circle,rgba(34,211,238,0.06),transparent_60%)] blur-3xl" />
-        </>
-      )}
-
-      <style jsx global>{`
-        @keyframes floatGlow {
-          0%,
-          100% {
-            transform: translate3d(0, 0, 0) scale(1);
-          }
-          50% {
-            transform: translate3d(18px, -14px, 0) scale(1.04);
-          }
-        }
-      `}</style>
-    </div>
-  );
-}
-
-function WallpaperRevealBackground({
-  src = "/wallpaper.jpg",
-  radius = 220,
-  isMobile,
-}: {
-  src?: string;
-  radius?: number;
-  isMobile: boolean;
-}) {
-  const [pos, setPos] = useState({ x: 0, y: 0 });
-  const [active, setActive] = useState(false);
-
-  useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      setActive(true);
-      setPos({ x: e.clientX, y: e.clientY });
-    };
-    const onLeave = () => setActive(false);
-
-    const onTouch = (e: TouchEvent) => {
-      const t = e.touches?.[0];
-      if (!t) return;
-      setActive(true);
-      setPos({ x: t.clientX, y: t.clientY });
-    };
-    const onTouchEnd = () => setActive(false);
-
-    window.addEventListener("mousemove", onMove, { passive: true });
-    window.addEventListener("mouseleave", onLeave);
-    window.addEventListener("blur", onLeave);
-    window.addEventListener("touchstart", onTouch, { passive: true });
-    window.addEventListener("touchmove", onTouch, { passive: true });
-    window.addEventListener("touchend", onTouchEnd);
-
-    return () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseleave", onLeave);
-      window.removeEventListener("blur", onLeave);
-      window.removeEventListener("touchstart", onTouch);
-      window.removeEventListener("touchmove", onTouch);
-      window.removeEventListener("touchend", onTouchEnd);
-    };
-  }, []);
-
-  const spotlight = active
-    ? `radial-gradient(circle ${radius}px at ${pos.x}px ${pos.y}px,
-        rgba(0,0,0,0) 0%,
-        rgba(0,0,0,0) 45%,
-        rgba(0,0,0,0.90) 72%,
-        rgba(0,0,0,0.96) 100%)`
-    : `rgba(0,0,0,0.92)`;
-
-  return (
-    <>
-      <div className="fixed inset-0 -z-40">
-        <img
-          src={src}
-          alt="Wallpaper"
-          className="h-full w-full object-cover"
-          draggable={false}
-        />
-        <div className="absolute inset-0 bg-black/35" />
-      </div>
-
-      <div className="pointer-events-none fixed inset-0 -z-30">
-        <div className="absolute inset-0" style={{ background: spotlight }} />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(255,255,255,0.03)_0%,rgba(0,0,0,0.58)_55%,rgba(0,0,0,0.94)_100%)]" />
-      </div>
-
-      <div className="pointer-events-none fixed inset-0 -z-20 opacity-75">
-        <div className="absolute -left-24 top-10 h-[380px] w-[380px] rounded-full bg-violet-600/12 blur-[140px]" />
-        <div className="absolute right-[-70px] top-[18%] h-[320px] w-[320px] rounded-full bg-blue-500/10 blur-[140px]" />
-        {!isMobile && (
-          <div className="absolute bottom-[-90px] left-[18%] h-[240px] w-[240px] rounded-full bg-fuchsia-500/8 blur-[120px]" />
-        )}
-      </div>
-    </>
   );
 }
 
@@ -371,122 +371,6 @@ function ScrollProgress() {
         className="h-full bg-[linear-gradient(to_right,rgba(168,85,247,0.95),rgba(59,130,246,0.95),rgba(34,211,238,0.95))] shadow-[0_0_20px_rgba(168,85,247,0.35)] transition-[width] duration-100"
         style={{ width: `${progress}%` }}
       />
-    </div>
-  );
-}
-
-function FloatingOrbs() {
-  return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden">
-      <div className="absolute left-[8%] top-[18%] h-3 w-3 animate-pulse rounded-full bg-violet-400/40 blur-[1px]" />
-      <div className="absolute right-[15%] top-[28%] h-2.5 w-2.5 animate-pulse rounded-full bg-cyan-400/40 blur-[1px]" />
-      <div className="absolute left-[20%] top-[58%] h-2 w-2 animate-pulse rounded-full bg-blue-400/40 blur-[1px]" />
-      <div className="absolute right-[28%] top-[62%] h-3 w-3 animate-pulse rounded-full bg-fuchsia-400/35 blur-[1px]" />
-    </div>
-  );
-}
-
-function HeroNebulaCore() {
-  const orbRef = useRef<THREE.Mesh>(null);
-  const ringRef = useRef<THREE.Mesh>(null);
-
-  useFrame((state) => {
-    const t = state.clock.getElapsedTime();
-
-    if (orbRef.current) {
-      orbRef.current.rotation.x = t * 0.12;
-      orbRef.current.rotation.y = t * 0.18;
-      orbRef.current.position.y = Math.sin(t * 0.8) * 0.05;
-    }
-
-    if (ringRef.current) {
-      ringRef.current.rotation.z = t * 0.16;
-      ringRef.current.rotation.x = 0.85 + Math.sin(t * 0.25) * 0.08;
-    }
-  });
-
-  return (
-    <group position={[0.5, 0.15, 0]}>
-      <Float speed={1.2} rotationIntensity={0.18} floatIntensity={0.2}>
-        <mesh ref={orbRef}>
-          <icosahedronGeometry args={[0.95, 1]} />
-          <meshStandardMaterial
-            color="#7c3aed"
-            emissive="#60a5fa"
-            emissiveIntensity={0.65}
-            metalness={0.35}
-            roughness={0.2}
-            transparent
-            opacity={0.76}
-          />
-        </mesh>
-
-        <mesh ref={ringRef} rotation={[1, 0, 0]}>
-          <torusGeometry args={[1.45, 0.045, 16, 100]} />
-          <meshStandardMaterial
-            color="#a855f7"
-            emissive="#22d3ee"
-            emissiveIntensity={1}
-            transparent
-            opacity={0.55}
-          />
-        </mesh>
-      </Float>
-    </group>
-  );
-}
-
-function HeroNebulaDust() {
-  const positions = useMemo(() => {
-    const points = new Float32Array(900);
-    for (let i = 0; i < points.length; i += 3) {
-      points[i] = (Math.random() - 0.5) * 10;
-      points[i + 1] = (Math.random() - 0.5) * 7;
-      points[i + 2] = (Math.random() - 0.5) * 5;
-    }
-    return points;
-  }, []);
-
-  const groupRef = useRef<THREE.Group>(null);
-
-  useFrame((state) => {
-    const t = state.clock.getElapsedTime();
-    if (groupRef.current) {
-      groupRef.current.rotation.y = t * 0.02;
-    }
-  });
-
-  return (
-    <group ref={groupRef}>
-      <Points positions={positions} stride={3} frustumCulled>
-        <PointMaterial
-          transparent
-          color="#c4b5fd"
-          size={0.03}
-          sizeAttenuation
-          depthWrite={false}
-          opacity={0.55}
-        />
-      </Points>
-    </group>
-  );
-}
-
-function HeroScene() {
-  return (
-    <div className="pointer-events-none absolute inset-0 z-[2] opacity-60">
-      <Canvas
-        dpr={[1, 1.2]}
-        camera={{ position: [0, 0, 5.5], fov: 42 }}
-        gl={{ antialias: false, alpha: true, powerPreference: "high-performance" }}
-      >
-        <ambientLight intensity={0.65} />
-        <directionalLight position={[3, 4, 5]} intensity={1.8} color="#93c5fd" />
-        <directionalLight position={[-4, -2, 3]} intensity={1.0} color="#c084fc" />
-        <pointLight position={[0, 0, 3]} intensity={1.5} color="#22d3ee" />
-        <HeroNebulaDust />
-        <HeroNebulaCore />
-      </Canvas>
     </div>
   );
 }
@@ -811,7 +695,7 @@ function FAQItem({
   return (
     <button
       onClick={onToggle}
-      className="group w-full cursor-pointer rounded-2xl border border-white/10 bg-white/5 px-6 py-5 text-left transition duration-300 hover:border-white/20 hover:bg-white/[0.07] backdrop-blur"
+      className="group w-full rounded-2xl border border-white/10 bg-white/5 px-6 py-5 text-left transition duration-300 hover:border-white/20 hover:bg-white/[0.07] backdrop-blur"
     >
       <div className="flex items-center justify-between gap-4">
         <span className="text-sm font-semibold text-white/90 sm:text-base">
@@ -963,8 +847,6 @@ function BenefitRow({
 export default function Home() {
   const prefersReducedMotion = useReducedMotion();
   const isMobile = useIsMobile();
-
-  const enableHeavyFx = !isMobile && !prefersReducedMotion;
   const enableLenis = !prefersReducedMotion;
 
   useLenisScroll(enableLenis);
@@ -979,20 +861,16 @@ export default function Home() {
 
   useEffect(() => {
     const ctx = gsap.context(() => {
-      gsap.set(
-        [
-          heroBadgeRef.current,
-          heroTitleRef.current,
-          heroTextRef.current,
-          heroButtonsRef.current,
-          heroChipsRef.current,
-          heroPreviewRef.current,
-        ],
-        {
-          opacity: 0,
-          y: 28,
-        }
-      );
+      const targets = [
+        heroBadgeRef.current,
+        heroTitleRef.current,
+        heroTextRef.current,
+        heroButtonsRef.current,
+        heroChipsRef.current,
+        heroPreviewRef.current,
+      ];
+
+      gsap.set(targets, { opacity: 0, y: 28 });
 
       const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
       tl.to(heroBadgeRef.current, { opacity: 1, y: 0, duration: 0.5 })
@@ -1001,6 +879,32 @@ export default function Home() {
         .to(heroButtonsRef.current, { opacity: 1, y: 0, duration: 0.5 }, "-=0.28")
         .to(heroChipsRef.current, { opacity: 1, y: 0, duration: 0.5 }, "-=0.25")
         .to(heroPreviewRef.current, { opacity: 1, y: 0, duration: 0.65 }, "-=0.45");
+
+      ScrollTrigger.create({
+        trigger: heroRef.current,
+        start: "top top",
+        end: "bottom top",
+        scrub: true,
+        onUpdate: (self) => {
+          const p = self.progress;
+          gsap.to(heroTitleRef.current, {
+            y: p * 30,
+            overwrite: true,
+            duration: 0.1,
+          });
+          gsap.to(heroTextRef.current, {
+            y: p * 20,
+            overwrite: true,
+            duration: 0.1,
+          });
+          gsap.to(heroPreviewRef.current, {
+            y: p * 40,
+            scale: 1 - p * 0.03,
+            overwrite: true,
+            duration: 0.1,
+          });
+        },
+      });
     }, heroRef);
 
     return () => ctx.revert();
@@ -1044,11 +948,7 @@ export default function Home() {
   return (
     <main className="relative min-h-screen overflow-x-hidden text-white">
       <ScrollProgress />
-      <WallpaperRevealBackground
-        src="/wallpaper.jpg"
-        radius={isMobile ? 160 : 220}
-        isMobile={isMobile}
-      />
+      <WallpaperRevealBackground src="/wallpaper.jpg" radius={isMobile ? 160 : 220} />
       <AmbientBackground isMobile={isMobile} />
 
       <header className="fixed inset-x-0 top-0 z-[2000]">
@@ -1089,49 +989,25 @@ export default function Home() {
 
                 <div className="pointer-events-none absolute left-0 top-full z-[3000] mt-2 w-64 translate-y-2 rounded-2xl border border-white/10 bg-black/70 opacity-0 shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur transition duration-200 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100">
                   <div className="p-2">
-                    <AuthMenuItem
-                      href={TOOL_ROUTES.referenceToVideo}
-                      label="Reference to Video"
-                    />
-                    <AuthMenuItem
-                      href={TOOL_ROUTES.imageToVideo}
-                      label="Image to Video"
-                    />
-                    <AuthMenuItem
-                      href={TOOL_ROUTES.textToVideo}
-                      label="Text to Video"
-                    />
+                    <AuthMenuItem href={TOOL_ROUTES.referenceToVideo} label="Reference to Video" />
+                    <AuthMenuItem href={TOOL_ROUTES.imageToVideo} label="Image to Video" />
+                    <AuthMenuItem href={TOOL_ROUTES.textToVideo} label="Text to Video" />
                     <div className="my-2 h-px bg-white/10" />
-                    <AuthMenuItem
-                      href={TOOL_ROUTES.referenceToImage}
-                      label="Reference to Image"
-                    />
-                    <AuthMenuItem
-                      href={TOOL_ROUTES.textToImage}
-                      label="Text to Image"
-                    />
+                    <AuthMenuItem href={TOOL_ROUTES.referenceToImage} label="Reference to Image" />
+                    <AuthMenuItem href={TOOL_ROUTES.textToImage} label="Text to Image" />
                   </div>
                 </div>
               </div>
 
-              <a
-                className="rounded-full px-2 py-1 transition duration-300 hover:bg-white/5 hover:text-white"
-                href="#showcase"
-              >
+              <a className="rounded-full px-2 py-1 transition duration-300 hover:bg-white/5 hover:text-white" href="#showcase">
                 Showcase
               </a>
 
-              <Link
-                className="rounded-full px-2 py-1 transition duration-300 hover:bg-white/5 hover:text-white"
-                href="/pricing"
-              >
+              <Link className="rounded-full px-2 py-1 transition duration-300 hover:bg-white/5 hover:text-white" href="/pricing">
                 Pricing
               </Link>
 
-              <a
-                className="rounded-full px-2 py-1 transition duration-300 hover:bg-white/5 hover:text-white"
-                href="#resources"
-              >
+              <a className="rounded-full px-2 py-1 transition duration-300 hover:bg-white/5 hover:text-white" href="#resources">
                 Resources
               </a>
             </nav>
@@ -1150,13 +1026,11 @@ export default function Home() {
 
       <section ref={heroRef} className="relative min-h-screen overflow-hidden">
         {!isMobile && <FloatingMediaWall />}
-        {enableHeavyFx && <HeroScene />}
-        <FloatingOrbs />
 
-        <div className="absolute inset-0 z-[1] bg-black/55" />
+        <div className="absolute inset-0 z-[1] bg-black/58" />
         <div className="absolute inset-0 z-[3] bg-[radial-gradient(circle_at_50%_45%,rgba(0,0,0,0.12)_0%,rgba(0,0,0,0.70)_70%,rgba(0,0,0,0.92)_100%)]" />
-        <div className="absolute inset-0 z-[4] bg-[radial-gradient(circle_at_25%_25%,rgba(168,85,247,0.12),transparent_58%),radial-gradient(circle_at_75%_40%,rgba(59,130,246,0.08),transparent_65%)]" />
-        <div className="absolute inset-0 z-[5] bg-[linear-gradient(to_right,rgba(0,0,0,0.72)_0%,rgba(0,0,0,0.50)_32%,rgba(0,0,0,0.32)_55%,rgba(0,0,0,0.46)_100%)]" />
+        <div className="absolute inset-0 z-[4] bg-[radial-gradient(circle_at_25%_25%,rgba(168,85,247,0.10),transparent_58%),radial-gradient(circle_at_75%_40%,rgba(59,130,246,0.06),transparent_65%)]" />
+        <div className="absolute inset-0 z-[5] bg-[linear-gradient(to_right,rgba(0,0,0,0.74)_0%,rgba(0,0,0,0.52)_32%,rgba(0,0,0,0.34)_55%,rgba(0,0,0,0.48)_100%)]" />
         <div className="absolute left-0 top-0 z-[6] h-full w-[52%] bg-[radial-gradient(circle_at_25%_35%,rgba(0,0,0,0.10),rgba(0,0,0,0.58)_55%,rgba(0,0,0,0.85)_100%)]" />
 
         <div className="relative z-[1000] mx-auto flex min-h-screen w-full max-w-7xl items-center px-6 pt-28">
@@ -1191,10 +1065,7 @@ export default function Home() {
                 for creators who care about atmosphere, identity, and control.
               </p>
 
-              <div
-                ref={heroButtonsRef}
-                className="mt-8 flex flex-wrap items-center gap-3"
-              >
+              <div ref={heroButtonsRef} className="mt-8 flex flex-wrap items-center gap-3">
                 <AuthCTAButton
                   href="/tools"
                   className="border-0 bg-white text-black hover:bg-white/90"
@@ -1210,25 +1081,19 @@ export default function Home() {
                 </AuthCTAButton>
               </div>
 
-              <div
-                ref={heroChipsRef}
-                className="mt-8 grid max-w-2xl gap-3 sm:grid-cols-3"
-              >
+              <div ref={heroChipsRef} className="mt-8 grid max-w-2xl gap-3 sm:grid-cols-3">
                 {[
                   {
                     text: "Reference-consistent motion",
-                    hover:
-                      "hover:bg-violet-500/[0.12] hover:shadow-[0_0_24px_rgba(168,85,247,0.10)]",
+                    hover: "hover:bg-violet-500/[0.12]",
                   },
                   {
                     text: "Image-to-video atmosphere",
-                    hover:
-                      "hover:bg-cyan-500/[0.10] hover:shadow-[0_0_24px_rgba(34,211,238,0.10)]",
+                    hover: "hover:bg-cyan-500/[0.10]",
                   },
                   {
                     text: "Cinematic anime presentation",
-                    hover:
-                      "hover:bg-blue-500/[0.10] hover:shadow-[0_0_24px_rgba(59,130,246,0.10)]",
+                    hover: "hover:bg-blue-500/[0.10]",
                   },
                 ].map((item) => (
                   <div
@@ -1249,11 +1114,7 @@ export default function Home() {
               <div className="absolute -inset-8 rounded-[40px] bg-[radial-gradient(circle_at_center,rgba(168,85,247,0.14),transparent_55%)] blur-3xl" />
               <motion.div
                 animate={prefersReducedMotion ? {} : { y: [0, -6, 0] }}
-                transition={{
-                  duration: 8,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                }}
+                transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
               >
                 <Tilt
                   tiltMaxAngleX={isMobile ? 0 : 3}
@@ -1327,21 +1188,27 @@ export default function Home() {
                 title: "Aesthetic Control",
                 desc: "Design motion with a more intentional visual identity, not random generations.",
                 hover: "hover:bg-violet-500/[0.10]",
+                icon: <Stars className="h-5 w-5" />,
               },
               {
                 title: "Studio Workflows",
                 desc: "Jump into focused tools for reference-to-video, image-to-video, and text generation.",
                 hover: "hover:bg-blue-500/[0.10]",
+                icon: <PanelTop className="h-5 w-5" />,
               },
               {
                 title: "Creator Presentation",
                 desc: "Premium outputs and a polished interface that feels closer to a real studio.",
                 hover: "hover:bg-cyan-500/[0.10]",
+                icon: <BadgeCheck className="h-5 w-5" />,
               },
             ].map((item, i) => (
               <Reveal key={item.title} delay={i * 0.06}>
                 <GlassCard className={cn("p-5", item.hover)}>
                   <div className="relative z-10">
+                    <div className="mb-4 inline-flex rounded-2xl border border-white/10 bg-black/25 p-2 text-white/80">
+                      {item.icon}
+                    </div>
                     <div className="text-base font-semibold text-white">
                       {item.title}
                     </div>
@@ -1870,9 +1737,7 @@ export default function Home() {
 
           <Reveal className="mt-10 grid gap-6 md:grid-cols-[1.1fr_0.9fr]">
             <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur">
-              <div className="text-sm font-semibold text-white">
-                KOANimation
-              </div>
+              <div className="text-sm font-semibold text-white">KOANimation</div>
               <p className="mt-3 max-w-md text-sm leading-relaxed text-white/58">
                 A creator-first studio for aesthetic anime motion, cinematic
                 presentation, and reference-aware workflows.
