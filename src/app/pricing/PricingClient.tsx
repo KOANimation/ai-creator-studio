@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Lenis from "lenis";
 import {
   BadgeHelp,
   CreditCard,
@@ -19,7 +20,12 @@ import {
   Check,
   Gem,
   Layers3,
-  Play,
+  Clapperboard,
+  ScanSearch,
+  BadgePlus,
+  Film,
+  Crown,
+  Star,
 } from "lucide-react";
 import { createClient } from "@/app/lib/supabase/client";
 
@@ -66,6 +72,32 @@ function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
+function useLenisScroll(enabled: boolean) {
+  useEffect(() => {
+    if (!enabled) return;
+
+    const lenis = new Lenis({
+      duration: 0.9,
+      smoothWheel: true,
+      touchMultiplier: 1.05,
+    });
+
+    let rafId = 0;
+
+    const raf = (time: number) => {
+      lenis.raf(time);
+      rafId = requestAnimationFrame(raf);
+    };
+
+    rafId = requestAnimationFrame(raf);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      lenis.destroy();
+    };
+  }, [enabled]);
+}
+
 function GlowDivider() {
   return (
     <div className="relative h-px w-full overflow-hidden">
@@ -110,6 +142,31 @@ function GlassPanel({
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.05),rgba(255,255,255,0.012)_22%,rgba(0,0,0,0.08)_100%)]" />
       <div className="pointer-events-none absolute inset-[1px] rounded-[23px] border border-white/[0.06]" />
       {children}
+    </div>
+  );
+}
+
+function ScrollProgress() {
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    const onScroll = () => {
+      const max =
+        document.documentElement.scrollHeight - window.innerHeight || 1;
+      setProgress((window.scrollY / max) * 100);
+    };
+
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  return (
+    <div className="pointer-events-none fixed left-0 right-0 top-0 z-[3000] h-[2px]">
+      <div
+        className="h-full bg-[linear-gradient(to_right,rgba(168,85,247,0.95),rgba(59,130,246,0.95),rgba(34,211,238,0.95))] shadow-[0_0_20px_rgba(168,85,247,0.35)] transition-[width] duration-100"
+        style={{ width: `${progress}%` }}
+      />
     </div>
   );
 }
@@ -264,6 +321,8 @@ export default function PricingClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
+
+  useLenisScroll(true);
 
   const [selectedPlan, setSelectedPlan] = useState<PlanKey>("advanced");
   const [faqOpen, setFaqOpen] = useState<number | null>(null);
@@ -517,7 +576,6 @@ export default function PricingClient() {
           "ring-2 ring-emerald-300/35 shadow-[0_0_0_1px_rgba(156,197,255,0.22),0_0_48px_rgba(156,197,255,0.22),0_30px_95px_rgba(0,0,0,0.62)]",
         auraClass:
           "bg-[radial-gradient(circle_at_top,rgba(156,197,255,0.18),transparent_42%)]",
-        badgeGlowClass: "",
         accentLine: "from-[#9CC5FF] to-[#d8e8ff]",
         icon: Sparkles,
         creditBox: {
@@ -549,7 +607,6 @@ export default function PricingClient() {
           "ring-2 ring-emerald-300/35 shadow-[0_0_0_1px_rgba(234,211,154,0.22),0_0_48px_rgba(234,211,154,0.22),0_30px_95px_rgba(0,0,0,0.62)]",
         auraClass:
           "bg-[radial-gradient(circle_at_top,rgba(234,211,154,0.18),transparent_42%)]",
-        badgeGlowClass: "",
         accentLine: "from-[#EAD39A] to-[#fff1cf]",
         icon: Wand2,
         creditBox: {
@@ -581,7 +638,6 @@ export default function PricingClient() {
           "ring-2 ring-emerald-300/35 shadow-[0_0_0_1px_rgba(205,183,255,0.28),0_0_62px_rgba(205,183,255,0.30),0_35px_115px_rgba(0,0,0,0.7)]",
         auraClass:
           "bg-[radial-gradient(circle_at_top,rgba(205,183,255,0.24),transparent_42%)]",
-        badgeGlowClass: "shadow-[0_0_18px_rgba(107,112,255,0.45)]",
         accentLine: "from-[#CDB7FF] to-[#efe7ff]",
         icon: Zap,
         creditBox: {
@@ -614,7 +670,6 @@ export default function PricingClient() {
           "ring-2 ring-emerald-300/35 shadow-[0_0_0_1px_rgba(83,214,255,0.24),0_0_60px_rgba(83,214,255,0.28),0_35px_115px_rgba(0,0,0,0.7)]",
         auraClass:
           "bg-[radial-gradient(circle_at_top,rgba(83,214,255,0.22),transparent_42%)]",
-        badgeGlowClass: "shadow-[0_0_18px_rgba(107,112,255,0.45)]",
         accentLine: "from-[#53D6FF] to-[#d8f7ff]",
         icon: Gem,
         creditBox: {
@@ -633,12 +688,43 @@ export default function PricingClient() {
     []
   );
 
-  const comparePlans = useMemo(
+  const compareRows = useMemo(
     () => [
-      { key: "essential" as const, name: "Essential Plan", price: 14 },
-      { key: "advanced" as const, name: "Advanced Plan", price: 29 },
-      { key: "infinite" as const, name: "Infinite Plan", price: 56 },
-      { key: "wonder" as const, name: "Wonder Plan", price: 120 },
+      {
+        label: "Monthly credits",
+        values: [
+          "4000 credits",
+          "12000 credits",
+          "24000 credits",
+          "106000 credits",
+        ],
+      },
+      {
+        label: "Image generation",
+        values: ["Included", "Included", "Included", "Included"],
+      },
+      {
+        label: "Video generation",
+        values: ["Included", "Included", "High-volume", "Studio-scale"],
+      },
+      {
+        label: "Best for",
+        values: [
+          "Starters",
+          "Growing creators",
+          "Power users",
+          "Teams & agencies",
+        ],
+      },
+      {
+        label: "Plan flexibility",
+        values: [
+          "Upgrade anytime",
+          "Upgrade / downgrade",
+          "Upgrade / downgrade",
+          "Custom scaling later",
+        ],
+      },
     ],
     []
   );
@@ -647,6 +733,7 @@ export default function PricingClient() {
 
   return (
     <main className="relative min-h-screen overflow-x-hidden text-white">
+      <ScrollProgress />
       <WallpaperRevealBackground src="/wallpaper.jpg" radius={240} />
 
       <header className="sticky top-0 z-[2000] px-6 pt-4">
@@ -744,33 +831,45 @@ export default function PricingClient() {
           <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {[
               {
-                label: "Ultra-Fast Generation",
-                icon: <Zap className="h-5 w-5" />,
+                title: "Faster creation",
+                desc: "High-speed generation across every tier",
+                icon: Zap,
               },
               {
-                label: "Reference Consistency",
-                icon: <Layers3 className="h-5 w-5" />,
+                title: "Reference aware",
+                desc: "More controlled consistency and identity",
+                icon: ScanSearch,
               },
               {
-                label: "Creator-Focused Workflow",
-                icon: <Wand2 className="h-5 w-5" />,
+                title: "Studio workflows",
+                desc: "Built for serious creator pipelines",
+                icon: Clapperboard,
               },
               {
-                label: "Secure Billing & Access",
-                icon: <ShieldCheck className="h-5 w-5" />,
+                title: "Scales with output",
+                desc: "Grow from regular use to agency volume",
+                icon: BadgePlus,
               },
-            ].map((f) => (
-              <GlassPanel key={f.label} className="p-5">
-                <div className="relative z-10 flex items-start gap-4">
-                  <div className="inline-flex rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-white/85">
-                    {f.icon}
+            ].map((item) => {
+              const Icon = item.icon;
+              return (
+                <GlassPanel key={item.title} className="p-5">
+                  <div className="relative z-10 flex items-start gap-4">
+                    <div className="inline-flex rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-white/85">
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold text-white/88">
+                        {item.title}
+                      </div>
+                      <div className="mt-1 text-xs leading-relaxed text-white/55">
+                        {item.desc}
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-sm font-medium text-white/82">
-                    {f.label}
-                  </div>
-                </div>
-              </GlassPanel>
-            ))}
+                </GlassPanel>
+              );
+            })}
           </div>
 
           {mounted && (
@@ -861,12 +960,7 @@ export default function PricingClient() {
                   />
 
                   {p.badge ? (
-                    <div
-                      className={cn(
-                        "absolute right-4 top-4 z-20 rounded-full bg-[#6B70FF] px-3 py-1 text-xs font-semibold text-white",
-                        p.badgeGlowClass
-                      )}
-                    >
+                    <div className="absolute right-4 top-4 z-20 rounded-full bg-[#6B70FF] px-3 py-1 text-xs font-semibold text-white shadow-[0_0_18px_rgba(107,112,255,0.45)]">
                       {p.badge}
                     </div>
                   ) : null}
@@ -973,91 +1067,143 @@ export default function PricingClient() {
               Compare plans and features
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-white/65">
-              A cleaner overview of monthly pricing and credit capacity so you
-              can choose the right fit quickly.
+              A cleaner overview of monthly pricing and capacity so you can pick
+              the right tier faster.
             </p>
           </div>
 
-          <GlassPanel className="mt-12 overflow-hidden">
-            <div className="grid grid-cols-1 gap-px bg-white/10 md:grid-cols-5">
-              <div className="bg-black/40 p-8 md:col-span-1">
-                <div className="text-2xl font-semibold">Compare Plans</div>
-                <div className="mt-3 text-sm text-white/55">
-                  Monthly subscription pricing
+          <div className="mt-12 overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] shadow-[0_24px_90px_rgba(0,0,0,0.32)] backdrop-blur-xl">
+            <div className="overflow-x-auto">
+              <div className="min-w-[980px]">
+                <div className="grid grid-cols-[220px_repeat(4,minmax(0,1fr))] border-b border-white/10 bg-black/30">
+                  <div className="p-6">
+                    <div className="text-sm font-semibold uppercase tracking-[0.18em] text-white/40">
+                      Plans
+                    </div>
+                  </div>
+
+                  {plans.map((plan) => {
+                    const isSelected = selectedPlan === plan.key;
+                    const isCurrent = currentSubscription.currentPlan === plan.key;
+
+                    return (
+                      <div
+                        key={plan.key}
+                        className={cn(
+                          "relative p-6 text-center",
+                          isSelected && "bg-white/[0.04]",
+                          isCurrent && "bg-emerald-300/[0.06]"
+                        )}
+                      >
+                        {(isSelected || isCurrent) && (
+                          <div
+                            className={cn(
+                              "pointer-events-none absolute inset-x-6 top-0 h-px",
+                              isCurrent
+                                ? "bg-gradient-to-r from-emerald-300/0 via-emerald-300/80 to-emerald-300/0"
+                                : "bg-gradient-to-r from-violet-300/0 via-violet-300/80 to-violet-300/0"
+                            )}
+                          />
+                        )}
+
+                        <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-white/65">
+                          {isCurrent ? (
+                            <>
+                              <Crown className="h-3.5 w-3.5" />
+                              Current
+                            </>
+                          ) : isSelected ? (
+                            <>
+                              <Star className="h-3.5 w-3.5" />
+                              Selected
+                            </>
+                          ) : (
+                            plan.name
+                          )}
+                        </div>
+
+                        <div className="mt-4 text-xl font-semibold text-white">
+                          {plan.name}
+                        </div>
+                        <div className="mt-2 flex items-end justify-center gap-2">
+                          <span className="text-4xl font-semibold">{plan.price}</span>
+                          <span className="pb-1 text-white/45">/ month</span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              </div>
 
-              {comparePlans.map((c) => {
-                const isCurrent = currentSubscription.currentPlan === c.key;
-                const isLoading = activeCheckoutPlan === c.key;
-                const buttonLabel = getPlanActionLabel(
-                  c.key,
-                  currentSubscription.currentPlan
-                );
-
-                return (
+                {compareRows.map((row, rowIndex) => (
                   <div
-                    key={c.key}
+                    key={row.label}
                     className={cn(
-                      "bg-black/40 p-8 transition",
-                      selectedPlan === c.key && "ring-1 ring-inset ring-white/20",
-                      isCurrent && "ring-1 ring-inset ring-emerald-300/35"
+                      "grid grid-cols-[220px_repeat(4,minmax(0,1fr))] border-b border-white/10 last:border-b-0",
+                      rowIndex % 2 === 0 ? "bg-black/20" : "bg-black/30"
                     )}
                   >
-                    <div className="text-xl font-semibold">{c.name}</div>
-                    <div className="mt-2 flex items-end gap-2">
-                      <div className="text-5xl font-semibold">{c.price}</div>
-                      <div className="pb-1 text-white/50">/ month</div>
+                    <div className="p-6">
+                      <div className="text-sm font-semibold text-white/85">
+                        {row.label}
+                      </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => void handlePlanAction(c.key)}
-                      disabled={isCurrent || isLoading}
-                      className={cn(
-                        "mt-6 w-full rounded-xl px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60",
-                        c.name === "Essential Plan"
-                          ? "bg-[#9CC5FF] text-black hover:brightness-95"
-                          : c.name === "Advanced Plan"
-                            ? "bg-[#EAD39A] text-black hover:brightness-95"
-                            : c.name === "Infinite Plan"
-                              ? "bg-[#CDB7FF] text-black hover:brightness-95"
-                              : "bg-[#53D6FF] text-black hover:brightness-95"
-                      )}
-                    >
-                      {isLoading ? "Processing..." : buttonLabel}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </GlassPanel>
 
-          <GlassPanel className="mt-10 overflow-hidden">
-            <div className="grid grid-cols-1 gap-px bg-white/10 md:grid-cols-5">
-              <div className="bg-black/40 p-8">
-                <div className="text-2xl font-semibold">Credits</div>
-                <div className="mt-3 text-sm text-white/55">
-                  Monthly generation capacity
+                    {row.values.map((value, index) => {
+                      const plan = plans[index];
+                      const isSelected = selectedPlan === plan.key;
+                      const isCurrent = currentSubscription.currentPlan === plan.key;
+
+                      return (
+                        <div
+                          key={`${row.label}-${plan.key}`}
+                          className={cn(
+                            "p-6 text-center text-sm text-white/75 transition",
+                            isSelected && "bg-white/[0.03]",
+                            isCurrent && "bg-emerald-300/[0.04]"
+                          )}
+                        >
+                          {value}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+
+                <div className="grid grid-cols-[220px_repeat(4,minmax(0,1fr))] bg-black/35">
+                  <div className="p-6">
+                    <div className="text-sm font-semibold text-white/85">
+                      Choose plan
+                    </div>
+                  </div>
+
+                  {plans.map((plan) => {
+                    const isCurrent = currentSubscription.currentPlan === plan.key;
+                    const isLoading = activeCheckoutPlan === plan.key;
+                    const buttonLabel = getPlanActionLabel(
+                      plan.key,
+                      currentSubscription.currentPlan
+                    );
+
+                    return (
+                      <div key={plan.key} className="p-6">
+                        <button
+                          type="button"
+                          onClick={() => void handlePlanAction(plan.key)}
+                          disabled={isCurrent || isLoading}
+                          className={cn(
+                            "w-full rounded-xl px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60",
+                            plan.buttonStyle
+                          )}
+                        >
+                          {isLoading ? "Processing..." : buttonLabel}
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-
-              <div className="bg-black/40 p-8">
-                <div className="text-white/85">4000 credits monthly</div>
-              </div>
-
-              <div className="bg-black/40 p-8">
-                <div className="text-white/85">12000 credits monthly</div>
-              </div>
-
-              <div className="bg-black/40 p-8">
-                <div className="text-white/85">24000 credits monthly</div>
-              </div>
-
-              <div className="bg-black/40 p-8">
-                <div className="text-white/85">106000 credits monthly</div>
-              </div>
             </div>
-          </GlassPanel>
+          </div>
         </div>
       </section>
 
@@ -1173,7 +1319,7 @@ export default function PricingClient() {
             <div className="relative z-10 flex flex-col items-center justify-center px-6 py-14 text-center">
               <SectionEyebrow
                 label="Start creating"
-                icon={<Play className="h-3.5 w-3.5 text-cyan-300" />}
+                icon={<Film className="h-3.5 w-3.5 text-cyan-300" />}
               />
               <h3 className="mt-5 text-4xl font-semibold tracking-[-0.03em] md:text-5xl">
                 Choose your plan and create without friction
