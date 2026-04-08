@@ -973,14 +973,18 @@ export default function Home() {
             className="relative mt-4 flex items-center justify-between overflow-visible rounded-[26px] border border-white/10 bg-[linear-gradient(to_right,rgba(8,8,12,0.72),rgba(16,16,24,0.58),rgba(8,8,12,0.72))] px-5 py-3 shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur transition duration-300 hover:border-white/15"
           >
             <div className="flex items-center gap-3 md:gap-4">
-              <div className="relative -ml-2 flex h-[60px] w-[60px] items-center justify-center overflow-visible md:h-[68px] md:w-[68px]">
-                <div className="relative h-[60px] w-[60px] -translate-y-[2px] -rotate-[3deg] animate-[logoFloat_4.5s_ease-in-out_infinite] md:h-[68px] md:w-[68px]">
+              <div className="relative -ml-3 -my-3 flex h-[66px] w-[84px] items-center justify-center overflow-visible md:-ml-4 md:h-[72px] md:w-[92px]">
+                <div className="pointer-events-none absolute -inset-4 rounded-full bg-[radial-gradient(circle,rgba(168,85,247,0.38)_0%,rgba(168,85,247,0.16)_36%,transparent_72%)] blur-2xl" />
+                <div className="pointer-events-none absolute inset-0 scale-[1.18] rounded-full border border-violet-300/10 bg-white/[0.03] blur-md" />
+                <div className="pointer-events-none absolute left-0 top-1/2 h-[78%] w-[90%] -translate-x-[14%] -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.10)_0%,transparent_65%)] blur-2xl" />
+
+                <div className="relative h-[66px] w-[66px] -translate-y-[3px] -rotate-[3deg] animate-[logoFloat_4.5s_ease-in-out_infinite] md:h-[72px] md:w-[72px]">
                   <Image
                     src="/koanimationlogo.png"
                     alt="KOANimation logo"
                     fill
                     priority
-                    className="object-contain drop-shadow-[0_0_18px_rgba(168,85,247,0.45)]"
+                    className="object-contain drop-shadow-[0_0_24px_rgba(168,85,247,0.58)]"
                   />
                 </div>
               </div>
