@@ -68,7 +68,7 @@ function GlowDivider() {
   return (
     <div className="relative h-px w-full overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-      <div className="absolute inset-0 blur-sm bg-gradient-to-r from-transparent via-violet-400/20 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-violet-400/20 to-transparent blur-sm" />
     </div>
   );
 }
@@ -171,6 +171,16 @@ function AmbientBackground({ isMobile }: { isMobile: boolean }) {
           }
           50% {
             transform: translate3d(18px, -14px, 0) scale(1.04);
+          }
+        }
+
+        @keyframes logoFloat {
+          0%,
+          100% {
+            transform: translateY(0px) scale(1);
+          }
+          50% {
+            transform: translateY(-3px) scale(1.02);
           }
         }
       `}</style>
@@ -948,7 +958,10 @@ export default function Home() {
   return (
     <main className="relative min-h-screen overflow-x-hidden text-white">
       <ScrollProgress />
-      <WallpaperRevealBackground src="/wallpaper.jpg" radius={isMobile ? 160 : 220} />
+      <WallpaperRevealBackground
+        src="/wallpaper.jpg"
+        radius={isMobile ? 160 : 220}
+      />
       <AmbientBackground isMobile={isMobile} />
 
       <header className="fixed inset-x-0 top-0 z-[2000]">
@@ -957,22 +970,32 @@ export default function Home() {
             initial={{ y: -18, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-            className="mt-4 flex items-center justify-between rounded-2xl border border-white/10 bg-black/45 px-4 py-3 shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur transition duration-300 hover:border-white/15"
+            className="mt-4 flex items-center justify-between rounded-[26px] border border-white/10 bg-[linear-gradient(to_right,rgba(8,8,12,0.72),rgba(16,16,24,0.58),rgba(8,8,12,0.72))] px-5 py-3 shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur transition duration-300 hover:border-white/15"
           >
-            <div className="flex items-center gap-3">
-              <div className="relative h-8 w-8">
-                <Image
-                  src="/koanimationlogo.png"
-                  alt="KOANimation logo"
-                  fill
-                  priority
-                  className="object-contain mix-blend-screen drop-shadow-[0_0_10px_rgba(168,85,247,0.30)]"
-                />
+            <div className="flex items-center gap-4">
+              <div className="relative flex items-center justify-center">
+                <div className="pointer-events-none absolute inset-0 scale-[1.8] rounded-full bg-[radial-gradient(circle,rgba(168,85,247,0.30)_0%,rgba(168,85,247,0.12)_38%,transparent_72%)] blur-2xl" />
+                <div className="pointer-events-none absolute inset-0 scale-[1.25] rounded-full border border-violet-300/10 bg-white/[0.03] blur-md" />
+
+                <div className="relative h-11 w-11 animate-[logoFloat_4.5s_ease-in-out_infinite] md:h-12 md:w-12">
+                  <Image
+                    src="/koanimationlogo.png"
+                    alt="KOANimation logo"
+                    fill
+                    priority
+                    className="object-contain drop-shadow-[0_0_18px_rgba(168,85,247,0.45)]"
+                  />
+                </div>
               </div>
 
-              <span className="font-semibold tracking-tight text-white/90">
-                KOANimation
-              </span>
+              <div className="flex flex-col leading-none">
+                <span className="text-[1.05rem] font-semibold tracking-tight text-white">
+                  KOANimation
+                </span>
+                <span className="mt-1 text-[11px] uppercase tracking-[0.24em] text-violet-200/55">
+                  Studio
+                </span>
+              </div>
             </div>
 
             <nav className="hidden items-center gap-7 text-[13px] font-medium tracking-wide text-white/65 md:flex">
@@ -989,25 +1012,49 @@ export default function Home() {
 
                 <div className="pointer-events-none absolute left-0 top-full z-[3000] mt-2 w-64 translate-y-2 rounded-2xl border border-white/10 bg-black/70 opacity-0 shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur transition duration-200 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100">
                   <div className="p-2">
-                    <AuthMenuItem href={TOOL_ROUTES.referenceToVideo} label="Reference to Video" />
-                    <AuthMenuItem href={TOOL_ROUTES.imageToVideo} label="Image to Video" />
-                    <AuthMenuItem href={TOOL_ROUTES.textToVideo} label="Text to Video" />
+                    <AuthMenuItem
+                      href={TOOL_ROUTES.referenceToVideo}
+                      label="Reference to Video"
+                    />
+                    <AuthMenuItem
+                      href={TOOL_ROUTES.imageToVideo}
+                      label="Image to Video"
+                    />
+                    <AuthMenuItem
+                      href={TOOL_ROUTES.textToVideo}
+                      label="Text to Video"
+                    />
                     <div className="my-2 h-px bg-white/10" />
-                    <AuthMenuItem href={TOOL_ROUTES.referenceToImage} label="Reference to Image" />
-                    <AuthMenuItem href={TOOL_ROUTES.textToImage} label="Text to Image" />
+                    <AuthMenuItem
+                      href={TOOL_ROUTES.referenceToImage}
+                      label="Reference to Image"
+                    />
+                    <AuthMenuItem
+                      href={TOOL_ROUTES.textToImage}
+                      label="Text to Image"
+                    />
                   </div>
                 </div>
               </div>
 
-              <a className="rounded-full px-2 py-1 transition duration-300 hover:bg-white/5 hover:text-white" href="#showcase">
+              <a
+                className="rounded-full px-2 py-1 transition duration-300 hover:bg-white/5 hover:text-white"
+                href="#showcase"
+              >
                 Showcase
               </a>
 
-              <Link className="rounded-full px-2 py-1 transition duration-300 hover:bg-white/5 hover:text-white" href="/pricing">
+              <Link
+                className="rounded-full px-2 py-1 transition duration-300 hover:bg-white/5 hover:text-white"
+                href="/pricing"
+              >
                 Pricing
               </Link>
 
-              <a className="rounded-full px-2 py-1 transition duration-300 hover:bg-white/5 hover:text-white" href="#resources">
+              <a
+                className="rounded-full px-2 py-1 transition duration-300 hover:bg-white/5 hover:text-white"
+                href="#resources"
+              >
                 Resources
               </a>
             </nav>
@@ -1065,7 +1112,10 @@ export default function Home() {
                 for creators who care about atmosphere, identity, and control.
               </p>
 
-              <div ref={heroButtonsRef} className="mt-8 flex flex-wrap items-center gap-3">
+              <div
+                ref={heroButtonsRef}
+                className="mt-8 flex flex-wrap items-center gap-3"
+              >
                 <AuthCTAButton
                   href="/tools"
                   className="border-0 bg-white text-black hover:bg-white/90"
@@ -1081,7 +1131,10 @@ export default function Home() {
                 </AuthCTAButton>
               </div>
 
-              <div ref={heroChipsRef} className="mt-8 grid max-w-2xl gap-3 sm:grid-cols-3">
+              <div
+                ref={heroChipsRef}
+                className="mt-8 grid max-w-2xl gap-3 sm:grid-cols-3"
+              >
                 {[
                   {
                     text: "Reference-consistent motion",
@@ -1322,13 +1375,25 @@ export default function Home() {
 
           <div className="grid gap-4 md:grid-cols-3">
             <Reveal delay={0.02}>
-              <MetricCard value="5" label="Creative modes on one platform" glow="" />
+              <MetricCard
+                value="5"
+                label="Creative modes on one platform"
+                glow=""
+              />
             </Reveal>
             <Reveal delay={0.08}>
-              <MetricCard value="∞" label="Stylized directions you can explore" glow="" />
+              <MetricCard
+                value="∞"
+                label="Stylized directions you can explore"
+                glow=""
+              />
             </Reveal>
             <Reveal delay={0.14}>
-              <MetricCard value="24/7" label="Always-available creation workflow" glow="" />
+              <MetricCard
+                value="24/7"
+                label="Always-available creation workflow"
+                glow=""
+              />
             </Reveal>
           </div>
         </div>
@@ -1737,7 +1802,9 @@ export default function Home() {
 
           <Reveal className="mt-10 grid gap-6 md:grid-cols-[1.1fr_0.9fr]">
             <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur">
-              <div className="text-sm font-semibold text-white">KOANimation</div>
+              <div className="text-sm font-semibold text-white">
+                KOANimation
+              </div>
               <p className="mt-3 max-w-md text-sm leading-relaxed text-white/58">
                 A creator-first studio for aesthetic anime motion, cinematic
                 presentation, and reference-aware workflows.
@@ -1754,7 +1821,10 @@ export default function Home() {
                   <a className="transition hover:text-white/85" href="#showcase">
                     Showcase
                   </a>
-                  <a className="transition hover:text-white/85" href="#resources">
+                  <a
+                    className="transition hover:text-white/85"
+                    href="#resources"
+                  >
                     FAQ
                   </a>
                 </div>
@@ -1763,10 +1833,16 @@ export default function Home() {
               <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur">
                 <div className="text-sm font-semibold text-white">Product</div>
                 <div className="mt-3 flex flex-col gap-2 text-sm text-white/58">
-                  <Link className="transition hover:text-white/85" href="/pricing">
+                  <Link
+                    className="transition hover:text-white/85"
+                    href="/pricing"
+                  >
                     Pricing
                   </Link>
-                  <Link className="transition hover:text-white/85" href="/roadmap">
+                  <Link
+                    className="transition hover:text-white/85"
+                    href="/roadmap"
+                  >
                     Roadmap
                   </Link>
                   <Link className="transition hover:text-white/85" href="/tools">
