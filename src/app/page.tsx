@@ -11,9 +11,6 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
-import Particles from "react-tsparticles";
-import type { Engine } from "tsparticles-engine";
-import { loadSlim } from "tsparticles-slim";
 import FloatingMediaWall from "./components/FloatingMediaWall";
 import { getCurrentUser } from "@/app/lib/supabase/session";
 
@@ -245,12 +242,42 @@ function GlassCard({
   );
 }
 
+function AmbientBackground({ isMobile }: { isMobile: boolean }) {
+  return (
+    <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(168,85,247,0.10),transparent_28%),radial-gradient(circle_at_80%_25%,rgba(59,130,246,0.08),transparent_28%),radial-gradient(circle_at_50%_75%,rgba(34,211,238,0.06),transparent_30%)]" />
+      <div className="absolute inset-0 opacity-[0.18] [background-image:linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:72px_72px]" />
+      {!isMobile && (
+        <>
+          <div className="absolute -left-[8%] top-[10%] h-[26rem] w-[26rem] animate-[floatGlow_18s_ease-in-out_infinite] rounded-full bg-[radial-gradient(circle,rgba(168,85,247,0.12),transparent_60%)] blur-3xl" />
+          <div className="absolute right-[2%] top-[32%] h-[22rem] w-[22rem] animate-[floatGlow_20s_ease-in-out_infinite_reverse] rounded-full bg-[radial-gradient(circle,rgba(59,130,246,0.10),transparent_60%)] blur-3xl" />
+          <div className="absolute left-[36%] bottom-[6%] h-[18rem] w-[18rem] animate-[floatGlow_24s_ease-in-out_infinite] rounded-full bg-[radial-gradient(circle,rgba(34,211,238,0.06),transparent_60%)] blur-3xl" />
+        </>
+      )}
+
+      <style jsx global>{`
+        @keyframes floatGlow {
+          0%,
+          100% {
+            transform: translate3d(0, 0, 0) scale(1);
+          }
+          50% {
+            transform: translate3d(18px, -14px, 0) scale(1.04);
+          }
+        }
+      `}</style>
+    </div>
+  );
+}
+
 function WallpaperRevealBackground({
   src = "/wallpaper.jpg",
   radius = 220,
+  isMobile,
 }: {
   src?: string;
   radius?: number;
+  isMobile: boolean;
 }) {
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const [active, setActive] = useState(false);
@@ -304,36 +331,21 @@ function WallpaperRevealBackground({
           className="h-full w-full object-cover"
           draggable={false}
         />
-        <div className="absolute inset-0 bg-black/25" />
+        <div className="absolute inset-0 bg-black/35" />
       </div>
 
       <div className="pointer-events-none fixed inset-0 -z-30">
         <div className="absolute inset-0" style={{ background: spotlight }} />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(255,255,255,0.035)_0%,rgba(0,0,0,0.55)_55%,rgba(0,0,0,0.92)_100%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(255,255,255,0.03)_0%,rgba(0,0,0,0.58)_55%,rgba(0,0,0,0.94)_100%)]" />
       </div>
 
       <div className="pointer-events-none fixed inset-0 -z-20 opacity-75">
         <div className="absolute -left-24 top-10 h-[380px] w-[380px] rounded-full bg-violet-600/12 blur-[140px]" />
         <div className="absolute right-[-70px] top-[18%] h-[320px] w-[320px] rounded-full bg-blue-500/10 blur-[140px]" />
-        <div className="absolute bottom-[-90px] left-[18%] h-[240px] w-[240px] rounded-full bg-fuchsia-500/8 blur-[120px]" />
+        {!isMobile && (
+          <div className="absolute bottom-[-90px] left-[18%] h-[240px] w-[240px] rounded-full bg-fuchsia-500/8 blur-[120px]" />
+        )}
       </div>
-
-      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute -left-[10%] top-[14%] h-[24rem] w-[24rem] animate-[floatGlow_18s_ease-in-out_infinite] rounded-full bg-[radial-gradient(circle,rgba(168,85,247,0.12),transparent_60%)] blur-3xl" />
-        <div className="absolute right-[4%] top-[36%] h-[20rem] w-[20rem] animate-[floatGlow_22s_ease-in-out_infinite_reverse] rounded-full bg-[radial-gradient(circle,rgba(59,130,246,0.10),transparent_60%)] blur-3xl" />
-      </div>
-
-      <style jsx global>{`
-        @keyframes floatGlow {
-          0%,
-          100% {
-            transform: translate3d(0, 0, 0) scale(1);
-          }
-          50% {
-            transform: translate3d(18px, -14px, 0) scale(1.04);
-          }
-        }
-      `}</style>
     </>
   );
 }
@@ -957,10 +969,6 @@ export default function Home() {
 
   useLenisScroll(enableLenis);
 
-  const particlesInit = useCallback(async (engine: Engine) => {
-    await loadSlim(engine);
-  }, []);
-
   const heroRef = useRef<HTMLDivElement | null>(null);
   const heroBadgeRef = useRef<HTMLDivElement | null>(null);
   const heroTitleRef = useRef<HTMLHeadingElement | null>(null);
@@ -1036,7 +1044,12 @@ export default function Home() {
   return (
     <main className="relative min-h-screen overflow-x-hidden text-white">
       <ScrollProgress />
-      <WallpaperRevealBackground src="/wallpaper.jpg" radius={isMobile ? 160 : 220} />
+      <WallpaperRevealBackground
+        src="/wallpaper.jpg"
+        radius={isMobile ? 160 : 220}
+        isMobile={isMobile}
+      />
+      <AmbientBackground isMobile={isMobile} />
 
       <header className="fixed inset-x-0 top-0 z-[2000]">
         <div className="mx-auto w-full max-w-7xl px-6">
@@ -1145,37 +1158,6 @@ export default function Home() {
         <div className="absolute inset-0 z-[4] bg-[radial-gradient(circle_at_25%_25%,rgba(168,85,247,0.12),transparent_58%),radial-gradient(circle_at_75%_40%,rgba(59,130,246,0.08),transparent_65%)]" />
         <div className="absolute inset-0 z-[5] bg-[linear-gradient(to_right,rgba(0,0,0,0.72)_0%,rgba(0,0,0,0.50)_32%,rgba(0,0,0,0.32)_55%,rgba(0,0,0,0.46)_100%)]" />
         <div className="absolute left-0 top-0 z-[6] h-full w-[52%] bg-[radial-gradient(circle_at_25%_35%,rgba(0,0,0,0.10),rgba(0,0,0,0.58)_55%,rgba(0,0,0,0.85)_100%)]" />
-
-        {enableHeavyFx && (
-          <div className="absolute inset-0 z-[7]">
-            <Particles
-              id="tsparticles"
-              init={particlesInit}
-              options={{
-                fullScreen: false,
-                background: { color: "transparent" },
-                fpsLimit: 60,
-                particles: {
-                  number: { value: 10, density: { enable: true, area: 1200 } },
-                  color: { value: ["#a855f7", "#60a5fa", "#22d3ee"] },
-                  opacity: { value: 0.05 },
-                  size: { value: { min: 1, max: 2 } },
-                  move: {
-                    enable: true,
-                    speed: 0.12,
-                    direction: "none",
-                    outModes: { default: "out" },
-                  },
-                  links: {
-                    enable: false,
-                  },
-                },
-                detectRetina: true,
-              }}
-              className="h-full w-full"
-            />
-          </div>
-        )}
 
         <div className="relative z-[1000] mx-auto flex min-h-screen w-full max-w-7xl items-center px-6 pt-28">
           <div className="grid w-full gap-12 lg:grid-cols-[1.08fr_0.92fr] lg:items-center">
