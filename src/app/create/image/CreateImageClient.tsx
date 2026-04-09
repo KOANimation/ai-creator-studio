@@ -1,7 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/app/lib/supabase/client";
 import { AnimatePresence, motion } from "framer-motion";
@@ -309,8 +315,8 @@ function SectionTitle({
   children,
   kicker,
 }: {
-  icon?: React.ReactNode;
-  children: React.ReactNode;
+  icon?: ReactNode;
+  children: ReactNode;
   kicker?: string;
 }) {
   return (
@@ -405,7 +411,7 @@ function GlassPanel({
   children,
   className,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
   className?: string;
 }) {
   return (
@@ -433,12 +439,12 @@ function TopbarButton({
 }: {
   href?: string;
   onClick?: () => void;
-  icon?: React.ReactNode;
-  children: React.ReactNode;
+  icon?: ReactNode;
+  children: ReactNode;
   highlighted?: boolean;
 }) {
   const className = cn(
-    "inline-flex h-11 items-center gap-2 rounded-2xl border px-4 text-sm font-medium transition backdrop-blur-xl",
+    "inline-flex h-11 cursor-pointer items-center gap-2 rounded-2xl border px-4 text-sm font-medium transition backdrop-blur-xl",
     highlighted
       ? "border-violet-300/20 bg-violet-400/10 text-violet-100 shadow-[0_10px_30px_rgba(139,92,246,0.14)] hover:border-violet-200/30 hover:bg-violet-400/15"
       : "border-white/10 bg-white/[0.04] text-white/80 hover:border-white/20 hover:bg-white/[0.07]"
@@ -500,7 +506,7 @@ function ToolTab({
       type="button"
       onClick={onClick}
       className={cn(
-        "relative rounded-2xl px-4 py-2.5 text-sm font-medium transition",
+        "relative cursor-pointer rounded-2xl px-4 py-2.5 text-sm font-medium transition",
         active ? "text-white" : "text-white/68 hover:text-white/88"
       )}
     >
@@ -536,7 +542,7 @@ function ChipSelector({
             whileTap={{ scale: 0.97 }}
             onClick={() => onChange(option.value)}
             className={cn(
-              "rounded-2xl border px-3 py-3 text-left transition",
+              "cursor-pointer rounded-2xl border px-3 py-3 text-left transition",
               isActive
                 ? "border-violet-300/25 bg-violet-400/12 text-white shadow-[0_10px_24px_rgba(139,92,246,0.12)]"
                 : "border-white/10 bg-black/20 text-white/70 hover:border-white/20 hover:bg-black/10"
@@ -581,7 +587,7 @@ function ProviderCardSelector({
             whileTap={{ scale: 0.985 }}
             onClick={() => onChange(option.value)}
             className={cn(
-              "rounded-2xl border p-3 text-left transition",
+              "cursor-pointer rounded-2xl border p-3 text-left transition",
               active
                 ? "border-violet-300/25 bg-violet-400/12 shadow-[0_10px_24px_rgba(139,92,246,0.12)]"
                 : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-black/10"
@@ -635,7 +641,7 @@ function ModelCardSelector({
           whileTap={{ scale: 0.985 }}
           onClick={() => onSetModel("Nano Banana Pro")}
           className={cn(
-            "rounded-2xl border p-3 text-left transition",
+            "cursor-pointer rounded-2xl border p-3 text-left transition",
             active
               ? "border-violet-300/25 bg-violet-400/12 shadow-[0_10px_24px_rgba(139,92,246,0.12)]"
               : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-black/10"
@@ -668,7 +674,7 @@ function ModelCardSelector({
           whileTap={{ scale: 0.985 }}
           onClick={() => onSetModel("GPT Image 1.5")}
           className={cn(
-            "rounded-2xl border p-3 text-left transition",
+            "cursor-pointer rounded-2xl border p-3 text-left transition",
             active
               ? "border-violet-300/25 bg-violet-400/12 shadow-[0_10px_24px_rgba(139,92,246,0.12)]"
               : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-black/10"
@@ -712,7 +718,7 @@ function ModelCardSelector({
             whileTap={{ scale: 0.985 }}
             onClick={() => onSetByteplusModel(option.value)}
             className={cn(
-              "rounded-2xl border p-3 text-left transition",
+              "cursor-pointer rounded-2xl border p-3 text-left transition",
               active
                 ? "border-violet-300/25 bg-violet-400/12 shadow-[0_10px_24px_rgba(139,92,246,0.12)]"
                 : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-black/10"
@@ -793,7 +799,7 @@ function UploadImagesCard({
         <button
           type="button"
           onClick={pick}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white/80 transition hover:border-white/20 hover:bg-white/[0.08]"
+          className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white/80 transition hover:border-white/20 hover:bg-white/[0.08]"
           title="Add images"
         >
           <Plus size={16} />
@@ -824,7 +830,7 @@ function UploadImagesCard({
                 <button
                   type="button"
                   onClick={() => removeAt(i)}
-                  className="absolute right-1.5 top-1.5 inline-flex h-6 w-6 items-center justify-center rounded-lg border border-white/10 bg-black/70 text-white/80 opacity-0 backdrop-blur transition hover:bg-black/85 group-hover:opacity-100"
+                  className="absolute right-1.5 top-1.5 inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-lg border border-white/10 bg-black/70 text-white/80 opacity-0 backdrop-blur transition hover:bg-black/85 group-hover:opacity-100"
                   title="Remove"
                 >
                   <X size={12} />
@@ -849,7 +855,7 @@ function StatCard({
   danger = false,
 }: {
   label: string;
-  value: React.ReactNode;
+  value: ReactNode;
   danger?: boolean;
 }) {
   return (
@@ -883,7 +889,7 @@ function ImageHistoryCard({
       onClick={() => onOpen(item)}
       whileHover={{ y: -3 }}
       transition={{ duration: 0.18 }}
-      className="group block w-full overflow-hidden rounded-[26px] border border-white/10 bg-white/[0.03] text-left hover:border-white/20 hover:bg-white/[0.05]"
+      className="group block w-full cursor-pointer overflow-hidden rounded-[26px] border border-white/10 bg-white/[0.03] text-left hover:border-white/20 hover:bg-white/[0.05]"
     >
       <div className="relative overflow-hidden bg-black">
         {item.imageUrl ? (
@@ -965,9 +971,9 @@ function ImageHistoryCard({
 }
 
 export default function CreateImageClient({
-  initialCredits,
+  initialCredits = 0,
 }: {
-  initialCredits: number;
+  initialCredits?: number;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1021,7 +1027,7 @@ export default function CreateImageClient({
       .from("credit_wallets")
       .select("balance")
       .eq("user_id", user.id)
-      .single();
+      .maybeSingle();
 
     if (!error && data) {
       setCredits(data.balance);
@@ -1325,6 +1331,18 @@ export default function CreateImageClient({
     setIsAuthed(false);
     setCredits(null);
     router.replace("/tools");
+  };
+
+  const goToolsHome = () => {
+    router.push("/tools");
+  };
+
+  const goPricing = () => {
+    router.push("/pricing");
+  };
+
+  const goVideoWorkspace = () => {
+    router.push("/create/video?tab=reference-to-video");
   };
 
   const onChangeTool = (k: ImageToolKey) => {
@@ -1645,14 +1663,14 @@ export default function CreateImageClient({
         >
           <div className="flex flex-wrap items-center gap-2">
             <TopbarButton
-              href="/tools"
+              onClick={goToolsHome}
               icon={<Home size={16} className="opacity-80" />}
             >
               Home
             </TopbarButton>
 
             <TopbarButton
-              onClick={() => router.push("/create/video?tab=reference-to-video")}
+              onClick={goVideoWorkspace}
               icon={<Clapperboard size={16} className="opacity-80" />}
             >
               Switch to AI Video
@@ -1663,12 +1681,14 @@ export default function CreateImageClient({
             <CreditsPill credits={credits} />
 
             <TopbarButton
+              onClick={goPricing}
               icon={<WalletCards size={16} className="opacity-80" />}
             >
               API Platform
             </TopbarButton>
 
             <TopbarButton
+              onClick={goPricing}
               highlighted
               icon={<Gift size={16} className="opacity-80" />}
             >
@@ -1676,6 +1696,7 @@ export default function CreateImageClient({
             </TopbarButton>
 
             <TopbarButton
+              onClick={goPricing}
               icon={<Crown size={16} className="opacity-80" />}
             >
               Subscribe
@@ -1683,7 +1704,8 @@ export default function CreateImageClient({
 
             <button
               type="button"
-              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white/75 transition hover:border-white/20 hover:bg-white/[0.07]"
+              onClick={goToolsHome}
+              className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white/75 transition hover:border-white/20 hover:bg-white/[0.07]"
               aria-label="Notifications"
             >
               <Bell size={16} />
@@ -1747,7 +1769,11 @@ export default function CreateImageClient({
                 </SectionTitle>
 
                 <textarea
-                  value={active === "reference-to-image" ? referencePrompt : textPrompt}
+                  value={
+                    active === "reference-to-image"
+                      ? referencePrompt
+                      : textPrompt
+                  }
                   onChange={(e) =>
                     active === "reference-to-image"
                       ? setReferencePrompt(e.target.value)
@@ -1767,7 +1793,7 @@ export default function CreateImageClient({
                       key={preset}
                       type="button"
                       onClick={() => applyPromptPreset(preset)}
-                      className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-white/70 transition hover:border-white/20 hover:bg-white/[0.06]"
+                      className="cursor-pointer rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-white/70 transition hover:border-white/20 hover:bg-white/[0.06]"
                     >
                       {preset}
                     </button>
@@ -1835,7 +1861,7 @@ export default function CreateImageClient({
                           onClick={() => setAmount(n)}
                           whileTap={{ scale: 0.97 }}
                           className={cn(
-                            "rounded-2xl border px-3 py-3 text-sm font-medium transition",
+                            "cursor-pointer rounded-2xl border px-3 py-3 text-sm font-medium transition",
                             amount === n
                               ? "border-violet-300/25 bg-violet-400/12 text-white shadow-[0_10px_24px_rgba(139,92,246,0.12)]"
                               : "border-white/10 bg-black/20 text-white/70 hover:border-white/20 hover:bg-black/10"
@@ -1880,7 +1906,7 @@ export default function CreateImageClient({
                   onClick={() => void createImages()}
                   whileTap={{ scale: 0.99 }}
                   disabled={isCreating || credits == null || !hasEnoughCredits}
-                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-[20px] bg-white px-4 py-3.5 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="mt-4 flex w-full cursor-pointer items-center justify-center gap-2 rounded-[20px] bg-white px-4 py-3.5 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <Sparkles size={16} />
                   <span>
@@ -2102,7 +2128,7 @@ export default function CreateImageClient({
                           <button
                             type="button"
                             onClick={() => reusePrompt(selectedGeneration)}
-                            className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm text-white/75 transition hover:border-white/20 hover:bg-white/[0.06]"
+                            className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm text-white/75 transition hover:border-white/20 hover:bg-white/[0.06]"
                           >
                             <Wand2 size={15} />
                             Reuse prompt
@@ -2111,7 +2137,7 @@ export default function CreateImageClient({
                           <button
                             type="button"
                             onClick={() => reuseSettings(selectedGeneration)}
-                            className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm text-white/75 transition hover:border-white/20 hover:bg-white/[0.06]"
+                            className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm text-white/75 transition hover:border-white/20 hover:bg-white/[0.06]"
                           >
                             <SlidersHorizontal size={15} />
                             Reuse settings
@@ -2120,7 +2146,7 @@ export default function CreateImageClient({
                           <button
                             type="button"
                             onClick={() => remixGeneration(selectedGeneration)}
-                            className="inline-flex items-center gap-2 rounded-2xl border border-violet-300/20 bg-violet-400/10 px-4 py-2.5 text-sm text-violet-100 transition hover:border-violet-200/30 hover:bg-violet-400/15"
+                            className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-violet-300/20 bg-violet-400/10 px-4 py-2.5 text-sm text-violet-100 transition hover:border-violet-200/30 hover:bg-violet-400/15"
                           >
                             <Sparkles size={15} />
                             Remix this
@@ -2130,7 +2156,7 @@ export default function CreateImageClient({
                             <a
                               href={selectedGeneration.imageUrl}
                               download={`koa-image-${selectedGeneration.id}.${selectedGeneration.mimeType?.includes("jpeg") ? "jpg" : selectedGeneration.mimeType?.split("/")[1] || "png"}`}
-                              className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm text-white/75 transition hover:border-white/20 hover:bg-white/[0.06]"
+                              className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm text-white/75 transition hover:border-white/20 hover:bg-white/[0.06]"
                             >
                               <Download size={15} />
                               Download image
@@ -2221,7 +2247,7 @@ export default function CreateImageClient({
                         onClick={() => setSelectedGeneration(item)}
                         whileHover={{ y: -2 }}
                         className={cn(
-                          "flex w-full items-center gap-3 rounded-2xl border p-2 text-left transition",
+                          "flex w-full cursor-pointer items-center gap-3 rounded-2xl border p-2 text-left transition",
                           selectedGeneration?.id === item.id
                             ? "border-white/20 bg-white/[0.08]"
                             : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/[0.04]"
@@ -2322,7 +2348,7 @@ export default function CreateImageClient({
 
                     void clearAllPreviewsFromDb();
                   }}
-                  className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm text-white/75 transition hover:border-white/20 hover:bg-white/[0.06]"
+                  className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm text-white/75 transition hover:border-white/20 hover:bg-white/[0.06]"
                 >
                   <Trash2 size={15} />
                   Clear history
@@ -2339,7 +2365,7 @@ export default function CreateImageClient({
                       type="button"
                       onClick={() => setHistoryFilter(filter)}
                       className={cn(
-                        "rounded-full border px-3 py-1.5 text-xs transition",
+                        "cursor-pointer rounded-full border px-3 py-1.5 text-xs transition",
                         historyFilter === filter
                           ? "border-violet-300/20 bg-violet-400/10 text-violet-100"
                           : "border-white/10 bg-white/[0.03] text-white/65 hover:border-white/20 hover:bg-white/[0.06]"

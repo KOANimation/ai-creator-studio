@@ -484,6 +484,7 @@ export default function ToolsPage() {
   useLenisScroll(true);
 
   const [mounted, setMounted] = useState(false);
+  const [authLoaded, setAuthLoaded] = useState(false);
   const [isAuthed, setIsAuthed] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [credits, setCredits] = useState<number | null>(null);
@@ -505,8 +506,32 @@ export default function ToolsPage() {
   useEffect(() => {
     let active = true;
 
-    async function loadUserAndCredits() {
+    const applyUserState = async (user: { id: string; email?: string | null } | null) => {
+      if (!active) return;
+
+      setIsAuthed(!!user);
+
+      if (!user) {
+        setUserEmail(null);
+        setCredits(null);
+        return;
+      }
+
+      setUserEmail(user.email ?? null);
+      await refreshWallet(user.id);
+    };
+
+    async function bootstrapAuth() {
       setMounted(true);
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!active) return;
+
+      const sessionUser = session?.user ?? null;
+      await applyUserState(sessionUser);
 
       const {
         data: { user },
@@ -514,19 +539,11 @@ export default function ToolsPage() {
 
       if (!active) return;
 
-      setIsAuthed(!!user);
-
-      if (!user) {
-        setUserEmail(null);
-        setCredits(null);
-        return;
-      }
-
-      setUserEmail(user.email ?? null);
-      await refreshWallet(user.id);
+      await applyUserState(user ?? sessionUser);
+      setAuthLoaded(true);
     }
 
-    void loadUserAndCredits();
+    void bootstrapAuth();
 
     const {
       data: { subscription },
@@ -534,16 +551,10 @@ export default function ToolsPage() {
       if (!active) return;
 
       const user = session?.user ?? null;
-      setIsAuthed(!!user);
-
-      if (!user) {
-        setUserEmail(null);
-        setCredits(null);
-        return;
+      await applyUserState(user);
+      if (active) {
+        setAuthLoaded(true);
       }
-
-      setUserEmail(user.email ?? null);
-      await refreshWallet(user.id);
     });
 
     return () => {
@@ -589,6 +600,11 @@ export default function ToolsPage() {
     }, 9000);
     return () => window.clearInterval(t);
   }, [heroVideos.length]);
+
+  const statusLabel = !authLoaded ? "Checking..." : isAuthed ? "Logged in" : "Guest";
+  const accountLabel = !authLoaded
+    ? "Checking session..."
+    : userEmail ?? "Not logged in";
 
   return (
     <div className="relative min-h-screen overflow-x-hidden text-white">
@@ -776,7 +792,7 @@ export default function ToolsPage() {
                     Pricing & credits
                   </button>
 
-                  {mounted && isAuthed && (
+                  {authLoaded && isAuthed && (
                     <button
                       type="button"
                       onClick={() => void logout()}
@@ -877,14 +893,14 @@ export default function ToolsPage() {
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <QuickStat
                 label="Credits"
-                value={credits === null ? "..." : `${credits}`}
+                value={!authLoaded ? "..." : credits === null ? "..." : `${credits}`}
                 icon={<Coins className="h-5 w-5" />}
                 className="border-yellow-300/20 shadow-[0_0_0_1px_rgba(250,204,21,0.10),0_0_28px_rgba(250,204,21,0.12),0_24px_80px_rgba(0,0,0,0.32)]"
                 iconClassName="border-yellow-300/20 bg-yellow-300/10 text-yellow-200 shadow-[0_0_22px_rgba(250,204,21,0.22)]"
               />
               <QuickStat
                 label="Status"
-                value={isAuthed ? "Logged in" : "Guest"}
+                value={statusLabel}
                 icon={<ShieldCheck className="h-5 w-5" />}
               />
               <QuickStat
@@ -894,7 +910,7 @@ export default function ToolsPage() {
               />
               <QuickStat
                 label="Session"
-                value="Ready"
+                value={authLoaded ? "Ready" : "Loading"}
                 icon={<Stars className="h-5 w-5" />}
               />
             </div>
@@ -1084,7 +1100,7 @@ export default function ToolsPage() {
                   </div>
 
                   <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-xs leading-relaxed text-white/55">
-                    Logged in as: {userEmail ?? "Not logged in"}
+                    Logged in as: {accountLabel}
                   </div>
                 </div>
               </GlassPanel>

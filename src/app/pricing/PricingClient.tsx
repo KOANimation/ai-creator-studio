@@ -14,7 +14,6 @@ import {
   ChevronDown,
   Sparkles,
   Zap,
-  ShieldCheck,
   Wand2,
   ArrowRight,
   Check,
@@ -320,7 +319,7 @@ function getPlanActionLabel(
 export default function PricingClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   useLenisScroll(true);
 
@@ -739,7 +738,11 @@ export default function PricingClient() {
       <header className="sticky top-0 z-[2000] px-6 pt-4">
         <div className="mx-auto max-w-7xl">
           <div className="flex items-center justify-between rounded-[26px] border border-white/10 bg-[linear-gradient(to_right,rgba(8,8,12,0.72),rgba(16,16,24,0.58),rgba(8,8,12,0.72))] px-5 py-3 shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur transition duration-300 hover:border-white/15">
-            <div className="flex items-center gap-3 md:gap-4">
+            <Link
+              href="/"
+              className="flex cursor-pointer items-center gap-3 md:gap-4"
+              aria-label="Go to homepage"
+            >
               <div className="relative -ml-2 flex h-[60px] w-[60px] items-center justify-center overflow-visible md:h-[68px] md:w-[68px]">
                 <div className="relative h-[60px] w-[60px] -translate-y-[2px] md:h-[68px] md:w-[68px]">
                   <Image
@@ -760,7 +763,7 @@ export default function PricingClient() {
                   Pricing
                 </span>
               </div>
-            </div>
+            </Link>
 
             <div className="hidden items-center gap-6 text-sm text-white/70 md:flex">
               <Link className="transition hover:text-white" href="/#features">
@@ -782,7 +785,7 @@ export default function PricingClient() {
                 <button
                   type="button"
                   onClick={() => void handleManageSubscription()}
-                  className="hidden rounded-full border border-white/15 bg-white/5 px-4 py-2 text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60 md:inline-flex"
+                  className="hidden cursor-pointer rounded-full border border-white/15 bg-white/5 px-4 py-2 text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60 md:inline-flex"
                   disabled={isManagingBilling}
                 >
                   {isManagingBilling ? "Opening..." : "Manage subscription"}
@@ -792,7 +795,7 @@ export default function PricingClient() {
               <button
                 type="button"
                 onClick={handleTryKoa}
-                className="rounded-full border border-white/15 bg-white/10 px-4 py-2 font-semibold text-white transition hover:bg-white/15"
+                className="cursor-pointer rounded-full border border-white/15 bg-white/10 px-4 py-2 font-semibold text-white transition hover:bg-white/15"
               >
                 Try KOANimation
               </button>
@@ -897,7 +900,7 @@ export default function PricingClient() {
               <button
                 type="button"
                 onClick={() => void handleManageSubscription()}
-                className="ml-1 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+                className="ml-1 cursor-pointer rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={isManagingBilling}
               >
                 {isManagingBilling ? "Opening..." : "Manage"}
@@ -980,7 +983,7 @@ export default function PricingClient() {
                   <button
                     type="button"
                     onClick={() => handleSelectPlan(p.key)}
-                    className="absolute inset-0 z-0"
+                    className="absolute inset-0 z-0 cursor-pointer"
                     aria-label={`Select ${p.name}`}
                   />
 
@@ -997,7 +1000,7 @@ export default function PricingClient() {
 
                     <div className="mt-4 flex items-end gap-2">
                       <div className="text-5xl font-semibold tracking-tight">
-                        {p.price}
+                        {p.price}$
                       </div>
                       <div className="pb-1 text-white/50">{p.suffix}</div>
                     </div>
@@ -1013,7 +1016,7 @@ export default function PricingClient() {
                     }}
                     disabled={isLoading || isCurrent}
                     className={cn(
-                      "relative z-10 mt-6 w-full rounded-xl px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60",
+                      "relative z-10 mt-6 w-full cursor-pointer rounded-xl px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60",
                       p.buttonStyle
                     )}
                   >
@@ -1126,7 +1129,7 @@ export default function PricingClient() {
                           {plan.name}
                         </div>
                         <div className="mt-2 flex items-end justify-center gap-2">
-                          <span className="text-4xl font-semibold">{plan.price}</span>
+                          <span className="text-4xl font-semibold">{plan.price}$</span>
                           <span className="pb-1 text-white/45">/ month</span>
                         </div>
                       </div>
@@ -1191,7 +1194,7 @@ export default function PricingClient() {
                           onClick={() => void handlePlanAction(plan.key)}
                           disabled={isCurrent || isLoading}
                           className={cn(
-                            "w-full rounded-xl px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60",
+                            "w-full cursor-pointer rounded-xl px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60",
                             plan.buttonStyle
                           )}
                         >
@@ -1266,8 +1269,9 @@ export default function PricingClient() {
               return (
                 <button
                   key={f.q}
+                  type="button"
                   onClick={() => setFaqOpen(open ? null : i)}
-                  className="group w-full border-b border-white/10 px-6 py-6 text-left transition last:border-b-0 hover:bg-white/[0.03]"
+                  className="group w-full cursor-pointer border-b border-white/10 px-6 py-6 text-left transition last:border-b-0 hover:bg-white/[0.03]"
                 >
                   <div className="flex items-center justify-between gap-6">
                     <div className="flex items-center gap-4">
@@ -1331,7 +1335,7 @@ export default function PricingClient() {
               <button
                 type="button"
                 onClick={handleTryKoa}
-                className="mt-7 rounded-full border-0 bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-[0_0_34px_rgba(37,99,235,0.26)] transition hover:bg-blue-500 hover:shadow-[0_0_50px_rgba(37,99,235,0.35)]"
+                className="mt-7 cursor-pointer rounded-full border-0 bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-[0_0_34px_rgba(37,99,235,0.26)] transition hover:bg-blue-500 hover:shadow-[0_0_50px_rgba(37,99,235,0.35)]"
               >
                 Try KOANimation
               </button>
@@ -1354,7 +1358,7 @@ export default function PricingClient() {
             <button
               type="button"
               onClick={handleTryKoa}
-              className="hover:text-white/80"
+              className="cursor-pointer hover:text-white/80"
             >
               Try KOANimation
             </button>
