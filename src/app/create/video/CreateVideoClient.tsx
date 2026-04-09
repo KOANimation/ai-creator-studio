@@ -4,6 +4,28 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/app/lib/supabase/client";
+import { AnimatePresence, motion } from "framer-motion";
+import {
+  Bell,
+  Clapperboard,
+  Coins,
+  Crown,
+  Download,
+  Film,
+  Gift,
+  Home,
+  ImageIcon,
+  Layers3,
+  LogOut,
+  Play,
+  Plus,
+  Sparkles,
+  Trash2,
+  Upload,
+  Video,
+  WalletCards,
+  X,
+} from "lucide-react";
 
 type VideoToolKey = "reference-to-video" | "image-to-video" | "text-to-video";
 type GenerationKind =
@@ -46,6 +68,10 @@ const VIDEO_TOOLS: { key: VideoToolKey; label: string }[] = [
 const ALL_DURATION_OPTIONS = Array.from({ length: 16 }, (_, i) => i + 1);
 const ALL_ASPECT_OPTIONS = ["16:9", "9:16", "1:1", "3:4", "4:3"];
 const GENERATIONS_STORAGE_KEY = "koa_video_generations_v1";
+
+function cn(...classes: Array<string | false | null | undefined>) {
+  return classes.filter(Boolean).join(" ");
+}
 
 function getVideoGenerationCost({
   kind,
@@ -249,28 +275,146 @@ function WallpaperRevealBackground({
           className="h-full w-full object-cover"
           draggable={false}
         />
-        <div className="absolute inset-0 bg-black/10" />
+        <div className="absolute inset-0 bg-black/20" />
       </div>
 
       <div className="pointer-events-none fixed inset-0 -z-10">
         <div className="absolute inset-0" style={{ background: spotlight }} />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(255,255,255,0.05)_0%,rgba(0,0,0,0.55)_55%,rgba(0,0,0,0.90)_100%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,rgba(255,255,255,0.08)_0%,rgba(0,0,0,0.48)_40%,rgba(0,0,0,0.88)_100%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.18)_0%,rgba(0,0,0,0.42)_30%,rgba(0,0,0,0.78)_100%)]" />
       </div>
     </>
   );
 }
 
-function pill(active: boolean) {
-  return [
-    "rounded-xl border px-3 py-2 text-sm transition",
-    active
-      ? "border-white/25 bg-white/10 text-white"
-      : "border-white/10 bg-white/[0.03] text-white/75 hover:border-white/20 hover:bg-white/[0.06]",
-  ].join(" ");
+function SectionTitle({
+  icon,
+  children,
+}: {
+  icon?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center gap-2 text-sm font-semibold text-white/90">
+      {icon ? <span className="text-white/60">{icon}</span> : null}
+      <span>{children}</span>
+    </div>
+  );
 }
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
-  return <div className="text-sm font-semibold text-white/90">{children}</div>;
+function GlassPanel({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.28, ease: "easeOut" }}
+      className={cn(
+        "relative overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.025))] shadow-[0_20px_80px_rgba(0,0,0,0.28)] backdrop-blur-2xl",
+        className
+      )}
+    >
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_35%)]" />
+      <div className="relative">{children}</div>
+    </motion.div>
+  );
+}
+
+function TopbarButton({
+  href,
+  onClick,
+  icon,
+  children,
+  highlighted = false,
+}: {
+  href?: string;
+  onClick?: () => void;
+  icon?: React.ReactNode;
+  children: React.ReactNode;
+  highlighted?: boolean;
+}) {
+  const className = cn(
+    "inline-flex h-11 items-center gap-2 rounded-2xl border px-4 text-sm font-medium transition backdrop-blur-xl",
+    highlighted
+      ? "border-violet-300/20 bg-violet-400/10 text-violet-100 shadow-[0_10px_30px_rgba(139,92,246,0.14)] hover:border-violet-200/30 hover:bg-violet-400/15"
+      : "border-white/10 bg-white/[0.04] text-white/80 hover:border-white/20 hover:bg-white/[0.07]"
+  );
+
+  if (href) {
+    return (
+      <Link href={href} className={className}>
+        {icon}
+        <span>{children}</span>
+      </Link>
+    );
+  }
+
+  return (
+    <button type="button" onClick={onClick} className={className}>
+      {icon}
+      <span>{children}</span>
+    </button>
+  );
+}
+
+function CreditsPill({ credits }: { credits: number | null }) {
+  return (
+    <motion.div
+      whileHover={{ y: -1, scale: 1.01 }}
+      transition={{ duration: 0.18 }}
+      className="relative overflow-hidden rounded-2xl border border-amber-300/20 bg-[linear-gradient(180deg,rgba(255,224,138,0.14),rgba(255,196,77,0.06))] px-4 py-2.5 shadow-[0_14px_38px_rgba(255,196,77,0.10)] backdrop-blur-2xl"
+    >
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,246,212,0.18),transparent_42%)]" />
+      <div className="relative flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-amber-200/15 bg-amber-100/10 text-amber-200">
+          <Coins size={18} />
+        </div>
+        <div className="leading-tight">
+          <div className="text-[10px] uppercase tracking-[0.18em] text-amber-100/60">
+            Credits
+          </div>
+          <div className="mt-0.5 text-sm font-semibold text-amber-50">
+            {credits == null ? "Loading..." : credits.toLocaleString()}
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function ToolTab({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "relative rounded-2xl px-4 py-2.5 text-sm font-medium transition",
+        active ? "text-white" : "text-white/68 hover:text-white/88"
+      )}
+    >
+      {active && (
+        <motion.div
+          layoutId="video-tab-pill"
+          className="absolute inset-0 rounded-2xl border border-white/20 bg-white/[0.09] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+          transition={{ type: "spring", stiffness: 360, damping: 30 }}
+        />
+      )}
+      <span className="relative z-10">{label}</span>
+    </button>
+  );
 }
 
 function UploadRow({
@@ -298,7 +442,7 @@ function UploadRow({
   };
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/18 p-4 backdrop-blur-xl">
+    <div className="rounded-[24px] border border-white/10 bg-black/22 p-4">
       <input
         ref={inputRef}
         type="file"
@@ -315,23 +459,25 @@ function UploadRow({
 
       <div className="flex items-center justify-between">
         <div>
-          <div className="text-sm font-semibold">{title}</div>
-          <div className="mt-1 text-xs text-white/55">{subtitle}</div>
+          <div className="text-sm font-semibold text-white/92">{title}</div>
+          <div className="mt-1 text-xs text-white/50">{subtitle}</div>
         </div>
 
         <button
           type="button"
           onClick={pick}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-black/30 text-lg text-white/80 hover:border-white/20 hover:bg-black/20"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white/80 transition hover:border-white/20 hover:bg-white/[0.08]"
           title="Add"
         >
-          +
+          <Plus size={16} />
         </button>
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2">
+      <div className="mt-4 flex min-h-[64px] flex-wrap gap-2">
         {files.length === 0 ? (
-          <div className="text-xs text-white/40">No files added yet.</div>
+          <div className="flex w-full items-center justify-center rounded-2xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-5 text-xs text-white/38">
+            No files added yet.
+          </div>
         ) : (
           files.slice(0, 8).map((f, i) => {
             const url = URL.createObjectURL(f);
@@ -341,7 +487,7 @@ function UploadRow({
             return (
               <div
                 key={`${f.name}-${f.size}-${i}`}
-                className="group relative h-12 w-16 overflow-hidden rounded-xl border border-white/10 bg-black/30"
+                className="group relative h-16 w-20 overflow-hidden rounded-2xl border border-white/10 bg-black/30"
               >
                 {isImage ? (
                   <img
@@ -369,10 +515,10 @@ function UploadRow({
                 <button
                   type="button"
                   onClick={() => removeAt(i)}
-                  className="absolute right-1 top-1 hidden rounded-md border border-white/10 bg-black/60 px-1.5 py-0.5 text-[10px] text-white/80 backdrop-blur hover:bg-black/70 group-hover:block"
+                  className="absolute right-1.5 top-1.5 inline-flex h-6 w-6 items-center justify-center rounded-lg border border-white/10 bg-black/70 text-white/80 opacity-0 backdrop-blur transition hover:bg-black/85 group-hover:opacity-100"
                   title="Remove"
                 >
-                  ✕
+                  <X size={12} />
                 </button>
               </div>
             );
@@ -405,27 +551,27 @@ function FrameSlot({
       </div>
 
       <div
-        className={[
+        className={cn(
           "group relative overflow-hidden rounded-2xl border bg-black/25",
-          has ? "border-white/10" : "border-white/15 border-dashed",
-        ].join(" ")}
+          has ? "border-white/10" : "border-white/15 border-dashed"
+        )}
       >
         {has ? (
           <img
             src={previewUrl}
             alt={label}
-            className="h-[120px] w-full object-cover"
+            className="h-[140px] w-full object-cover"
             draggable={false}
           />
         ) : (
-          <div className="flex h-[120px] w-full flex-col items-center justify-center">
+          <div className="flex h-[140px] w-full flex-col items-center justify-center">
             <button
               type="button"
               onClick={onPick}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-black/55 text-xl text-white/85 backdrop-blur hover:border-white/20 hover:bg-black/65"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-black/55 text-white/85 backdrop-blur hover:border-white/20 hover:bg-black/65"
               title="Upload"
             >
-              +
+              <Upload size={16} />
             </button>
 
             <div className="mt-3 text-xs text-white/55">{label}</div>
@@ -459,6 +605,32 @@ function FrameSlot({
 
       <div className="mt-2 text-[11px] text-white/35">
         {index === 1 ? "Frame 1 (Start)" : "Frame 2 (End)"}
+      </div>
+    </div>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  danger = false,
+}: {
+  label: string;
+  value: React.ReactNode;
+  danger?: boolean;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+      <div className="text-[11px] uppercase tracking-[0.16em] text-white/38">
+        {label}
+      </div>
+      <div
+        className={cn(
+          "mt-2 text-sm font-semibold",
+          danger ? "text-red-300" : "text-white"
+        )}
+      >
+        {value}
       </div>
     </div>
   );
@@ -703,15 +875,18 @@ function VideoHistoryCard({
   onOpen: (item: SavedGeneration) => void;
 }) {
   return (
-    <button
+    <motion.button
       type="button"
+      layout
       onClick={() => onOpen(item)}
-      className="group block w-full overflow-hidden rounded-[24px] border border-white/10 bg-white/[0.03] text-left transition hover:border-white/20 hover:bg-white/[0.05]"
+      whileHover={{ y: -3 }}
+      transition={{ duration: 0.18 }}
+      className="group block w-full overflow-hidden rounded-[26px] border border-white/10 bg-white/[0.03] text-left hover:border-white/20 hover:bg-white/[0.05]"
     >
       <div className="relative overflow-hidden bg-black">
         {item.videoUrl ? (
           <video
-            className="h-[320px] w-full object-cover transition duration-300 group-hover:scale-[1.015]"
+            className="h-[320px] w-full object-cover transition duration-300 group-hover:scale-[1.02]"
             src={item.videoUrl}
             poster={item.coverUrl ?? undefined}
             muted
@@ -722,7 +897,7 @@ function VideoHistoryCard({
           <img
             src={item.coverUrl}
             alt={item.prompt}
-            className="h-[320px] w-full object-cover transition duration-300 group-hover:scale-[1.015]"
+            className="h-[320px] w-full object-cover transition duration-300 group-hover:scale-[1.02]"
             draggable={false}
           />
         ) : (
@@ -745,16 +920,23 @@ function VideoHistoryCard({
           </div>
         )}
 
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/16 to-transparent" />
 
         <div className="absolute left-3 top-3">
           <div
-            className={[
+            className={cn(
               "rounded-full border px-3 py-1 text-[11px] font-medium backdrop-blur",
-              getStatusBadgeClasses(item.status),
-            ].join(" ")}
+              getStatusBadgeClasses(item.status)
+            )}
           >
             {prettyStatus(item.status)}
+          </div>
+        </div>
+
+        <div className="absolute right-3 top-3 rounded-full border border-white/10 bg-black/45 px-2.5 py-1 text-[11px] text-white/70 backdrop-blur">
+          <div className="flex items-center gap-1.5">
+            <Play size={11} />
+            Video
           </div>
         </div>
 
@@ -776,7 +958,7 @@ function VideoHistoryCard({
           </div>
         </div>
       </div>
-    </button>
+    </motion.button>
   );
 }
 
@@ -1676,70 +1858,96 @@ export default function CreateVideoClient({
 
   return (
     <div className="relative min-h-screen overflow-x-hidden text-white">
-      <WallpaperRevealBackground src="/wallpaper.jpg" radius={240} />
+      <WallpaperRevealBackground src="/wallpaper.jpg" radius={260} />
 
-      <div className="relative z-10 mx-auto max-w-[1500px] px-6 py-5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Link
+      <div className="relative z-10 mx-auto max-w-[1550px] px-5 py-5 sm:px-6">
+        <motion.div
+          initial={{ opacity: 0, y: -12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between"
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <TopbarButton
               href="/tools"
-              className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/80 hover:border-white/20 hover:bg-white/[0.06]"
+              icon={<Home size={16} className="opacity-80" />}
             >
               Home
-            </Link>
-            <button
+            </TopbarButton>
+
+            <TopbarButton
               onClick={() => router.push("/create/image?tab=text-to-image")}
-              className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/80 hover:border-white/20 hover:bg-white/[0.06]"
+              icon={<ImageIcon size={16} className="opacity-80" />}
             >
               Switch to AI Image
-            </button>
+            </TopbarButton>
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/80">
-              ⚡ Credits: {credits == null ? "Loading..." : credits}
-            </div>
-            <button className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/80 hover:border-white/20 hover:bg-white/[0.06]">
+          <div className="flex flex-wrap items-center gap-2">
+            <CreditsPill credits={credits} />
+
+            <TopbarButton
+              icon={<WalletCards size={16} className="opacity-80" />}
+            >
               API Platform
-            </button>
-            <button className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/80 hover:border-white/20 hover:bg-white/[0.06]">
+            </TopbarButton>
+
+            <TopbarButton
+              highlighted
+              icon={<Gift size={16} className="opacity-80" />}
+            >
               Earn Credits
-            </button>
-            <button className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/80 hover:border-white/20 hover:bg-white/[0.06]">
+            </TopbarButton>
+
+            <TopbarButton
+              icon={<Crown size={16} className="opacity-80" />}
+            >
               Subscribe
-            </button>
-            <button className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/80 hover:border-white/20 hover:bg-white/[0.06]">
-              🔔
-            </button>
+            </TopbarButton>
+
             <button
+              type="button"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white/75 transition hover:border-white/20 hover:bg-white/[0.07]"
+              aria-label="Notifications"
+            >
+              <Bell size={16} />
+            </button>
+
+            <TopbarButton
               onClick={() => void logout()}
-              className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/80 hover:border-white/20 hover:bg-white/[0.06]"
+              icon={<LogOut size={16} className="opacity-80" />}
             >
               Log out
-            </button>
+            </TopbarButton>
           </div>
-        </div>
+        </motion.div>
 
-        <div className="mt-5 grid gap-5 lg:grid-cols-[420px_1fr]">
-          <div className="rounded-3xl border border-white/10 bg-black/16 p-4 backdrop-blur-xl">
-            <div className="flex gap-2 rounded-2xl border border-white/10 bg-black/18 p-2 backdrop-blur-xl">
-              {VIDEO_TOOLS.map((t) => (
-                <button
-                  key={t.key}
-                  onClick={() => onChangeTool(t.key)}
-                  className={pill(active === t.key)}
-                >
-                  {t.label}
-                </button>
-              ))}
+        <motion.div
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.04, duration: 0.35 }}
+          className="mt-5 grid gap-5 lg:grid-cols-[430px_1fr]"
+        >
+          <GlassPanel className="p-4">
+            <div className="rounded-[24px] border border-white/10 bg-black/22 p-2">
+              <div className="flex gap-1">
+                {VIDEO_TOOLS.map((t) => (
+                  <ToolTab
+                    key={t.key}
+                    label={t.label}
+                    active={active === t.key}
+                    onClick={() => onChangeTool(t.key)}
+                  />
+                ))}
+              </div>
             </div>
 
             <div className="mt-4 space-y-4">
               {active === "reference-to-video" && (
                 <>
                   <UploadRow
-                    title="Upload Clips / Refs"
-                    subtitle="1 clip (8s) / 2 clips (5s each) / references"
+                    title="Reference Clips"
+                    subtitle="1 clip (8s) or 2 clips (5s each)"
                     accept="video/*"
                     multiple={true}
                     files={refClips}
@@ -1747,20 +1955,22 @@ export default function CreateVideoClient({
                   />
 
                   <UploadRow
-                    title="Upload Images / Refs"
-                    subtitle="Upload 1-7 images"
+                    title="Reference Images"
+                    subtitle="Upload 1 to 7 images"
                     accept="image/*"
                     multiple={true}
                     files={refImages}
                     onAddFiles={setRefImages}
                   />
 
-                  <div className="rounded-2xl border border-white/10 bg-black/18 p-4 backdrop-blur-xl">
-                    <SectionTitle>Prompt</SectionTitle>
+                  <div className="rounded-[24px] border border-white/10 bg-black/22 p-4">
+                    <SectionTitle icon={<Sparkles size={14} />}>
+                      Prompt
+                    </SectionTitle>
                     <textarea
                       value={prompt}
                       onChange={(e) => setPrompt(e.target.value)}
-                      className="mt-3 h-28 w-full resize-none rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25"
+                      className="mt-3 h-28 w-full resize-none rounded-[20px] border border-white/10 bg-black/30 px-4 py-3 text-sm text-white placeholder:text-white/36 outline-none transition focus:border-white/25 focus:bg-black/35"
                       placeholder="Supports images, videos, or subjects as input..."
                     />
                   </div>
@@ -1792,7 +2002,7 @@ export default function CreateVideoClient({
                     }}
                   />
 
-                  <div className="rounded-2xl border border-white/10 bg-black/18 p-4 backdrop-blur-xl">
+                  <div className="rounded-[24px] border border-white/10 bg-black/22 p-4">
                     <div>
                       <div className="text-sm font-semibold text-white/90">
                         Upload Frames
@@ -1821,12 +2031,14 @@ export default function CreateVideoClient({
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-white/10 bg-black/18 p-4 backdrop-blur-xl">
-                    <SectionTitle>Prompt</SectionTitle>
+                  <div className="rounded-[24px] border border-white/10 bg-black/22 p-4">
+                    <SectionTitle icon={<Sparkles size={14} />}>
+                      Prompt
+                    </SectionTitle>
                     <textarea
                       value={prompt}
                       onChange={(e) => setPrompt(e.target.value)}
-                      className="mt-3 h-28 w-full resize-none rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25"
+                      className="mt-3 h-28 w-full resize-none rounded-[20px] border border-white/10 bg-black/30 px-4 py-3 text-sm text-white placeholder:text-white/36 outline-none transition focus:border-white/25 focus:bg-black/35"
                       placeholder="Describe motion, camera, lighting, style..."
                     />
                   </div>
@@ -1834,144 +2046,150 @@ export default function CreateVideoClient({
               )}
 
               {active === "text-to-video" && (
-                <div className="rounded-2xl border border-white/10 bg-black/18 p-4 backdrop-blur-xl">
-                  <SectionTitle>Prompt</SectionTitle>
+                <div className="rounded-[24px] border border-white/10 bg-black/22 p-4">
+                  <SectionTitle icon={<Sparkles size={14} />}>
+                    Prompt
+                  </SectionTitle>
                   <textarea
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
-                    className="mt-3 h-40 w-full resize-none rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25"
+                    className="mt-3 h-40 w-full resize-none rounded-[20px] border border-white/10 bg-black/30 px-4 py-3 text-sm text-white placeholder:text-white/36 outline-none transition focus:border-white/25 focus:bg-black/35"
                     placeholder="Write the full scene prompt..."
                   />
                 </div>
               )}
 
-              <div className="rounded-2xl border border-white/10 bg-black/18 p-4 backdrop-blur-xl">
-                <div className="flex items-center justify-between">
-                  <SectionTitle>Model</SectionTitle>
-                  <select
-                    value={model}
-                    onChange={(e) => setModel(e.target.value)}
-                    className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white/80 outline-none focus:border-white/25"
-                  >
-                    {modelOptions.map((value) => (
-                      <option key={value} value={value}>
-                        {value}
-                      </option>
-                    ))}
-                  </select>
+              <div className="rounded-[24px] border border-white/10 bg-black/22 p-4">
+                <div className="mb-4 flex items-center justify-between">
+                  <SectionTitle icon={<Film size={14} />}>
+                    Generation Settings
+                  </SectionTitle>
+                  <div className="rounded-full border border-violet-400/20 bg-violet-400/10 px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-violet-100/75">
+                    Motion studio
+                  </div>
                 </div>
 
-                <div className="mt-4">
-                  <SectionTitle>Duration</SectionTitle>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {[0, ...ALL_DURATION_OPTIONS].map((d) => {
-                      const enabled = allowedDurations.includes(d);
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-sm text-white/70">Model</div>
+                    <select
+                      value={model}
+                      onChange={(e) => setModel(e.target.value)}
+                      className="min-w-[170px] rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white/80 outline-none transition focus:border-white/25"
+                    >
+                      {modelOptions.map((value) => (
+                        <option key={value} value={value}>
+                          {value}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                      return (
-                        <button
-                          key={d}
+                  <div>
+                    <div className="text-sm text-white/70">Duration</div>
+                    <div className="mt-2 grid grid-cols-6 gap-2">
+                      {[0, ...ALL_DURATION_OPTIONS].map((d) => {
+                        const enabled = allowedDurations.includes(d);
+
+                        return (
+                          <motion.button
+                            key={d}
+                            type="button"
+                            onClick={() => enabled && setDuration(d)}
+                            whileTap={enabled ? { scale: 0.97 } : undefined}
+                            disabled={!enabled}
+                            className={cn(
+                              "rounded-2xl border px-3 py-3 text-sm font-medium transition",
+                              duration === d
+                                ? "border-violet-300/25 bg-violet-400/12 text-white shadow-[0_10px_24px_rgba(139,92,246,0.12)]"
+                                : "border-white/10 bg-black/20 text-white/70 hover:border-white/20 hover:bg-black/10",
+                              !enabled && "cursor-not-allowed opacity-30"
+                            )}
+                          >
+                            {d}
+                          </motion.button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-sm text-white/70">Resolution</div>
+                    <select
+                      value={resolution}
+                      onChange={(e) => setResolution(e.target.value)}
+                      className="min-w-[170px] rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white/80 outline-none transition focus:border-white/25"
+                    >
+                      {allowedResolutions.map((value) => (
+                        <option key={value} value={value}>
+                          {value}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-sm text-white/70">Aspect Ratio</div>
+                    <select
+                      value={aspect}
+                      onChange={(e) => setAspect(e.target.value)}
+                      className="min-w-[170px] rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white/80 outline-none transition focus:border-white/25"
+                    >
+                      {ALL_ASPECT_OPTIONS.map((value) => (
+                        <option key={value} value={value}>
+                          {value}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <div className="text-sm text-white/70">Amount</div>
+                    <div className="mt-2 grid grid-cols-4 gap-2">
+                      {[1, 2, 3, 4].map((n) => (
+                        <motion.button
+                          key={n}
                           type="button"
-                          onClick={() => enabled && setDuration(d)}
-                          disabled={!enabled}
-                          className={[
-                            "rounded-xl border px-3 py-2 text-sm",
-                            duration === d
-                              ? "border-white/25 bg-white/10"
-                              : "border-white/10 bg-black/20 text-white/70 hover:border-white/20 hover:bg-black/10",
-                            !enabled ? "cursor-not-allowed opacity-30" : "",
-                          ].join(" ")}
+                          onClick={() => setAmount(n)}
+                          whileTap={{ scale: 0.97 }}
+                          className={cn(
+                            "rounded-2xl border px-3 py-3 text-sm font-medium transition",
+                            amount === n
+                              ? "border-violet-300/25 bg-violet-400/12 text-white shadow-[0_10px_24px_rgba(139,92,246,0.12)]"
+                              : "border-white/10 bg-black/20 text-white/70 hover:border-white/20 hover:bg-black/10"
+                          )}
                         >
-                          {d}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="mt-4 flex items-center justify-between">
-                  <SectionTitle>Resolution</SectionTitle>
-                  <select
-                    value={resolution}
-                    onChange={(e) => setResolution(e.target.value)}
-                    className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white/80 outline-none focus:border-white/25"
-                  >
-                    {allowedResolutions.map((value) => (
-                      <option key={value} value={value}>
-                        {value}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="mt-4 flex items-center justify-between">
-                  <SectionTitle>Aspect Ratio</SectionTitle>
-                  <select
-                    value={aspect}
-                    onChange={(e) => setAspect(e.target.value)}
-                    className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white/80 outline-none focus:border-white/25"
-                  >
-                    {ALL_ASPECT_OPTIONS.map((value) => (
-                      <option key={value} value={value}>
-                        {value}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="mt-4 flex items-center justify-between">
-                  <SectionTitle>Amount</SectionTitle>
-                  <div className="flex gap-2">
-                    {[1, 2, 3, 4].map((n) => (
-                      <button
-                        key={n}
-                        type="button"
-                        onClick={() => setAmount(n)}
-                        className={[
-                          "rounded-xl border px-3 py-2 text-sm",
-                          amount === n
-                            ? "border-white/25 bg-white/10"
-                            : "border-white/10 bg-black/20 text-white/70 hover:border-white/20 hover:bg-black/10",
-                        ].join(" ")}
-                      >
-                        {n}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="mt-4 rounded-2xl border border-white/10 bg-black/25 p-4">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-white/65">This generation costs</span>
-                    <span className="font-semibold text-white">
-                      {videoCreditCost} credits
-                    </span>
+                          {n}
+                        </motion.button>
+                      ))}
+                    </div>
                   </div>
 
-                  <div className="mt-2 flex items-center justify-between text-sm">
-                    <span className="text-white/65">
-                      Balance after generation
-                    </span>
-                    <span
-                      className={`font-semibold ${
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <StatCard
+                      label="Generation cost"
+                      value={`${videoCreditCost} credits`}
+                    />
+                    <StatCard
+                      label="Balance after"
+                      value={remainingCreditsAfterCreate ?? "Loading..."}
+                      danger={
                         remainingCreditsAfterCreate != null &&
                         remainingCreditsAfterCreate < 0
-                          ? "text-red-300"
-                          : "text-white"
-                      }`}
-                    >
-                      {remainingCreditsAfterCreate ?? "Loading..."}
-                    </span>
+                      }
+                    />
                   </div>
 
                   {!hasEnoughCredits && credits != null && (
-                    <div className="mt-3 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+                    <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-3 py-2.5 text-xs text-red-200">
                       You do not have enough credits for this video generation.
                     </div>
                   )}
                 </div>
 
-                <button
+                <motion.button
                   type="button"
+                  whileTap={{ scale: 0.99 }}
                   onClick={() => {
                     if (active === "reference-to-video") {
                       void createReferenceToVideo();
@@ -1988,39 +2206,51 @@ export default function CreateVideoClient({
                     }
                   }}
                   disabled={isCreating || credits == null || !hasEnoughCredits}
-                  className="mt-4 w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-[20px] bg-white px-4 py-3.5 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {isCreating
-                    ? `Generating ${amount} video${amount > 1 ? "s" : ""}...`
-                    : `Create • ${videoCreditCost} credits`}
-                </button>
+                  <Sparkles size={16} />
+                  <span>
+                    {isCreating
+                      ? `Generating ${amount} video${amount > 1 ? "s" : ""}...`
+                      : `Create • ${videoCreditCost} credits`}
+                  </span>
+                </motion.button>
               </div>
             </div>
-          </div>
+          </GlassPanel>
 
-          <div className="rounded-3xl border border-white/10 bg-black/16 p-4 backdrop-blur-xl">
+          <GlassPanel className="p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <div className="text-xs text-white/55">Workspace</div>
-                <div className="mt-1 text-lg font-semibold">{toolLabel}</div>
+                <div className="text-xs uppercase tracking-[0.18em] text-white/42">
+                  Workspace
+                </div>
+                <div className="mt-1 text-xl font-semibold">{toolLabel}</div>
                 <div className="mt-1 text-xs text-white/45">
                   Latest result and recent generations
                 </div>
               </div>
 
-              <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/70">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white/70">
                 {mounted ? new Date().toLocaleString() : "—"}
               </div>
             </div>
 
-            {error && (
-              <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-200">
-                {error}
-              </div>
-            )}
+            <AnimatePresence>
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  className="mt-4 rounded-2xl border border-red-500/20 bg-red-500/10 px-3 py-2.5 text-sm text-red-200"
+                >
+                  {error}
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-            <div className="mt-4 grid gap-4 xl:grid-cols-[1.3fr_0.7fr]">
-              <div className="overflow-hidden rounded-[28px] border border-white/10 bg-black/18 backdrop-blur-xl">
+            <div className="mt-4 grid gap-4 xl:grid-cols-[1.28fr_0.72fr]">
+              <div className="overflow-hidden rounded-[28px] border border-white/10 bg-black/18">
                 <div className="border-b border-white/10 px-4 py-3">
                   <div className="flex items-center justify-between gap-4">
                     <div>
@@ -2040,10 +2270,10 @@ export default function CreateVideoClient({
 
                     {selectedGeneration && (
                       <div
-                        className={[
+                        className={cn(
                           "rounded-2xl border px-3 py-2 text-xs",
-                          getStatusBadgeClasses(selectedGeneration.status),
-                        ].join(" ")}
+                          getStatusBadgeClasses(selectedGeneration.status)
+                        )}
                       >
                         {prettyStatus(selectedGeneration.status)}
                       </div>
@@ -2054,36 +2284,46 @@ export default function CreateVideoClient({
                 <div className="p-4">
                   {selectedGeneration ? (
                     <>
-                      {selectedGeneration.videoUrl ? (
-                        <video
-                          className="max-h-[680px] w-full rounded-[24px] border border-white/10 bg-black object-contain"
-                          src={selectedGeneration.videoUrl}
-                          controls
-                          playsInline
-                          poster={selectedGeneration.coverUrl ?? undefined}
-                        />
-                      ) : selectedGeneration.status === "failed" ? (
-                        <div className="flex min-h-[420px] items-center justify-center rounded-[24px] border border-red-500/20 bg-red-500/10 px-6 text-center text-sm text-red-200">
-                          {selectedGeneration.error || "Generation failed."}
-                        </div>
-                      ) : (
-                        <div className="flex min-h-[420px] items-center justify-center rounded-[24px] border border-white/10 bg-white/[0.03]">
-                          <div className="flex flex-col items-center gap-4">
-                            <div className="relative h-12 w-12">
-                              <div className="absolute inset-0 rounded-full border-2 border-white/10" />
-                              <div className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-white/80" />
+                      <AnimatePresence mode="wait">
+                        <motion.div
+                          key={selectedGeneration.id}
+                          initial={{ opacity: 0, scale: 0.985 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.985 }}
+                          transition={{ duration: 0.22 }}
+                        >
+                          {selectedGeneration.videoUrl ? (
+                            <video
+                              className="max-h-[700px] w-full rounded-[24px] border border-white/10 bg-black object-contain"
+                              src={selectedGeneration.videoUrl}
+                              controls
+                              playsInline
+                              poster={selectedGeneration.coverUrl ?? undefined}
+                            />
+                          ) : selectedGeneration.status === "failed" ? (
+                            <div className="flex min-h-[440px] items-center justify-center rounded-[24px] border border-red-500/20 bg-red-500/10 px-6 text-center text-sm text-red-200">
+                              {selectedGeneration.error || "Generation failed."}
                             </div>
-                            <div className="text-center">
-                              <div className="text-sm font-medium text-white/90">
-                                {prettyStatus(selectedGeneration.status)}
-                              </div>
-                              <div className="mt-1 text-xs text-white/50">
-                                Vidu is working on this generation.
+                          ) : (
+                            <div className="flex min-h-[440px] items-center justify-center rounded-[24px] border border-white/10 bg-white/[0.03]">
+                              <div className="flex flex-col items-center gap-4">
+                                <div className="relative h-12 w-12">
+                                  <div className="absolute inset-0 rounded-full border-2 border-white/10" />
+                                  <div className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-white/80" />
+                                </div>
+                                <div className="text-center">
+                                  <div className="text-sm font-medium text-white/90">
+                                    {prettyStatus(selectedGeneration.status)}
+                                  </div>
+                                  <div className="mt-1 text-xs text-white/50">
+                                    Vidu is working on this generation.
+                                  </div>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </div>
-                      )}
+                          )}
+                        </motion.div>
+                      </AnimatePresence>
 
                       <div className="mt-4 rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
                         <div className="text-[11px] uppercase tracking-[0.18em] text-white/35">
@@ -2110,6 +2350,17 @@ export default function CreateVideoClient({
                             {selectedGeneration.chargedCredits} credits
                           </div>
                         </div>
+
+                        {selectedGeneration.videoUrl && (
+                          <a
+                            href={selectedGeneration.videoUrl}
+                            download={`koa-video-${selectedGeneration.id}.mp4`}
+                            className="mt-4 inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm text-white/75 transition hover:border-white/20 hover:bg-white/[0.06]"
+                          >
+                            <Download size={15} />
+                            Download video
+                          </a>
+                        )}
                       </div>
                     </>
                   ) : (
@@ -2141,7 +2392,7 @@ export default function CreateVideoClient({
                 </div>
               </div>
 
-              <div className="rounded-[28px] border border-white/10 bg-black/18 p-4 backdrop-blur-xl">
+              <div className="rounded-[28px] border border-white/10 bg-black/18 p-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="text-sm font-semibold text-white/90">
@@ -2160,16 +2411,17 @@ export default function CreateVideoClient({
                 {recentGenerations.length > 0 ? (
                   <div className="mt-4 space-y-3">
                     {recentGenerations.map((item) => (
-                      <button
+                      <motion.button
                         key={item.id}
                         type="button"
                         onClick={() => setSelectedGeneration(item)}
-                        className={[
+                        whileHover={{ y: -2 }}
+                        className={cn(
                           "flex w-full items-center gap-3 rounded-2xl border p-2 text-left transition",
                           selectedGeneration?.id === item.id
-                            ? "border-white/20 bg-white/[0.07]"
-                            : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/[0.04]",
-                        ].join(" ")}
+                            ? "border-white/20 bg-white/[0.08]"
+                            : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/[0.04]"
+                        )}
                       >
                         <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-black">
                           {item.videoUrl ? (
@@ -2205,7 +2457,7 @@ export default function CreateVideoClient({
                             <span>{item.chargedCredits} credits</span>
                           </div>
                         </div>
-                      </button>
+                      </motion.button>
                     ))}
                   </div>
                 ) : (
@@ -2219,91 +2471,108 @@ export default function CreateVideoClient({
                     <div className="text-[11px] uppercase tracking-[0.18em] text-white/35">
                       Current Task
                     </div>
-                    <div className="mt-2 break-all text-sm text-white/60">
-                      {currentTask.taskId}
+                    <div className="mt-2 flex items-start gap-2 text-sm text-white/60">
+                      <div className="mt-1 h-2 w-2 animate-pulse rounded-full bg-violet-300" />
+                      <div className="break-all">{currentTask.taskId}</div>
                     </div>
                   </div>
                 )}
               </div>
             </div>
-          </div>
-        </div>
+          </GlassPanel>
+        </motion.div>
 
-        <div className="mt-6 rounded-3xl border border-white/10 bg-black/16 p-4 backdrop-blur-xl">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <div className="text-xs text-white/55">History</div>
-              <div className="mt-1 text-xl font-semibold text-white">
-                All Generated Videos
-              </div>
-              <div className="mt-1 text-sm text-white/45">
-                Scroll down to browse everything you created in a Vidu-like
-                gallery
-              </div>
-            </div>
-
-            {generations.length > 0 && (
-              <button
-                type="button"
-                onClick={() => {
-                  setGenerations([]);
-                  setSelectedGeneration(null);
-                  setError(null);
-                  setRefundedFailedTaskIds([]);
-                  try {
-                    localStorage.removeItem(GENERATIONS_STORAGE_KEY);
-                  } catch {}
-                }}
-                className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm text-white/75 hover:border-white/20 hover:bg-white/[0.06]"
-              >
-                Clear history
-              </button>
-            )}
-          </div>
-
-          {generations.length > 0 ? (
-            <div className="mt-5 columns-1 gap-4 sm:columns-2 xl:columns-3 2xl:columns-4">
-              {generations.map((item) => (
-                <div key={item.id} className="mb-4 break-inside-avoid">
-                  <VideoHistoryCard
-                    item={item}
-                    onOpen={(picked) => setSelectedGeneration(picked)}
-                  />
+        <motion.div
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.08, duration: 0.35 }}
+          className="mt-6"
+        >
+          <GlassPanel className="p-4">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <div className="text-xs uppercase tracking-[0.18em] text-white/42">
+                  History
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-              {[
-                "/backgrounds/1.mp4",
-                "/backgrounds/2.mp4",
-                "/backgrounds/3.mp4",
-                "/backgrounds/4.mp4",
-                "/backgrounds/5.mp4",
-                "/backgrounds/6.mp4",
-                "/backgrounds/7.mp4",
-                "/backgrounds/8.mp4",
-                "/backgrounds/9.mp4",
-              ].map((src, index) => (
-                <div
-                  key={`${src}-${index}`}
-                  className="relative overflow-hidden rounded-[24px] border border-white/10 bg-black/30"
+                <div className="mt-1 flex items-center gap-2 text-xl font-semibold text-white">
+                  <Layers3 size={20} className="text-white/65" />
+                  All Generated Videos
+                </div>
+                <div className="mt-1 text-sm text-white/45">
+                  Browse everything you created in a premium motion gallery
+                </div>
+              </div>
+
+              {generations.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setGenerations([]);
+                    setSelectedGeneration(null);
+                    setError(null);
+                    setRefundedFailedTaskIds([]);
+                    try {
+                      localStorage.removeItem(GENERATIONS_STORAGE_KEY);
+                    } catch {}
+                  }}
+                  className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm text-white/75 transition hover:border-white/20 hover:bg-white/[0.06]"
                 >
-                  <video
-                    className="h-[320px] w-full object-cover"
-                    src={src}
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    preload="metadata"
-                  />
-                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-                </div>
-              ))}
+                  <Trash2 size={15} />
+                  Clear history
+                </button>
+              )}
             </div>
-          )}
-        </div>
+
+            {generations.length > 0 ? (
+              <div className="mt-5 columns-1 gap-4 sm:columns-2 xl:columns-3 2xl:columns-4">
+                {generations.map((item) => (
+                  <div key={item.id} className="mb-4 break-inside-avoid">
+                    <VideoHistoryCard
+                      item={item}
+                      onOpen={(picked) => setSelectedGeneration(picked)}
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                {[
+                  "/backgrounds/1.mp4",
+                  "/backgrounds/2.mp4",
+                  "/backgrounds/3.mp4",
+                  "/backgrounds/4.mp4",
+                  "/backgrounds/5.mp4",
+                  "/backgrounds/6.mp4",
+                  "/backgrounds/7.mp4",
+                  "/backgrounds/8.mp4",
+                  "/backgrounds/9.mp4",
+                ].map((src, index) => (
+                  <div
+                    key={`${src}-${index}`}
+                    className="relative overflow-hidden rounded-[24px] border border-white/10 bg-black/30"
+                  >
+                    <video
+                      className="h-[320px] w-full object-cover"
+                      src={src}
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      preload="metadata"
+                    />
+                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                    <div className="absolute left-3 top-3 rounded-full border border-white/10 bg-black/45 px-2.5 py-1 text-[11px] text-white/60 backdrop-blur">
+                      <div className="flex items-center gap-1.5">
+                        <Video size={12} />
+                        Gallery preview
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </GlassPanel>
+        </motion.div>
       </div>
     </div>
   );
