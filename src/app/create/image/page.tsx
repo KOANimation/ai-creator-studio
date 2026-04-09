@@ -26,11 +26,11 @@ export default async function CreateImagePage() {
     redirect("/login?redirect=%2Fcreate%2Fimage%3Ftab%3Dreference-to-image");
   }
 
-  const { data: wallet } = await supabase
+  const { data: wallet, error } = await supabase
     .from("credit_wallets")
     .select("balance")
     .eq("user_id", user.id)
-    .single();
+    .maybeSingle();
 
   const initialCredits = wallet?.balance ?? 0;
 

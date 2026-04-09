@@ -1,5 +1,7 @@
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
 import CreateVideoClient from "./CreateVideoClient";
+import { createClient } from "@/app/lib/supabase/server";
 
 function CreateVideoFallback() {
   return (
@@ -13,10 +15,30 @@ function CreateVideoFallback() {
   );
 }
 
-export default function CreateVideoPage() {
+export default async function CreateVideoPage() {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // 🔐 Redirect if not logged in
+  if (!user) {
+    redirect("/login?redirect=%2Fcreate%2Fvideo%3Ftab%3Dreference-to-video");
+  }
+
+  // 💰 Get user credits safely (no crash if row missing)
+  const { data: wallet, error } = await supabase
+    .from("credit_wallets")
+    .select("balance")
+    .eq("user_id", user.id)
+    .maybeSingle(); // ✅ safer than .single()
+
+  const initialCredits = wallet?.balance ?? 0;
+
   return (
     <Suspense fallback={<CreateVideoFallback />}>
-      <CreateVideoClient />
+      <CreateVideoClient initialCredits={initialCredits} />
     </Suspense>
   );
 }
