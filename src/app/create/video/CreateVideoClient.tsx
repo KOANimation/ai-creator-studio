@@ -7,6 +7,7 @@ import { createClient } from "@/app/lib/supabase/client";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Bell,
+  CheckCircle2,
   Clapperboard,
   Coins,
   Crown,
@@ -16,14 +17,18 @@ import {
   Home,
   ImageIcon,
   Layers3,
+  LoaderCircle,
   LogOut,
   Play,
   Plus,
+  Search,
+  SlidersHorizontal,
   Sparkles,
   Trash2,
   Upload,
   Video,
   WalletCards,
+  Wand2,
   X,
 } from "lucide-react";
 
@@ -68,6 +73,15 @@ const VIDEO_TOOLS: { key: VideoToolKey; label: string }[] = [
 const ALL_DURATION_OPTIONS = Array.from({ length: 16 }, (_, i) => i + 1);
 const ALL_ASPECT_OPTIONS = ["16:9", "9:16", "1:1", "3:4", "4:3"];
 const GENERATIONS_STORAGE_KEY = "koa_video_generations_v1";
+
+const PROMPT_PRESETS = [
+  "cinematic camera movement, moody lighting, dramatic atmosphere",
+  "old anime OVA look, rich cel shading, dynamic action framing",
+  "slow push-in camera, subtle motion, emotional close-up",
+  "stormy environment, rain, lightning flashes, epic tension",
+  "high-energy action shot, fast motion, impact frames, stylized debris",
+  "soft dreamy lighting, elegant motion, premium editorial feel",
+];
 
 function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -215,7 +229,7 @@ function getVideoGenerationCost({
 
 function WallpaperRevealBackground({
   src = "/wallpaper.jpg",
-  radius = 240,
+  radius = 260,
 }: {
   src?: string;
   radius?: number;
@@ -263,26 +277,37 @@ function WallpaperRevealBackground({
         rgba(0,0,0,0) 0%,
         rgba(0,0,0,0) 45%,
         rgba(0,0,0,0.90) 72%,
-        rgba(0,0,0,0.96) 100%)`
-    : `rgba(0,0,0,0.92)`;
+        rgba(0,0,0,0.97) 100%)`
+    : `rgba(0,0,0,0.93)`;
 
   return (
     <>
-      <div className="fixed inset-0 -z-20">
+      <div className="fixed inset-0 -z-30">
         <img
           src={src}
           alt="Wallpaper"
           className="h-full w-full object-cover"
           draggable={false}
         />
-        <div className="absolute inset-0 bg-black/20" />
+        <div className="absolute inset-0 bg-black/25" />
       </div>
 
-      <div className="pointer-events-none fixed inset-0 -z-10">
+      <div className="pointer-events-none fixed inset-0 -z-20">
         <div className="absolute inset-0" style={{ background: spotlight }} />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,rgba(255,255,255,0.08)_0%,rgba(0,0,0,0.48)_40%,rgba(0,0,0,0.88)_100%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.18)_0%,rgba(0,0,0,0.42)_30%,rgba(0,0,0,0.78)_100%)]" />
+        <div className="absolute -left-24 top-24 h-[420px] w-[420px] rounded-full bg-violet-500/10 blur-[130px]" />
+        <div className="absolute right-[-80px] top-[20%] h-[360px] w-[360px] rounded-full bg-fuchsia-500/10 blur-[130px]" />
+        <div className="absolute bottom-[-120px] left-[20%] h-[340px] w-[340px] rounded-full bg-sky-500/8 blur-[140px]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,rgba(255,255,255,0.08)_0%,rgba(0,0,0,0.48)_40%,rgba(0,0,0,0.9)_100%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.18)_0%,rgba(0,0,0,0.42)_30%,rgba(0,0,0,0.80)_100%)]" />
       </div>
+
+      <div
+        className="pointer-events-none fixed inset-0 -z-10 opacity-[0.08]"
+        style={{
+          backgroundImage:
+            "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'%3E%3Cg fill='white' fill-opacity='1'%3E%3Ccircle cx='8' cy='8' r='1'/%3E%3Ccircle cx='64' cy='42' r='1'/%3E%3Ccircle cx='112' cy='20' r='1'/%3E%3Ccircle cx='38' cy='92' r='1'/%3E%3Ccircle cx='84' cy='116' r='1'/%3E%3Ccircle cx='132' cy='96' r='1'/%3E%3C/g%3E%3C/svg%3E\")",
+        }}
+      />
     </>
   );
 }
@@ -290,14 +315,23 @@ function WallpaperRevealBackground({
 function SectionTitle({
   icon,
   children,
+  kicker,
 }: {
   icon?: React.ReactNode;
   children: React.ReactNode;
+  kicker?: string;
 }) {
   return (
-    <div className="flex items-center gap-2 text-sm font-semibold text-white/90">
-      {icon ? <span className="text-white/60">{icon}</span> : null}
-      <span>{children}</span>
+    <div>
+      {kicker ? (
+        <div className="mb-1 text-[10px] uppercase tracking-[0.18em] text-white/38">
+          {kicker}
+        </div>
+      ) : null}
+      <div className="flex items-center gap-2 text-sm font-semibold text-white/92">
+        {icon ? <span className="text-white/60">{icon}</span> : null}
+        <span>{children}</span>
+      </div>
     </div>
   );
 }
@@ -315,7 +349,7 @@ function GlassPanel({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.28, ease: "easeOut" }}
       className={cn(
-        "relative overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.025))] shadow-[0_20px_80px_rgba(0,0,0,0.28)] backdrop-blur-2xl",
+        "relative overflow-hidden rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.055),rgba(255,255,255,0.025))] shadow-[0_20px_90px_rgba(0,0,0,0.34)] backdrop-blur-2xl",
         className
       )}
     >
@@ -407,13 +441,107 @@ function ToolTab({
     >
       {active && (
         <motion.div
-          layoutId="video-tab-pill"
+          layoutId="video-tab-pill-premium"
           className="absolute inset-0 rounded-2xl border border-white/20 bg-white/[0.09] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
           transition={{ type: "spring", stiffness: 360, damping: 30 }}
         />
       )}
       <span className="relative z-10">{label}</span>
     </button>
+  );
+}
+
+function ChipSelector({
+  value,
+  onChange,
+  options,
+}: {
+  value: string | number;
+  onChange: (next: string) => void;
+  options: Array<{ value: string; label?: string; meta?: string }>;
+}) {
+  return (
+    <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+      {options.map((option) => {
+        const isActive = String(value) === option.value;
+        return (
+          <motion.button
+            key={option.value}
+            type="button"
+            whileTap={{ scale: 0.97 }}
+            onClick={() => onChange(option.value)}
+            className={cn(
+              "rounded-2xl border px-3 py-3 text-left transition",
+              isActive
+                ? "border-violet-300/25 bg-violet-400/12 text-white shadow-[0_10px_24px_rgba(139,92,246,0.12)]"
+                : "border-white/10 bg-black/20 text-white/70 hover:border-white/20 hover:bg-black/10"
+            )}
+          >
+            <div className="text-sm font-medium">{option.label ?? option.value}</div>
+            {option.meta ? (
+              <div className="mt-1 text-[11px] text-white/45">{option.meta}</div>
+            ) : null}
+          </motion.button>
+        );
+      })}
+    </div>
+  );
+}
+
+function ModelCardSelector({
+  value,
+  options,
+  onChange,
+  kind,
+}: {
+  value: string;
+  options: string[];
+  onChange: (next: string) => void;
+  kind: GenerationKind;
+}) {
+  function getMeta(model: string) {
+    if (model.includes("q3-pro")) return "highest quality";
+    if (model.includes("q3-turbo")) return "fast + premium";
+    if (model.includes("pro-fast")) return "faster pro";
+    if (model.includes("q2-pro")) return "balanced pro";
+    if (model.includes("q2-turbo")) return "fastest";
+    if (model.includes("q2")) return "balanced";
+    if (model.includes("classic")) return "legacy classic";
+    if (model.includes("q1")) return "legacy";
+    if (model.includes("2.0")) return "older model";
+    return kind.replaceAll("-", " ");
+  }
+
+  return (
+    <div className="grid gap-2 sm:grid-cols-2">
+      {options.map((option) => {
+        const active = option === value;
+        return (
+          <motion.button
+            key={option}
+            type="button"
+            whileTap={{ scale: 0.985 }}
+            onClick={() => onChange(option)}
+            className={cn(
+              "rounded-2xl border p-3 text-left transition",
+              active
+                ? "border-violet-300/25 bg-violet-400/12 shadow-[0_10px_24px_rgba(139,92,246,0.12)]"
+                : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-black/10"
+            )}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm font-semibold text-white/92">{option}</div>
+              {active ? (
+                <div className="rounded-full border border-violet-300/20 bg-violet-400/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-violet-100">
+                  Selected
+                </div>
+              ) : null}
+            </div>
+            <div className="mt-1 text-xs text-white/48">{getMeta(option)}</div>
+          </motion.button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -560,11 +688,11 @@ function FrameSlot({
           <img
             src={previewUrl}
             alt={label}
-            className="h-[140px] w-full object-cover"
+            className="h-[150px] w-full object-cover"
             draggable={false}
           />
         ) : (
-          <div className="flex h-[140px] w-full flex-col items-center justify-center">
+          <div className="flex h-[150px] w-full flex-col items-center justify-center">
             <button
               type="button"
               onClick={onPick}
@@ -867,6 +995,43 @@ function getStatusBadgeClasses(status: SavedGenerationStatus) {
   return "border-white/10 bg-black/40 text-white/70";
 }
 
+function getTimelineSteps(status: SavedGenerationStatus | null) {
+  const statuses: SavedGenerationStatus[] = [
+    "created",
+    "queueing",
+    "processing",
+    "success",
+  ];
+
+  const currentIndex =
+    status === "failed"
+      ? 2
+      : Math.max(0, statuses.findIndex((s) => s === status));
+
+  return [
+    {
+      label: "Created",
+      active: currentIndex >= 0 || status === "uploading",
+      done: status !== "uploading",
+    },
+    {
+      label: "Queued",
+      active: currentIndex >= 1,
+      done: currentIndex > 1 || status === "success",
+    },
+    {
+      label: "Rendering",
+      active: currentIndex >= 2 || status === "processing" || status === "failed",
+      done: status === "success",
+    },
+    {
+      label: "Ready",
+      active: status === "success",
+      done: status === "success",
+    },
+  ];
+}
+
 function VideoHistoryCard({
   item,
   onOpen,
@@ -1005,6 +1170,11 @@ export default function CreateVideoClient({
   const [refundedFailedTaskIds, setRefundedFailedTaskIds] = useState<string[]>(
     []
   );
+
+  const [historyFilter, setHistoryFilter] = useState<
+    "all" | "success" | "failed" | "processing"
+  >("all");
+  const [historySearch, setHistorySearch] = useState("");
 
   const refreshCredits = async () => {
     const {
@@ -1251,7 +1421,7 @@ export default function CreateVideoClient({
   };
 
   const refundCredits = async (
-    amount: number,
+    amountValue: number,
     description: string,
     metadata: Record<string, unknown>
   ) => {
@@ -1265,7 +1435,7 @@ export default function CreateVideoClient({
 
     const { data, error } = await supabase.rpc("refund_credits", {
       p_user_id: user.id,
-      p_amount: amount,
+      p_amount: amountValue,
       p_description: description,
       p_metadata: metadata,
     });
@@ -1856,11 +2026,72 @@ export default function CreateVideoClient({
 
   const recentGenerations = generations.slice(0, 6);
 
+  const filteredHistory = useMemo(() => {
+    return generations.filter((item) => {
+      const searchMatch = item.prompt
+        .toLowerCase()
+        .includes(historySearch.toLowerCase());
+
+      if (!searchMatch) return false;
+
+      if (historyFilter === "all") return true;
+      if (historyFilter === "success") return item.status === "success";
+      if (historyFilter === "failed") return item.status === "failed";
+      if (historyFilter === "processing") {
+        return (
+          item.status === "uploading" ||
+          item.status === "created" ||
+          item.status === "queueing" ||
+          item.status === "processing"
+        );
+      }
+
+      return true;
+    });
+  }, [generations, historyFilter, historySearch]);
+
+  const applyPromptPreset = (preset: string) => {
+    setPrompt((prev) => (prev ? `${prev.trim()}, ${preset}` : preset));
+  };
+
+  const reusePrompt = (item: SavedGeneration) => {
+    setPrompt(item.prompt);
+  };
+
+  const reuseSettings = (item: SavedGeneration) => {
+    if (
+      item.kind === "reference-to-video" ||
+      item.kind === "image-to-video" ||
+      item.kind === "start-end-to-video" ||
+      item.kind === "text-to-video"
+    ) {
+      if (item.kind === "reference-to-video") {
+        router.push("/create/video?tab=reference-to-video");
+      } else if (item.kind === "text-to-video") {
+        router.push("/create/video?tab=text-to-video");
+      } else {
+        router.push("/create/video?tab=image-to-video");
+      }
+    }
+
+    setModel(item.model);
+    setDuration(item.duration);
+    setResolution(item.resolution);
+    setAspect(item.aspect);
+  };
+
+  const remixGeneration = (item: SavedGeneration) => {
+    reuseSettings(item);
+    setPrompt(`${item.prompt}, remix variation, enhanced cinematic motion`);
+  };
+
+  const renderTimeline = currentTask ? getTimelineSteps(currentTask.status) : [];
+
   return (
     <div className="relative min-h-screen overflow-x-hidden text-white">
       <WallpaperRevealBackground src="/wallpaper.jpg" radius={260} />
 
-      <div className="relative z-10 mx-auto max-w-[1550px] px-5 py-5 sm:px-6">
+      <div className="relative z-10 mx-auto max-w-[1580px] px-5 py-5 sm:px-6">
         <motion.div
           initial={{ opacity: 0, y: -12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -1926,7 +2157,7 @@ export default function CreateVideoClient({
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.04, duration: 0.35 }}
-          className="mt-5 grid gap-5 lg:grid-cols-[430px_1fr]"
+          className="mt-5 grid gap-5 lg:grid-cols-[460px_1fr]"
         >
           <GlassPanel className="p-4">
             <div className="rounded-[24px] border border-white/10 bg-black/22 p-2">
@@ -1943,151 +2174,147 @@ export default function CreateVideoClient({
             </div>
 
             <div className="mt-4 space-y-4">
-              {active === "reference-to-video" && (
-                <>
-                  <UploadRow
-                    title="Reference Clips"
-                    subtitle="1 clip (8s) or 2 clips (5s each)"
-                    accept="video/*"
-                    multiple={true}
-                    files={refClips}
-                    onAddFiles={setRefClips}
-                  />
+              <div className="rounded-[24px] border border-white/10 bg-black/22 p-4">
+                <SectionTitle icon={<Upload size={14} />} kicker="Inputs">
+                  Source Material
+                </SectionTitle>
 
-                  <UploadRow
-                    title="Reference Images"
-                    subtitle="Upload 1 to 7 images"
-                    accept="image/*"
-                    multiple={true}
-                    files={refImages}
-                    onAddFiles={setRefImages}
-                  />
-
-                  <div className="rounded-[24px] border border-white/10 bg-black/22 p-4">
-                    <SectionTitle icon={<Sparkles size={14} />}>
-                      Prompt
-                    </SectionTitle>
-                    <textarea
-                      value={prompt}
-                      onChange={(e) => setPrompt(e.target.value)}
-                      className="mt-3 h-28 w-full resize-none rounded-[20px] border border-white/10 bg-black/30 px-4 py-3 text-sm text-white placeholder:text-white/36 outline-none transition focus:border-white/25 focus:bg-black/35"
-                      placeholder="Supports images, videos, or subjects as input..."
-                    />
-                  </div>
-                </>
-              )}
-
-              {active === "image-to-video" && (
-                <>
-                  <input
-                    ref={startInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0] ?? null;
-                      if (f) setStartFile(f);
-                      e.currentTarget.value = "";
-                    }}
-                  />
-                  <input
-                    ref={endInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0] ?? null;
-                      if (f) setEndFile(f);
-                      e.currentTarget.value = "";
-                    }}
-                  />
-
-                  <div className="rounded-[24px] border border-white/10 bg-black/22 p-4">
-                    <div>
-                      <div className="text-sm font-semibold text-white/90">
-                        Upload Frames
-                      </div>
-                      <div className="mt-1 text-xs text-white/55">
-                        Upload only Frame 1 for image-to-video, or upload both
-                        Frame 1 and Frame 2 for start-end-to-video
-                      </div>
-                    </div>
-
-                    <div className="mt-4 flex gap-3">
-                      <FrameSlot
-                        index={1}
-                        label="Frame 1 (Start)"
-                        previewUrl={startPreview}
-                        onPick={() => startInputRef.current?.click()}
-                        onClear={() => setStartFile(null)}
+                <div className="mt-4 space-y-4">
+                  {active === "reference-to-video" && (
+                    <>
+                      <UploadRow
+                        title="Reference Clips"
+                        subtitle="1 clip (8s) or 2 clips (5s each)"
+                        accept="video/*"
+                        multiple={true}
+                        files={refClips}
+                        onAddFiles={setRefClips}
                       />
-                      <FrameSlot
-                        index={2}
-                        label="Frame 2 (End)"
-                        previewUrl={endPreview}
-                        onPick={() => endInputRef.current?.click()}
-                        onClear={() => setEndFile(null)}
+
+                      <UploadRow
+                        title="Reference Images"
+                        subtitle="Upload 1 to 7 images"
+                        accept="image/*"
+                        multiple={true}
+                        files={refImages}
+                        onAddFiles={setRefImages}
                       />
+                    </>
+                  )}
+
+                  {active === "image-to-video" && (
+                    <>
+                      <input
+                        ref={startInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0] ?? null;
+                          if (f) setStartFile(f);
+                          e.currentTarget.value = "";
+                        }}
+                      />
+                      <input
+                        ref={endInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0] ?? null;
+                          if (f) setEndFile(f);
+                          e.currentTarget.value = "";
+                        }}
+                      />
+
+                      <div className="rounded-[24px] border border-white/10 bg-black/18 p-4">
+                        <div>
+                          <div className="text-sm font-semibold text-white/90">
+                            Upload Frames
+                          </div>
+                          <div className="mt-1 text-xs text-white/55">
+                            Upload Frame 1 for image-to-video, or both Frame 1 and
+                            Frame 2 for start-end-to-video
+                          </div>
+                        </div>
+
+                        <div className="mt-4 flex gap-3">
+                          <FrameSlot
+                            index={1}
+                            label="Frame 1 (Start)"
+                            previewUrl={startPreview}
+                            onPick={() => startInputRef.current?.click()}
+                            onClear={() => setStartFile(null)}
+                          />
+                          <FrameSlot
+                            index={2}
+                            label="Frame 2 (End)"
+                            previewUrl={endPreview}
+                            onPick={() => endInputRef.current?.click()}
+                            onClear={() => setEndFile(null)}
+                          />
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {active === "text-to-video" && (
+                    <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-6 text-sm text-white/45">
+                      No reference uploads needed for text-to-video.
                     </div>
-                  </div>
-
-                  <div className="rounded-[24px] border border-white/10 bg-black/22 p-4">
-                    <SectionTitle icon={<Sparkles size={14} />}>
-                      Prompt
-                    </SectionTitle>
-                    <textarea
-                      value={prompt}
-                      onChange={(e) => setPrompt(e.target.value)}
-                      className="mt-3 h-28 w-full resize-none rounded-[20px] border border-white/10 bg-black/30 px-4 py-3 text-sm text-white placeholder:text-white/36 outline-none transition focus:border-white/25 focus:bg-black/35"
-                      placeholder="Describe motion, camera, lighting, style..."
-                    />
-                  </div>
-                </>
-              )}
-
-              {active === "text-to-video" && (
-                <div className="rounded-[24px] border border-white/10 bg-black/22 p-4">
-                  <SectionTitle icon={<Sparkles size={14} />}>
-                    Prompt
-                  </SectionTitle>
-                  <textarea
-                    value={prompt}
-                    onChange={(e) => setPrompt(e.target.value)}
-                    className="mt-3 h-40 w-full resize-none rounded-[20px] border border-white/10 bg-black/30 px-4 py-3 text-sm text-white placeholder:text-white/36 outline-none transition focus:border-white/25 focus:bg-black/35"
-                    placeholder="Write the full scene prompt..."
-                  />
+                  )}
                 </div>
-              )}
+              </div>
 
               <div className="rounded-[24px] border border-white/10 bg-black/22 p-4">
-                <div className="mb-4 flex items-center justify-between">
-                  <SectionTitle icon={<Film size={14} />}>
-                    Generation Settings
-                  </SectionTitle>
-                  <div className="rounded-full border border-violet-400/20 bg-violet-400/10 px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-violet-100/75">
-                    Motion studio
-                  </div>
-                </div>
+                <SectionTitle icon={<Sparkles size={14} />} kicker="Prompt">
+                  Scene Direction
+                </SectionTitle>
 
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="text-sm text-white/70">Model</div>
-                    <select
-                      value={model}
-                      onChange={(e) => setModel(e.target.value)}
-                      className="min-w-[170px] rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white/80 outline-none transition focus:border-white/25"
+                <textarea
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  className="mt-4 h-36 w-full resize-none rounded-[20px] border border-white/10 bg-black/30 px-4 py-3 text-sm text-white placeholder:text-white/36 outline-none transition focus:border-white/25 focus:bg-black/35"
+                  placeholder={
+                    active === "text-to-video"
+                      ? "Write the full scene prompt..."
+                      : "Describe motion, camera, lighting, mood, style..."
+                  }
+                />
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {PROMPT_PRESETS.map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => applyPromptPreset(preset)}
+                      className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-white/70 transition hover:border-white/20 hover:bg-white/[0.06]"
                     >
-                      {modelOptions.map((value) => (
-                        <option key={value} value={value}>
-                          {value}
-                        </option>
-                      ))}
-                    </select>
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-[24px] border border-white/10 bg-black/22 p-4">
+                <SectionTitle icon={<SlidersHorizontal size={14} />} kicker="Settings">
+                  Generation Settings
+                </SectionTitle>
+
+                <div className="mt-4 space-y-5">
+                  <div>
+                    <div className="mb-2 text-sm text-white/70">Model</div>
+                    <ModelCardSelector
+                      value={model}
+                      options={modelOptions}
+                      onChange={setModel}
+                      kind={currentKind}
+                    />
                   </div>
 
                   <div>
-                    <div className="text-sm text-white/70">Duration</div>
-                    <div className="mt-2 grid grid-cols-6 gap-2">
+                    <div className="mb-2 text-sm text-white/70">Duration</div>
+                    <div className="grid grid-cols-6 gap-2">
                       {[0, ...ALL_DURATION_OPTIONS].map((d) => {
                         const enabled = allowedDurations.includes(d);
 
@@ -2113,39 +2340,38 @@ export default function CreateVideoClient({
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="text-sm text-white/70">Resolution</div>
-                    <select
+                  <div>
+                    <div className="mb-2 text-sm text-white/70">Resolution</div>
+                    <ChipSelector
                       value={resolution}
-                      onChange={(e) => setResolution(e.target.value)}
-                      className="min-w-[170px] rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white/80 outline-none transition focus:border-white/25"
-                    >
-                      {allowedResolutions.map((value) => (
-                        <option key={value} value={value}>
-                          {value}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="text-sm text-white/70">Aspect Ratio</div>
-                    <select
-                      value={aspect}
-                      onChange={(e) => setAspect(e.target.value)}
-                      className="min-w-[170px] rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white/80 outline-none transition focus:border-white/25"
-                    >
-                      {ALL_ASPECT_OPTIONS.map((value) => (
-                        <option key={value} value={value}>
-                          {value}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={setResolution}
+                      options={allowedResolutions.map((r) => ({
+                        value: r,
+                        label: r,
+                        meta:
+                          r === "540p"
+                            ? "fastest"
+                            : r === "720p"
+                              ? "balanced"
+                              : r === "1080p"
+                                ? "highest quality"
+                                : "",
+                      }))}
+                    />
                   </div>
 
                   <div>
-                    <div className="text-sm text-white/70">Amount</div>
-                    <div className="mt-2 grid grid-cols-4 gap-2">
+                    <div className="mb-2 text-sm text-white/70">Aspect Ratio</div>
+                    <ChipSelector
+                      value={aspect}
+                      onChange={setAspect}
+                      options={ALL_ASPECT_OPTIONS.map((a) => ({ value: a }))}
+                    />
+                  </div>
+
+                  <div>
+                    <div className="mb-2 text-sm text-white/70">Amount</div>
+                    <div className="grid grid-cols-4 gap-2">
                       {[1, 2, 3, 4].map((n) => (
                         <motion.button
                           key={n}
@@ -2164,28 +2390,34 @@ export default function CreateVideoClient({
                       ))}
                     </div>
                   </div>
-
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <StatCard
-                      label="Generation cost"
-                      value={`${videoCreditCost} credits`}
-                    />
-                    <StatCard
-                      label="Balance after"
-                      value={remainingCreditsAfterCreate ?? "Loading..."}
-                      danger={
-                        remainingCreditsAfterCreate != null &&
-                        remainingCreditsAfterCreate < 0
-                      }
-                    />
-                  </div>
-
-                  {!hasEnoughCredits && credits != null && (
-                    <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-3 py-2.5 text-xs text-red-200">
-                      You do not have enough credits for this video generation.
-                    </div>
-                  )}
                 </div>
+              </div>
+
+              <div className="sticky bottom-4 z-20 rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(18,18,24,0.95),rgba(10,10,14,0.95))] p-4 backdrop-blur-2xl shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
+                <SectionTitle icon={<Coins size={14} />} kicker="Summary">
+                  Ready to Generate
+                </SectionTitle>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <StatCard
+                    label="Generation cost"
+                    value={`${videoCreditCost} credits`}
+                  />
+                  <StatCard
+                    label="Balance after"
+                    value={remainingCreditsAfterCreate ?? "Loading..."}
+                    danger={
+                      remainingCreditsAfterCreate != null &&
+                      remainingCreditsAfterCreate < 0
+                    }
+                  />
+                </div>
+
+                {!hasEnoughCredits && credits != null && (
+                  <div className="mt-3 rounded-2xl border border-red-500/20 bg-red-500/10 px-3 py-2.5 text-xs text-red-200">
+                    You do not have enough credits for this video generation.
+                  </div>
+                )}
 
                 <motion.button
                   type="button"
@@ -2249,6 +2481,51 @@ export default function CreateVideoClient({
               )}
             </AnimatePresence>
 
+            {currentTask && (
+              <div className="mt-4 rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[11px] uppercase tracking-[0.18em] text-white/35">
+                      Current Task
+                    </div>
+                    <div className="mt-1 text-sm text-white/75">
+                      {prettyStatus(currentTask.status)}
+                    </div>
+                  </div>
+                  <div className="rounded-full border border-violet-400/20 bg-violet-400/10 px-3 py-1 text-xs text-violet-100">
+                    {currentTask.model} • {currentTask.resolution} • {currentTask.duration}s
+                  </div>
+                </div>
+
+                <div className="mt-4 grid grid-cols-4 gap-2">
+                  {renderTimeline.map((step, index) => (
+                    <div
+                      key={`${step.label}-${index}`}
+                      className={cn(
+                        "rounded-2xl border px-3 py-3 text-center text-xs transition",
+                        step.done
+                          ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
+                          : step.active
+                            ? "border-violet-400/20 bg-violet-400/10 text-violet-100"
+                            : "border-white/10 bg-black/20 text-white/45"
+                      )}
+                    >
+                      <div className="mb-1 flex justify-center">
+                        {step.done ? (
+                          <CheckCircle2 size={14} />
+                        ) : step.active ? (
+                          <LoaderCircle size={14} className="animate-spin" />
+                        ) : (
+                          <div className="h-3.5 w-3.5 rounded-full border border-white/20" />
+                        )}
+                      </div>
+                      {step.label}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="mt-4 grid gap-4 xl:grid-cols-[1.28fr_0.72fr]">
               <div className="overflow-hidden rounded-[28px] border border-white/10 bg-black/18">
                 <div className="border-b border-white/10 px-4 py-3">
@@ -2294,7 +2571,7 @@ export default function CreateVideoClient({
                         >
                           {selectedGeneration.videoUrl ? (
                             <video
-                              className="max-h-[700px] w-full rounded-[24px] border border-white/10 bg-black object-contain"
+                              className="max-h-[720px] w-full rounded-[24px] border border-white/10 bg-black object-contain"
                               src={selectedGeneration.videoUrl}
                               controls
                               playsInline
@@ -2351,42 +2628,103 @@ export default function CreateVideoClient({
                           </div>
                         </div>
 
-                        {selectedGeneration.videoUrl && (
-                          <a
-                            href={selectedGeneration.videoUrl}
-                            download={`koa-video-${selectedGeneration.id}.mp4`}
-                            className="mt-4 inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm text-white/75 transition hover:border-white/20 hover:bg-white/[0.06]"
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => reusePrompt(selectedGeneration)}
+                            className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm text-white/75 transition hover:border-white/20 hover:bg-white/[0.06]"
                           >
-                            <Download size={15} />
-                            Download video
-                          </a>
-                        )}
+                            <Wand2 size={15} />
+                            Reuse prompt
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => reuseSettings(selectedGeneration)}
+                            className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm text-white/75 transition hover:border-white/20 hover:bg-white/[0.06]"
+                          >
+                            <SlidersHorizontal size={15} />
+                            Reuse settings
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => remixGeneration(selectedGeneration)}
+                            className="inline-flex items-center gap-2 rounded-2xl border border-violet-300/20 bg-violet-400/10 px-4 py-2.5 text-sm text-violet-100 transition hover:border-violet-200/30 hover:bg-violet-400/15"
+                          >
+                            <Sparkles size={15} />
+                            Remix this
+                          </button>
+
+                          {selectedGeneration.videoUrl && (
+                            <a
+                              href={selectedGeneration.videoUrl}
+                              download={`koa-video-${selectedGeneration.id}.mp4`}
+                              className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm text-white/75 transition hover:border-white/20 hover:bg-white/[0.06]"
+                            >
+                              <Download size={15} />
+                              Download video
+                            </a>
+                          )}
+                        </div>
                       </div>
                     </>
                   ) : (
-                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-2">
-                      {[
-                        "/backgrounds/1.mp4",
-                        "/backgrounds/2.mp4",
-                        "/backgrounds/3.mp4",
-                        "/backgrounds/4.mp4",
-                      ].map((src) => (
-                        <div
-                          key={src}
-                          className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/30"
-                        >
-                          <video
-                            className="h-60 w-full object-cover"
-                            src={src}
-                            autoPlay
-                            loop
-                            muted
-                            playsInline
-                            preload="metadata"
-                          />
-                          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                    <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02))] p-6">
+                      <div className="flex items-start gap-4">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-violet-300/20 bg-violet-400/10 text-violet-100">
+                          <Clapperboard size={20} />
                         </div>
-                      ))}
+
+                        <div>
+                          <div className="text-lg font-semibold text-white">
+                            Create cinematic AI video
+                          </div>
+                          <div className="mt-1 max-w-xl text-sm text-white/55">
+                            Build motion-driven clips with text prompts, start/end
+                            frames, or reference material. Everything you render
+                            appears here.
+                          </div>
+
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            {["Text to video", "Image to video", "Reference guided"].map(
+                              (pill) => (
+                                <div
+                                  key={pill}
+                                  className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-white/70"
+                                >
+                                  {pill}
+                                </div>
+                              )
+                            )}
+                          </div>
+
+                          <div className="mt-5 grid gap-3 md:grid-cols-2">
+                            {[
+                              "/backgrounds/1.mp4",
+                              "/backgrounds/2.mp4",
+                              "/backgrounds/3.mp4",
+                              "/backgrounds/4.mp4",
+                            ].map((src) => (
+                              <div
+                                key={src}
+                                className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/30"
+                              >
+                                <video
+                                  className="h-56 w-full object-cover"
+                                  src={src}
+                                  autoPlay
+                                  loop
+                                  muted
+                                  playsInline
+                                  preload="metadata"
+                                />
+                                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -2465,18 +2803,6 @@ export default function CreateVideoClient({
                     No generations yet.
                   </div>
                 )}
-
-                {currentTask && (
-                  <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
-                    <div className="text-[11px] uppercase tracking-[0.18em] text-white/35">
-                      Current Task
-                    </div>
-                    <div className="mt-2 flex items-start gap-2 text-sm text-white/60">
-                      <div className="mt-1 h-2 w-2 animate-pulse rounded-full bg-violet-300" />
-                      <div className="break-all">{currentTask.taskId}</div>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           </GlassPanel>
@@ -2499,7 +2825,7 @@ export default function CreateVideoClient({
                   All Generated Videos
                 </div>
                 <div className="mt-1 text-sm text-white/45">
-                  Browse everything you created in a premium motion gallery
+                  Browse, search, and filter your motion history
                 </div>
               </div>
 
@@ -2511,6 +2837,8 @@ export default function CreateVideoClient({
                     setSelectedGeneration(null);
                     setError(null);
                     setRefundedFailedTaskIds([]);
+                    setHistorySearch("");
+                    setHistoryFilter("all");
                     try {
                       localStorage.removeItem(GENERATIONS_STORAGE_KEY);
                     } catch {}
@@ -2523,9 +2851,44 @@ export default function CreateVideoClient({
               )}
             </div>
 
-            {generations.length > 0 ? (
+            <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="flex flex-wrap gap-2">
+                {(["all", "success", "failed", "processing"] as const).map(
+                  (filter) => (
+                    <button
+                      key={filter}
+                      type="button"
+                      onClick={() => setHistoryFilter(filter)}
+                      className={cn(
+                        "rounded-full border px-3 py-1.5 text-xs transition",
+                        historyFilter === filter
+                          ? "border-violet-300/20 bg-violet-400/10 text-violet-100"
+                          : "border-white/10 bg-white/[0.03] text-white/65 hover:border-white/20 hover:bg-white/[0.06]"
+                      )}
+                    >
+                      {filter}
+                    </button>
+                  )
+                )}
+              </div>
+
+              <div className="relative w-full md:w-[320px]">
+                <Search
+                  size={14}
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/35"
+                />
+                <input
+                  value={historySearch}
+                  onChange={(e) => setHistorySearch(e.target.value)}
+                  placeholder="Search prompt history..."
+                  className="w-full rounded-2xl border border-white/10 bg-white/[0.03] px-10 py-2.5 text-sm text-white placeholder:text-white/30 outline-none transition focus:border-white/20"
+                />
+              </div>
+            </div>
+
+            {filteredHistory.length > 0 ? (
               <div className="mt-5 columns-1 gap-4 sm:columns-2 xl:columns-3 2xl:columns-4">
-                {generations.map((item) => (
+                {filteredHistory.map((item) => (
                   <div key={item.id} className="mb-4 break-inside-avoid">
                     <VideoHistoryCard
                       item={item}
@@ -2533,6 +2896,10 @@ export default function CreateVideoClient({
                     />
                   </div>
                 ))}
+              </div>
+            ) : generations.length > 0 ? (
+              <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 px-4 py-8 text-center text-sm text-white/50">
+                No items match your current filters.
               </div>
             ) : (
               <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">

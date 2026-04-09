@@ -7,6 +7,7 @@ import { createClient } from "@/app/lib/supabase/client";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Bell,
+  CheckCircle2,
   Clapperboard,
   Coins,
   Crown,
@@ -15,11 +16,16 @@ import {
   Home,
   ImageIcon,
   Layers3,
+  LoaderCircle,
   LogOut,
   Palette,
   Plus,
+  Search,
+  SlidersHorizontal,
   Sparkles,
   Trash2,
+  Upload,
+  Wand2,
   WalletCards,
   X,
 } from "lucide-react";
@@ -63,6 +69,7 @@ const IMAGE_TOOLS: { key: ImageToolKey; label: string }[] = [
 ];
 
 const ALL_ASPECT_OPTIONS = ["16:9", "9:16", "1:1", "4:3"];
+const ALL_FORMAT_OPTIONS = ["PNG", "JPG", "WEBP"];
 const IMAGE_GENERATIONS_STORAGE_KEY = "koa_image_generations_v1";
 
 const IMAGE_DB_NAME = "koa-image-db";
@@ -82,6 +89,15 @@ const BYTEPLUS_MODELS: {
     label: "Seedream 3.0",
     refCapable: false,
   },
+];
+
+const PROMPT_PRESETS = [
+  "cinematic composition, dramatic lighting, highly detailed",
+  "old anime OVA look, cel shading, rich atmospheric depth",
+  "editorial beauty lighting, elegant composition, luxury aesthetic",
+  "dark moody scene, rim light, high contrast, premium look",
+  "clean product render, crisp details, studio lighting",
+  "dreamy soft light, subtle bloom, ethereal atmosphere",
 ];
 
 function cn(...classes: Array<string | false | null | undefined>) {
@@ -205,7 +221,7 @@ async function clearAllPreviewsFromDb() {
 
 function WallpaperRevealBackground({
   src = "/wallpaper.jpg",
-  radius = 240,
+  radius = 260,
 }: {
   src?: string;
   radius?: number;
@@ -253,26 +269,37 @@ function WallpaperRevealBackground({
         rgba(0,0,0,0) 0%,
         rgba(0,0,0,0) 45%,
         rgba(0,0,0,0.90) 72%,
-        rgba(0,0,0,0.96) 100%)`
-    : `rgba(0,0,0,0.92)`;
+        rgba(0,0,0,0.97) 100%)`
+    : `rgba(0,0,0,0.93)`;
 
   return (
     <>
-      <div className="fixed inset-0 -z-20">
+      <div className="fixed inset-0 -z-30">
         <img
           src={src}
           alt="Wallpaper"
           className="h-full w-full object-cover"
           draggable={false}
         />
-        <div className="absolute inset-0 bg-black/20" />
+        <div className="absolute inset-0 bg-black/25" />
       </div>
 
-      <div className="pointer-events-none fixed inset-0 -z-10">
+      <div className="pointer-events-none fixed inset-0 -z-20">
         <div className="absolute inset-0" style={{ background: spotlight }} />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,rgba(255,255,255,0.08)_0%,rgba(0,0,0,0.48)_40%,rgba(0,0,0,0.88)_100%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.18)_0%,rgba(0,0,0,0.42)_30%,rgba(0,0,0,0.78)_100%)]" />
+        <div className="absolute -left-24 top-24 h-[420px] w-[420px] rounded-full bg-violet-500/10 blur-[130px]" />
+        <div className="absolute right-[-80px] top-[20%] h-[360px] w-[360px] rounded-full bg-fuchsia-500/10 blur-[130px]" />
+        <div className="absolute bottom-[-120px] left-[20%] h-[340px] w-[340px] rounded-full bg-sky-500/8 blur-[140px]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,rgba(255,255,255,0.08)_0%,rgba(0,0,0,0.48)_40%,rgba(0,0,0,0.9)_100%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.18)_0%,rgba(0,0,0,0.42)_30%,rgba(0,0,0,0.80)_100%)]" />
       </div>
+
+      <div
+        className="pointer-events-none fixed inset-0 -z-10 opacity-[0.08]"
+        style={{
+          backgroundImage:
+            "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'%3E%3Cg fill='white' fill-opacity='1'%3E%3Ccircle cx='8' cy='8' r='1'/%3E%3Ccircle cx='64' cy='42' r='1'/%3E%3Ccircle cx='112' cy='20' r='1'/%3E%3Ccircle cx='38' cy='92' r='1'/%3E%3Ccircle cx='84' cy='116' r='1'/%3E%3Ccircle cx='132' cy='96' r='1'/%3E%3C/g%3E%3C/svg%3E\")",
+        }}
+      />
     </>
   );
 }
@@ -280,14 +307,23 @@ function WallpaperRevealBackground({
 function SectionTitle({
   icon,
   children,
+  kicker,
 }: {
   icon?: React.ReactNode;
   children: React.ReactNode;
+  kicker?: string;
 }) {
   return (
-    <div className="flex items-center gap-2 text-sm font-semibold text-white/90">
-      {icon ? <span className="text-white/60">{icon}</span> : null}
-      <span>{children}</span>
+    <div>
+      {kicker ? (
+        <div className="mb-1 text-[10px] uppercase tracking-[0.18em] text-white/38">
+          {kicker}
+        </div>
+      ) : null}
+      <div className="flex items-center gap-2 text-sm font-semibold text-white/92">
+        {icon ? <span className="text-white/60">{icon}</span> : null}
+        <span>{children}</span>
+      </div>
     </div>
   );
 }
@@ -378,7 +414,7 @@ function GlassPanel({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.28, ease: "easeOut" }}
       className={cn(
-        "relative overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.025))] shadow-[0_20px_80px_rgba(0,0,0,0.28)] backdrop-blur-2xl",
+        "relative overflow-hidden rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.055),rgba(255,255,255,0.025))] shadow-[0_20px_90px_rgba(0,0,0,0.34)] backdrop-blur-2xl",
         className
       )}
     >
@@ -470,13 +506,238 @@ function ToolTab({
     >
       {active && (
         <motion.div
-          layoutId="image-tab-pill"
+          layoutId="image-tab-pill-premium"
           className="absolute inset-0 rounded-2xl border border-white/20 bg-white/[0.09] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
           transition={{ type: "spring", stiffness: 360, damping: 30 }}
         />
       )}
       <span className="relative z-10">{label}</span>
     </button>
+  );
+}
+
+function ChipSelector({
+  value,
+  onChange,
+  options,
+}: {
+  value: string | number;
+  onChange: (next: string) => void;
+  options: Array<{ value: string; label?: string; meta?: string }>;
+}) {
+  return (
+    <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+      {options.map((option) => {
+        const isActive = String(value) === option.value;
+        return (
+          <motion.button
+            key={option.value}
+            type="button"
+            whileTap={{ scale: 0.97 }}
+            onClick={() => onChange(option.value)}
+            className={cn(
+              "rounded-2xl border px-3 py-3 text-left transition",
+              isActive
+                ? "border-violet-300/25 bg-violet-400/12 text-white shadow-[0_10px_24px_rgba(139,92,246,0.12)]"
+                : "border-white/10 bg-black/20 text-white/70 hover:border-white/20 hover:bg-black/10"
+            )}
+          >
+            <div className="text-sm font-medium">{option.label ?? option.value}</div>
+            {option.meta ? (
+              <div className="mt-1 text-[11px] text-white/45">{option.meta}</div>
+            ) : null}
+          </motion.button>
+        );
+      })}
+    </div>
+  );
+}
+
+function ProviderCardSelector({
+  value,
+  onChange,
+}: {
+  value: ImageProvider;
+  onChange: (next: ImageProvider) => void;
+}) {
+  const options: Array<{
+    value: ImageProvider;
+    label: string;
+    meta: string;
+  }> = [
+    { value: "google", label: "Google", meta: "balanced" },
+    { value: "openai", label: "OpenAI", meta: "premium render" },
+    { value: "byteplus", label: "BytePlus", meta: "seedream family" },
+  ];
+
+  return (
+    <div className="grid gap-2 sm:grid-cols-3">
+      {options.map((option) => {
+        const active = option.value === value;
+        return (
+          <motion.button
+            key={option.value}
+            type="button"
+            whileTap={{ scale: 0.985 }}
+            onClick={() => onChange(option.value)}
+            className={cn(
+              "rounded-2xl border p-3 text-left transition",
+              active
+                ? "border-violet-300/25 bg-violet-400/12 shadow-[0_10px_24px_rgba(139,92,246,0.12)]"
+                : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-black/10"
+            )}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm font-semibold text-white/92">
+                {option.label}
+              </div>
+              {active ? (
+                <div className="rounded-full border border-violet-300/20 bg-violet-400/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-violet-100">
+                  Selected
+                </div>
+              ) : null}
+            </div>
+            <div className="mt-1 text-xs text-white/48">{option.meta}</div>
+          </motion.button>
+        );
+      })}
+    </div>
+  );
+}
+
+function ModelCardSelector({
+  provider,
+  activeTool,
+  model,
+  byteplusModel,
+  visibleByteplusModels,
+  onSetModel,
+  onSetByteplusModel,
+}: {
+  provider: ImageProvider;
+  activeTool: ImageToolKey;
+  model: string;
+  byteplusModel: BytePlusModel;
+  visibleByteplusModels: {
+    value: BytePlusModel;
+    label: string;
+    refCapable: boolean;
+  }[];
+  onSetModel: (next: string) => void;
+  onSetByteplusModel: (next: BytePlusModel) => void;
+}) {
+  if (provider === "google") {
+    const active = model === "Nano Banana Pro";
+    return (
+      <div className="grid gap-2 sm:grid-cols-2">
+        <motion.button
+          type="button"
+          whileTap={{ scale: 0.985 }}
+          onClick={() => onSetModel("Nano Banana Pro")}
+          className={cn(
+            "rounded-2xl border p-3 text-left transition",
+            active
+              ? "border-violet-300/25 bg-violet-400/12 shadow-[0_10px_24px_rgba(139,92,246,0.12)]"
+              : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-black/10"
+          )}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-sm font-semibold text-white/92">
+              Nano Banana Pro
+            </div>
+            {active ? (
+              <div className="rounded-full border border-violet-300/20 bg-violet-400/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-violet-100">
+                Selected
+              </div>
+            ) : null}
+          </div>
+          <div className="mt-1 text-xs text-white/48">
+            Reliable general-purpose image generation
+          </div>
+        </motion.button>
+      </div>
+    );
+  }
+
+  if (provider === "openai") {
+    const active = model === "GPT Image 1.5";
+    return (
+      <div className="grid gap-2 sm:grid-cols-2">
+        <motion.button
+          type="button"
+          whileTap={{ scale: 0.985 }}
+          onClick={() => onSetModel("GPT Image 1.5")}
+          className={cn(
+            "rounded-2xl border p-3 text-left transition",
+            active
+              ? "border-violet-300/25 bg-violet-400/12 shadow-[0_10px_24px_rgba(139,92,246,0.12)]"
+              : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-black/10"
+          )}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-sm font-semibold text-white/92">
+              GPT Image 1.5
+            </div>
+            {active ? (
+              <div className="rounded-full border border-violet-300/20 bg-violet-400/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-violet-100">
+                Selected
+              </div>
+            ) : null}
+          </div>
+          <div className="mt-1 text-xs text-white/48">
+            Strong prompt fidelity and premium output
+          </div>
+        </motion.button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-2 sm:grid-cols-2">
+      {visibleByteplusModels.map((option) => {
+        const active = option.value === byteplusModel;
+        const meta =
+          option.value === "seedream-5-0-260128"
+            ? "highest quality"
+            : option.value === "seedream-4-5-251128"
+              ? "balanced premium"
+              : option.value === "seedream-4-0-250828"
+                ? "fast + capable"
+                : "text to image only";
+
+        return (
+          <motion.button
+            key={option.value}
+            type="button"
+            whileTap={{ scale: 0.985 }}
+            onClick={() => onSetByteplusModel(option.value)}
+            className={cn(
+              "rounded-2xl border p-3 text-left transition",
+              active
+                ? "border-violet-300/25 bg-violet-400/12 shadow-[0_10px_24px_rgba(139,92,246,0.12)]"
+                : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-black/10"
+            )}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm font-semibold text-white/92">
+                {option.label}
+              </div>
+              {active ? (
+                <div className="rounded-full border border-violet-300/20 bg-violet-400/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-violet-100">
+                  Selected
+                </div>
+              ) : null}
+            </div>
+            <div className="mt-1 text-xs text-white/48">
+              {meta}
+              {activeTool === "reference-to-image" && !option.refCapable
+                ? " • no refs"
+                : ""}
+            </div>
+          </motion.button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -671,6 +932,13 @@ function ImageHistoryCard({
           </div>
         </div>
 
+        <div className="absolute right-3 top-3 rounded-full border border-white/10 bg-black/45 px-2.5 py-1 text-[11px] text-white/70 backdrop-blur">
+          <div className="flex items-center gap-1.5">
+            <ImageIcon size={11} />
+            Image
+          </div>
+        </div>
+
         <div className="absolute inset-x-0 bottom-0 p-4">
           <div className="line-clamp-2 text-sm font-medium leading-5 text-white">
             {item.prompt || "Untitled generation"}
@@ -733,6 +1001,11 @@ export default function CreateImageClient({
   const [selectedGeneration, setSelectedGeneration] =
     useState<SavedImageGeneration | null>(null);
   const [hasLoadedGenerations, setHasLoadedGenerations] = useState(false);
+
+  const [historyFilter, setHistoryFilter] = useState<
+    "all" | "success" | "failed" | "processing"
+  >("all");
+  const [historySearch, setHistorySearch] = useState("");
 
   const refreshCredits = async () => {
     const {
@@ -1021,6 +1294,32 @@ export default function CreateImageClient({
     return BYTEPLUS_MODELS;
   }, [active]);
 
+  const filteredHistory = useMemo(() => {
+    return generations.filter((item) => {
+      const searchMatch = item.prompt
+        .toLowerCase()
+        .includes(historySearch.toLowerCase());
+
+      if (!searchMatch) return false;
+
+      if (historyFilter === "all") return true;
+      if (historyFilter === "success") return item.status === "success";
+      if (historyFilter === "failed") return item.status === "failed";
+      if (historyFilter === "processing") return item.status === "processing";
+      return true;
+    });
+  }, [generations, historyFilter, historySearch]);
+
+  const applyPromptPreset = (preset: string) => {
+    if (active === "reference-to-image") {
+      setReferencePrompt((prev) =>
+        prev ? `${prev.trim()}, ${preset}` : preset
+      );
+    } else {
+      setTextPrompt((prev) => (prev ? `${prev.trim()}, ${preset}` : preset));
+    }
+  };
+
   const logout = async () => {
     await supabase.auth.signOut();
     setIsAuthed(false);
@@ -1288,11 +1587,56 @@ export default function CreateImageClient({
     };
   }, [generations]);
 
+  const reusePrompt = (item: SavedImageGeneration) => {
+    if (item.kind === "reference-to-image") {
+      router.push("/create/image?tab=reference-to-image");
+      setReferencePrompt(item.prompt);
+    } else {
+      router.push("/create/image?tab=text-to-image");
+      setTextPrompt(item.prompt);
+    }
+  };
+
+  const reuseSettings = (item: SavedImageGeneration) => {
+    if (item.kind === "reference-to-image") {
+      router.push("/create/image?tab=reference-to-image");
+    } else {
+      router.push("/create/image?tab=text-to-image");
+    }
+
+    setAspect(item.aspect);
+    setOutputFormat(item.outputFormat);
+    setProvider(item.provider);
+
+    if (item.provider === "byteplus") {
+      const match = BYTEPLUS_MODELS.find((m) => m.label === item.model);
+      if (match) {
+        setByteplusModel(match.value);
+      }
+    } else {
+      setModel(item.model);
+    }
+  };
+
+  const remixGeneration = (item: SavedImageGeneration) => {
+    reuseSettings(item);
+
+    if (item.kind === "reference-to-image") {
+      setReferencePrompt(
+        `${item.prompt}, remix variation, enhanced composition, premium details`
+      );
+    } else {
+      setTextPrompt(
+        `${item.prompt}, remix variation, enhanced composition, premium details`
+      );
+    }
+  };
+
   return (
     <div className="relative min-h-screen overflow-x-hidden text-white">
       <WallpaperRevealBackground src="/wallpaper.jpg" radius={260} />
 
-      <div className="relative z-10 mx-auto max-w-[1550px] px-5 py-5 sm:px-6">
+      <div className="relative z-10 mx-auto max-w-[1580px] px-5 py-5 sm:px-6">
         <motion.div
           initial={{ opacity: 0, y: -12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -1358,7 +1702,7 @@ export default function CreateImageClient({
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.04, duration: 0.35 }}
-          className="mt-5 grid gap-5 lg:grid-cols-[430px_1fr]"
+          className="mt-5 grid gap-5 lg:grid-cols-[460px_1fr]"
         >
           <GlassPanel className="p-4">
             <div className="rounded-[24px] border border-white/10 bg-black/22 p-2">
@@ -1375,132 +1719,115 @@ export default function CreateImageClient({
             </div>
 
             <div className="mt-4 space-y-4">
-              {active === "reference-to-image" && (
-                <>
-                  <UploadImagesCard
-                    title="Reference Uploads"
-                    subtitle="Upload 1 to 4 reference images"
-                    maxFiles={4}
-                    files={refImages}
-                    onChangeFiles={setRefImages}
-                  />
+              <div className="rounded-[24px] border border-white/10 bg-black/22 p-4">
+                <SectionTitle icon={<Upload size={14} />} kicker="Inputs">
+                  Source Material
+                </SectionTitle>
 
-                  <div className="rounded-[24px] border border-white/10 bg-black/22 p-4">
-                    <SectionTitle icon={<Sparkles size={14} />}>
-                      Prompt
-                    </SectionTitle>
-                    <textarea
-                      value={referencePrompt}
-                      onChange={(e) => setReferencePrompt(e.target.value)}
-                      className="mt-3 h-28 w-full resize-none rounded-[20px] border border-white/10 bg-black/30 px-4 py-3 text-sm text-white placeholder:text-white/36 outline-none transition focus:border-white/25 focus:bg-black/35"
-                      placeholder="Describe what to generate and what to preserve from the references..."
+                <div className="mt-4 space-y-4">
+                  {active === "reference-to-image" ? (
+                    <UploadImagesCard
+                      title="Reference Uploads"
+                      subtitle="Upload 1 to 4 reference images"
+                      maxFiles={4}
+                      files={refImages}
+                      onChangeFiles={setRefImages}
                     />
-                  </div>
-                </>
-              )}
-
-              {active === "text-to-image" && (
-                <div className="rounded-[24px] border border-white/10 bg-black/22 p-4">
-                  <SectionTitle icon={<Sparkles size={14} />}>
-                    Prompt
-                  </SectionTitle>
-                  <textarea
-                    value={textPrompt}
-                    onChange={(e) => setTextPrompt(e.target.value)}
-                    className="mt-3 h-40 w-full resize-none rounded-[20px] border border-white/10 bg-black/30 px-4 py-3 text-sm text-white placeholder:text-white/36 outline-none transition focus:border-white/25 focus:bg-black/35"
-                    placeholder="Write the full image prompt..."
-                  />
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-6 text-sm text-white/45">
+                      No reference uploads needed for text-to-image.
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
 
               <div className="rounded-[24px] border border-white/10 bg-black/22 p-4">
-                <div className="mb-4 flex items-center justify-between">
-                  <SectionTitle icon={<Palette size={14} />}>
-                    Generation Settings
-                  </SectionTitle>
-                  <div className="rounded-full border border-violet-400/20 bg-violet-400/10 px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-violet-100/75">
-                    Premium create
-                  </div>
+                <SectionTitle icon={<Sparkles size={14} />} kicker="Prompt">
+                  Creative Direction
+                </SectionTitle>
+
+                <textarea
+                  value={active === "reference-to-image" ? referencePrompt : textPrompt}
+                  onChange={(e) =>
+                    active === "reference-to-image"
+                      ? setReferencePrompt(e.target.value)
+                      : setTextPrompt(e.target.value)
+                  }
+                  className="mt-4 h-36 w-full resize-none rounded-[20px] border border-white/10 bg-black/30 px-4 py-3 text-sm text-white placeholder:text-white/36 outline-none transition focus:border-white/25 focus:bg-black/35"
+                  placeholder={
+                    active === "reference-to-image"
+                      ? "Describe what to generate and what to preserve from the references..."
+                      : "Write the full image prompt..."
+                  }
+                />
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {PROMPT_PRESETS.map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => applyPromptPreset(preset)}
+                      className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-white/70 transition hover:border-white/20 hover:bg-white/[0.06]"
+                    >
+                      {preset}
+                    </button>
+                  ))}
                 </div>
+              </div>
 
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="text-sm text-white/70">Provider</div>
-                    <select
-                      value={provider}
-                      onChange={(e) =>
-                        setProvider(e.target.value as ImageProvider)
-                      }
-                      className="min-w-[170px] rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white/80 outline-none transition focus:border-white/25"
-                    >
-                      <option value="google">Google</option>
-                      <option value="openai">OpenAI</option>
-                      <option value="byteplus">BytePlus</option>
-                    </select>
-                  </div>
+              <div className="rounded-[24px] border border-white/10 bg-black/22 p-4">
+                <SectionTitle icon={<Palette size={14} />} kicker="Settings">
+                  Generation Settings
+                </SectionTitle>
 
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="text-sm text-white/70">Model</div>
-                    {provider === "byteplus" ? (
-                      <select
-                        value={byteplusModel}
-                        onChange={(e) =>
-                          setByteplusModel(e.target.value as BytePlusModel)
-                        }
-                        className="min-w-[170px] rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white/80 outline-none transition focus:border-white/25"
-                      >
-                        {visibleByteplusModels.map((item) => (
-                          <option key={item.value} value={item.value}>
-                            {item.label}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <select
-                        value={model}
-                        onChange={(e) => setModel(e.target.value)}
-                        className="min-w-[170px] rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white/80 outline-none transition focus:border-white/25"
-                      >
-                        {provider === "google" ? (
-                          <option value="Nano Banana Pro">Nano Banana Pro</option>
-                        ) : (
-                          <option value="GPT Image 1.5">GPT Image 1.5</option>
-                        )}
-                      </select>
-                    )}
-                  </div>
-
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="text-sm text-white/70">Output Format</div>
-                    <select
-                      value={outputFormat}
-                      onChange={(e) => setOutputFormat(e.target.value)}
-                      className="min-w-[170px] rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white/80 outline-none transition focus:border-white/25"
-                    >
-                      <option value="PNG">PNG</option>
-                      <option value="JPG">JPG</option>
-                      <option value="WEBP">WEBP</option>
-                    </select>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="text-sm text-white/70">Aspect Ratio</div>
-                    <select
-                      value={aspect}
-                      onChange={(e) => setAspect(e.target.value)}
-                      className="min-w-[170px] rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white/80 outline-none transition focus:border-white/25"
-                    >
-                      {ALL_ASPECT_OPTIONS.map((value) => (
-                        <option key={value} value={value}>
-                          {value}
-                        </option>
-                      ))}
-                    </select>
+                <div className="mt-4 space-y-5">
+                  <div>
+                    <div className="mb-2 text-sm text-white/70">Provider</div>
+                    <ProviderCardSelector value={provider} onChange={setProvider} />
                   </div>
 
                   <div>
-                    <div className="text-sm text-white/70">Amount</div>
-                    <div className="mt-2 grid grid-cols-4 gap-2">
+                    <div className="mb-2 text-sm text-white/70">Model</div>
+                    <ModelCardSelector
+                      provider={provider}
+                      activeTool={active}
+                      model={model}
+                      byteplusModel={byteplusModel}
+                      visibleByteplusModels={visibleByteplusModels}
+                      onSetModel={setModel}
+                      onSetByteplusModel={setByteplusModel}
+                    />
+                  </div>
+
+                  <div>
+                    <div className="mb-2 text-sm text-white/70">Output Format</div>
+                    <ChipSelector
+                      value={outputFormat}
+                      onChange={setOutputFormat}
+                      options={ALL_FORMAT_OPTIONS.map((value) => ({
+                        value,
+                        meta:
+                          value === "PNG"
+                            ? "best quality"
+                            : value === "JPG"
+                              ? "smaller size"
+                              : "modern format",
+                      }))}
+                    />
+                  </div>
+
+                  <div>
+                    <div className="mb-2 text-sm text-white/70">Aspect Ratio</div>
+                    <ChipSelector
+                      value={aspect}
+                      onChange={setAspect}
+                      options={ALL_ASPECT_OPTIONS.map((value) => ({ value }))}
+                    />
+                  </div>
+
+                  <div>
+                    <div className="mb-2 text-sm text-white/70">Amount</div>
+                    <div className="grid grid-cols-4 gap-2">
                       {[1, 2, 3, 4].map((n) => (
                         <motion.button
                           key={n}
@@ -1519,28 +1846,34 @@ export default function CreateImageClient({
                       ))}
                     </div>
                   </div>
-
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <StatCard
-                      label="Generation cost"
-                      value={`${imageCreditCost} credits`}
-                    />
-                    <StatCard
-                      label="Balance after"
-                      value={remainingCreditsAfterCreate ?? "Loading..."}
-                      danger={
-                        remainingCreditsAfterCreate != null &&
-                        remainingCreditsAfterCreate < 0
-                      }
-                    />
-                  </div>
-
-                  {!hasEnoughCredits && credits != null && (
-                    <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-3 py-2.5 text-xs text-red-200">
-                      You do not have enough credits for this image generation.
-                    </div>
-                  )}
                 </div>
+              </div>
+
+              <div className="sticky bottom-4 z-20 rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(18,18,24,0.95),rgba(10,10,14,0.95))] p-4 backdrop-blur-2xl shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
+                <SectionTitle icon={<Coins size={14} />} kicker="Summary">
+                  Ready to Generate
+                </SectionTitle>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <StatCard
+                    label="Generation cost"
+                    value={`${imageCreditCost} credits`}
+                  />
+                  <StatCard
+                    label="Balance after"
+                    value={remainingCreditsAfterCreate ?? "Loading..."}
+                    danger={
+                      remainingCreditsAfterCreate != null &&
+                      remainingCreditsAfterCreate < 0
+                    }
+                  />
+                </div>
+
+                {!hasEnoughCredits && credits != null && (
+                  <div className="mt-3 rounded-2xl border border-red-500/20 bg-red-500/10 px-3 py-2.5 text-xs text-red-200">
+                    You do not have enough credits for this image generation.
+                  </div>
+                )}
 
                 <motion.button
                   type="button"
@@ -1590,6 +1923,55 @@ export default function CreateImageClient({
               )}
             </AnimatePresence>
 
+            {currentTask && (
+              <div className="mt-4 rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[11px] uppercase tracking-[0.18em] text-white/35">
+                      Current Task
+                    </div>
+                    <div className="mt-1 text-sm text-white/75">
+                      {prettyImageStatus(currentTask.status)}
+                    </div>
+                  </div>
+                  <div className="rounded-full border border-violet-400/20 bg-violet-400/10 px-3 py-1 text-xs text-violet-100">
+                    {currentTask.model} • {currentTask.aspect} • {currentTask.outputFormat}
+                  </div>
+                </div>
+
+                <div className="mt-4 grid grid-cols-3 gap-2">
+                  {[
+                    { label: "Created", state: true, done: true },
+                    { label: "Rendering", state: true, done: false },
+                    { label: "Ready", state: false, done: false },
+                  ].map((step) => (
+                    <div
+                      key={step.label}
+                      className={cn(
+                        "rounded-2xl border px-3 py-3 text-center text-xs transition",
+                        step.done
+                          ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
+                          : step.state
+                            ? "border-violet-400/20 bg-violet-400/10 text-violet-100"
+                            : "border-white/10 bg-black/20 text-white/45"
+                      )}
+                    >
+                      <div className="mb-1 flex justify-center">
+                        {step.done ? (
+                          <CheckCircle2 size={14} />
+                        ) : step.state ? (
+                          <LoaderCircle size={14} className="animate-spin" />
+                        ) : (
+                          <div className="h-3.5 w-3.5 rounded-full border border-white/20" />
+                        )}
+                      </div>
+                      {step.label}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="mt-4 grid gap-4 xl:grid-cols-[1.28fr_0.72fr]">
               <div className="overflow-hidden rounded-[28px] border border-white/10 bg-black/18">
                 <div className="border-b border-white/10 px-4 py-3">
@@ -1637,7 +2019,7 @@ export default function CreateImageClient({
                             <img
                               src={selectedGeneration.imageUrl}
                               alt={selectedGeneration.prompt}
-                              className="max-h-[700px] w-full rounded-[24px] border border-white/10 bg-black object-contain"
+                              className="max-h-[720px] w-full rounded-[24px] border border-white/10 bg-black object-contain"
                               draggable={false}
                             />
                           ) : selectedGeneration.status === "failed" ? (
@@ -1716,39 +2098,99 @@ export default function CreateImageClient({
                           </div>
                         )}
 
-                        {selectedGeneration.imageUrl && (
-                          <a
-                            href={selectedGeneration.imageUrl}
-                            download={`koa-image-${selectedGeneration.id}.${selectedGeneration.mimeType?.includes("jpeg") ? "jpg" : selectedGeneration.mimeType?.split("/")[1] || "png"}`}
-                            className="mt-4 inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm text-white/75 transition hover:border-white/20 hover:bg-white/[0.06]"
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => reusePrompt(selectedGeneration)}
+                            className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm text-white/75 transition hover:border-white/20 hover:bg-white/[0.06]"
                           >
-                            <Download size={15} />
-                            Download image
-                          </a>
-                        )}
+                            <Wand2 size={15} />
+                            Reuse prompt
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => reuseSettings(selectedGeneration)}
+                            className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm text-white/75 transition hover:border-white/20 hover:bg-white/[0.06]"
+                          >
+                            <SlidersHorizontal size={15} />
+                            Reuse settings
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => remixGeneration(selectedGeneration)}
+                            className="inline-flex items-center gap-2 rounded-2xl border border-violet-300/20 bg-violet-400/10 px-4 py-2.5 text-sm text-violet-100 transition hover:border-violet-200/30 hover:bg-violet-400/15"
+                          >
+                            <Sparkles size={15} />
+                            Remix this
+                          </button>
+
+                          {selectedGeneration.imageUrl && (
+                            <a
+                              href={selectedGeneration.imageUrl}
+                              download={`koa-image-${selectedGeneration.id}.${selectedGeneration.mimeType?.includes("jpeg") ? "jpg" : selectedGeneration.mimeType?.split("/")[1] || "png"}`}
+                              className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm text-white/75 transition hover:border-white/20 hover:bg-white/[0.06]"
+                            >
+                              <Download size={15} />
+                              Download image
+                            </a>
+                          )}
+                        </div>
                       </div>
                     </>
                   ) : (
-                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-2">
-                      {[
-                        "/backgrounds/1.jpg",
-                        "/backgrounds/2.jpg",
-                        "/backgrounds/3.jpg",
-                        "/backgrounds/4.jpg",
-                      ].map((src, index) => (
-                        <div
-                          key={`${src}-${index}`}
-                          className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/30"
-                        >
-                          <img
-                            src={src}
-                            alt=""
-                            className="h-60 w-full object-cover"
-                            draggable={false}
-                          />
-                          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                    <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02))] p-6">
+                      <div className="flex items-start gap-4">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-violet-300/20 bg-violet-400/10 text-violet-100">
+                          <ImageIcon size={20} />
                         </div>
-                      ))}
+
+                        <div>
+                          <div className="text-lg font-semibold text-white">
+                            Create premium AI images
+                          </div>
+                          <div className="mt-1 max-w-xl text-sm text-white/55">
+                            Build polished visuals from text prompts or reference
+                            images. Your latest renders appear here.
+                          </div>
+
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            {["Text to image", "Reference guided", "Premium renders"].map(
+                              (pill) => (
+                                <div
+                                  key={pill}
+                                  className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-white/70"
+                                >
+                                  {pill}
+                                </div>
+                              )
+                            )}
+                          </div>
+
+                          <div className="mt-5 grid gap-3 md:grid-cols-2">
+                            {[
+                              "/backgrounds/1.jpg",
+                              "/backgrounds/2.jpg",
+                              "/backgrounds/3.jpg",
+                              "/backgrounds/4.jpg",
+                            ].map((src, index) => (
+                              <div
+                                key={`${src}-${index}`}
+                                className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/30"
+                              >
+                                <img
+                                  src={src}
+                                  alt=""
+                                  className="h-56 w-full object-cover"
+                                  draggable={false}
+                                />
+                                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1860,7 +2302,7 @@ export default function CreateImageClient({
                   All Generated Images
                 </div>
                 <div className="mt-1 text-sm text-white/45">
-                  Browse everything you created in a more premium gallery layout
+                  Browse, search, and filter your image history
                 </div>
               </div>
 
@@ -1871,6 +2313,8 @@ export default function CreateImageClient({
                     setGenerations([]);
                     setSelectedGeneration(null);
                     setError(null);
+                    setHistorySearch("");
+                    setHistoryFilter("all");
 
                     try {
                       localStorage.removeItem(IMAGE_GENERATIONS_STORAGE_KEY);
@@ -1886,9 +2330,44 @@ export default function CreateImageClient({
               )}
             </div>
 
-            {generations.length > 0 ? (
+            <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="flex flex-wrap gap-2">
+                {(["all", "success", "failed", "processing"] as const).map(
+                  (filter) => (
+                    <button
+                      key={filter}
+                      type="button"
+                      onClick={() => setHistoryFilter(filter)}
+                      className={cn(
+                        "rounded-full border px-3 py-1.5 text-xs transition",
+                        historyFilter === filter
+                          ? "border-violet-300/20 bg-violet-400/10 text-violet-100"
+                          : "border-white/10 bg-white/[0.03] text-white/65 hover:border-white/20 hover:bg-white/[0.06]"
+                      )}
+                    >
+                      {filter}
+                    </button>
+                  )
+                )}
+              </div>
+
+              <div className="relative w-full md:w-[320px]">
+                <Search
+                  size={14}
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/35"
+                />
+                <input
+                  value={historySearch}
+                  onChange={(e) => setHistorySearch(e.target.value)}
+                  placeholder="Search prompt history..."
+                  className="w-full rounded-2xl border border-white/10 bg-white/[0.03] px-10 py-2.5 text-sm text-white placeholder:text-white/30 outline-none transition focus:border-white/20"
+                />
+              </div>
+            </div>
+
+            {filteredHistory.length > 0 ? (
               <div className="mt-5 columns-1 gap-4 sm:columns-2 xl:columns-3 2xl:columns-4">
-                {generations.map((item) => (
+                {filteredHistory.map((item) => (
                   <div key={item.id} className="mb-4 break-inside-avoid">
                     <ImageHistoryCard
                       item={item}
@@ -1896,6 +2375,10 @@ export default function CreateImageClient({
                     />
                   </div>
                 ))}
+              </div>
+            ) : generations.length > 0 ? (
+              <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 px-4 py-8 text-center text-sm text-white/50">
+                No items match your current filters.
               </div>
             ) : (
               <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
