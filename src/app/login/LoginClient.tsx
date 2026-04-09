@@ -9,7 +9,7 @@ import { createClient } from "@/app/lib/supabase/client";
 export default function LoginClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [isSignup, setIsSignup] = useState(false);
@@ -22,6 +22,14 @@ export default function LoginClient() {
     const r = searchParams.get("next") || searchParams.get("redirect");
     return r && r.startsWith("/") ? r : "/tools";
   }, [searchParams]);
+
+  const goHome = () => {
+    router.push("/");
+  };
+
+  const goBack = () => {
+    router.push(redirect || "/tools");
+  };
 
   const handleEmailAuth = async () => {
     if (!email || !password) {
@@ -40,6 +48,10 @@ export default function LoginClient() {
             data: {
               invitationCode,
             },
+            emailRedirectTo:
+              typeof window !== "undefined"
+                ? `${window.location.origin}${redirect}`
+                : undefined,
           },
         });
 
@@ -85,30 +97,39 @@ export default function LoginClient() {
         <div className="relative z-10 flex items-center justify-between px-8 py-7">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => router.push("/")}
-              className="rounded-full border border-white/15 bg-black/30 px-4 py-2 text-sm font-semibold text-white/85 hover:bg-black/45"
+              type="button"
+              onClick={goHome}
+              className="cursor-pointer rounded-full border border-white/15 bg-black/30 px-4 py-2 text-sm font-semibold text-white/85 transition hover:bg-black/45"
               title="Home"
             >
               Home
             </button>
 
-            <div className="relative h-9 w-9 overflow-hidden rounded-xl border border-white/10 bg-black/30">
-              <Image
-                src="/koanimationlogo.png"
-                alt="KOANimation"
-                fill
-                className="object-contain p-1 mix-blend-screen"
-              />
-            </div>
+            <button
+              type="button"
+              onClick={goHome}
+              className="group relative flex cursor-pointer items-center gap-3 rounded-2xl text-left transition hover:bg-white/[0.04] focus:outline-none"
+              aria-label="Go to homepage"
+            >
+              <div className="relative h-9 w-9 overflow-hidden rounded-xl border border-white/10 bg-black/30">
+                <Image
+                  src="/koanimationlogo.png"
+                  alt="KOANimation"
+                  fill
+                  className="object-contain p-1 mix-blend-screen transition duration-300 group-hover:scale-[1.04]"
+                />
+              </div>
 
-            <div className="text-lg font-semibold tracking-tight">
-              KOANimation
-            </div>
+              <div className="text-lg font-semibold tracking-tight transition group-hover:text-white/90">
+                KOANimation
+              </div>
+            </button>
           </div>
 
           <button
-            onClick={() => router.push("/tools")}
-            className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white/90 hover:bg-white/15"
+            type="button"
+            onClick={goBack}
+            className="cursor-pointer rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white/90 transition hover:bg-white/15"
           >
             Back
           </button>
@@ -116,9 +137,14 @@ export default function LoginClient() {
 
         <div className="relative z-10 flex min-h-[calc(100vh-84px)] items-center justify-end px-8 pb-10">
           <div className="w-full max-w-[520px] rounded-3xl border border-white/10 bg-white/10 p-8 shadow-[0_30px_120px_rgba(0,0,0,0.65)] backdrop-blur">
-            <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-black/25">
+            <button
+              type="button"
+              onClick={goHome}
+              className="mx-auto mb-6 flex h-14 w-14 cursor-pointer items-center justify-center rounded-2xl border border-white/10 bg-black/25 transition hover:bg-black/35"
+              aria-label="Go to homepage"
+            >
               <div className="text-xl font-bold">K</div>
-            </div>
+            </button>
 
             <h1 className="text-center text-3xl font-semibold">
               Log in or sign up for free!
@@ -135,7 +161,7 @@ export default function LoginClient() {
                     "Google login comes next. For now use Continue with Email."
                   )
                 }
-                className="w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black hover:bg-white/90"
+                className="w-full cursor-pointer rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-white/90"
               >
                 Continue with Google
               </button>
@@ -147,7 +173,7 @@ export default function LoginClient() {
                     "Apple login comes later. For now use Continue with Email."
                   )
                 }
-                className="w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black hover:bg-white/90"
+                className="w-full cursor-pointer rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-white/90"
               >
                 Continue with Apple
               </button>
@@ -155,7 +181,7 @@ export default function LoginClient() {
               <button
                 type="button"
                 onClick={() => setShowEmailForm((prev) => !prev)}
-                className="w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black hover:bg-white/90"
+                className="w-full cursor-pointer rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-white/90"
               >
                 Continue with Email
               </button>
@@ -173,7 +199,7 @@ export default function LoginClient() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25"
+                  className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm text-white placeholder:text-white/40 outline-none transition focus:border-white/25"
                   placeholder="Email address"
                 />
 
@@ -181,15 +207,20 @@ export default function LoginClient() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25"
+                  className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm text-white placeholder:text-white/40 outline-none transition focus:border-white/25"
                   placeholder="Password"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !loading) {
+                      void handleEmailAuth();
+                    }
+                  }}
                 />
 
                 {!isSignup && (
                   <div className="text-right">
                     <Link
                       href="/forgot-password"
-                      className="text-sm text-white/60 hover:text-white"
+                      className="text-sm text-white/60 transition hover:text-white"
                     >
                       Forgot your password?
                     </Link>
@@ -198,9 +229,9 @@ export default function LoginClient() {
 
                 <button
                   type="button"
-                  onClick={handleEmailAuth}
+                  onClick={() => void handleEmailAuth()}
                   disabled={loading}
-                  className="w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="w-full cursor-pointer rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {loading
                     ? "Please wait..."
@@ -212,7 +243,7 @@ export default function LoginClient() {
                 <button
                   type="button"
                   onClick={() => setIsSignup((prev) => !prev)}
-                  className="w-full text-sm text-white/70 underline underline-offset-2 hover:text-white"
+                  className="w-full cursor-pointer text-sm text-white/70 underline underline-offset-2 transition hover:text-white"
                 >
                   {isSignup
                     ? "Already have an account? Log in"
@@ -224,7 +255,7 @@ export default function LoginClient() {
             <input
               value={invitationCode}
               onChange={(e) => setInvitationCode(e.target.value)}
-              className="mt-6 w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25"
+              className="mt-6 w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm text-white placeholder:text-white/40 outline-none transition focus:border-white/25"
               placeholder="Enter invitation code (optional)"
             />
 
