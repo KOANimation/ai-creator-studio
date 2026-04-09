@@ -597,41 +597,33 @@ export default function CreateImageClient() {
 
   const hasEnoughCredits = credits != null ? credits >= imageCreditCost : true;
 
-const deductCredits = async (
-  amountToDeduct: number,
-  description: string,
-  metadata: Record<string, unknown>
-) => {
-  console.log("[deductCredits] START");
+  const deductCredits = async (
+    amountToDeduct: number,
+    description: string,
+    metadata: Record<string, unknown>
+  ) => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    if (!user) {
+      throw new Error("You must be logged in.");
+    }
 
-  console.log("[deductCredits] user:", user?.id);
+    const { data, error } = await supabase.rpc("deduct_credits_safe", {
+      p_user_id: user.id,
+      p_amount: amountToDeduct,
+      p_description: description,
+      p_metadata: metadata,
+    });
 
-  if (!user) {
-    throw new Error("You must be logged in.");
-  }
+    if (error) {
+      throw new Error(error.message || "Failed to deduct credits.");
+    }
 
-  const { data, error } = await supabase.rpc("deduct_credits_safe", {
-    p_user_id: user.id,
-    p_amount: amountToDeduct,
-    p_description: description,
-    p_metadata: metadata,
-  });
-
-  console.log("[deductCredits] result:", { data, error });
-
-  if (error) {
-    throw new Error(error.message || "Failed to deduct credits.");
-  }
-
-  await refreshCredits();
-  console.log("[deductCredits] DONE");
-
-  return data;
-};
+    await refreshCredits();
+    return data;
+  };
 
   const refundCredits = async (
     amountToRefund: number,
