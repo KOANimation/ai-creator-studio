@@ -1,5 +1,7 @@
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
 import CreateImageClient from "./CreateImageClient";
+import { createClient } from "@/app/lib/supabase/server";
 
 function CreateImageFallback() {
   return (
@@ -13,10 +15,28 @@ function CreateImageFallback() {
   );
 }
 
-export default function CreateImagePage() {
+export default async function CreateImagePage() {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login?redirect=%2Fcreate%2Fimage%3Ftab%3Dreference-to-image");
+  }
+
+  const { data: wallet } = await supabase
+    .from("credit_wallets")
+    .select("balance")
+    .eq("user_id", user.id)
+    .single();
+
+  const initialCredits = wallet?.balance ?? 0;
+
   return (
     <Suspense fallback={<CreateImageFallback />}>
-      <CreateImageClient />
+      <CreateImageClient initialCredits={initialCredits} />
     </Suspense>
   );
 }

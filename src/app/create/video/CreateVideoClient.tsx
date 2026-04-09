@@ -780,10 +780,14 @@ function VideoHistoryCard({
   );
 }
 
-export default function CreateVideoClient() {
+export default function CreateVideoClient({
+  initialCredits,
+}: {
+  initialCredits: number;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const tabParam = (searchParams.get("tab") || "") as VideoToolKey | "";
   const [active, setActive] = useState<VideoToolKey>("reference-to-video");
@@ -791,7 +795,7 @@ export default function CreateVideoClient() {
   const [mounted, setMounted] = useState(false);
   const [isAuthed, setIsAuthed] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
-  const [credits, setCredits] = useState<number | null>(null);
+  const [credits, setCredits] = useState<number | null>(initialCredits);
 
   const [startFrame, setStartFrame] = useState<File | null>(null);
   const [endFrame, setEndFrame] = useState<File | null>(null);
@@ -1035,7 +1039,7 @@ export default function CreateVideoClient() {
   const remainingCreditsAfterCreate =
     credits != null ? credits - videoCreditCost : null;
 
-  const hasEnoughCredits = credits != null ? credits >= videoCreditCost : true;
+  const hasEnoughCredits = credits != null && credits >= videoCreditCost;
 
   const deductCredits = async (
     description: string,
@@ -1105,6 +1109,7 @@ export default function CreateVideoClient() {
   const createReferenceToVideo = async () => {
     try {
       setError(null);
+      setIsCreating(true);
 
       if (credits != null && credits < videoCreditCost) {
         throw new Error(
@@ -1148,8 +1153,6 @@ export default function CreateVideoClient() {
         refClipCount: refClips.length,
         refImageCount: refImages.length,
       });
-
-      setIsCreating(true);
 
       const requests = Array.from({ length: amount }, async () => {
         const formData = new FormData();
@@ -1237,6 +1240,7 @@ export default function CreateVideoClient() {
   const createImageOrStartEndVideo = async () => {
     try {
       setError(null);
+      setIsCreating(true);
 
       if (credits != null && credits < videoCreditCost) {
         throw new Error(
@@ -1271,8 +1275,6 @@ export default function CreateVideoClient() {
           amount,
         }
       );
-
-      setIsCreating(true);
 
       let mode: GenerationKind = "image-to-video";
       let endpoint = "/api/vidu/image";
@@ -1384,6 +1386,7 @@ export default function CreateVideoClient() {
   const createTextToVideo = async () => {
     try {
       setError(null);
+      setIsCreating(true);
 
       if (credits != null && credits < videoCreditCost) {
         throw new Error(
@@ -1403,8 +1406,6 @@ export default function CreateVideoClient() {
         aspect,
         amount,
       });
-
-      setIsCreating(true);
 
       const requests = Array.from({ length: amount }, async () => {
         const res = await fetch("/api/vidu/text", {
@@ -1696,7 +1697,7 @@ export default function CreateVideoClient() {
 
           <div className="flex items-center gap-2">
             <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/80">
-              ⚡ Credits: {credits ?? "..."}
+              ⚡ Credits: {credits == null ? "Loading..." : credits}
             </div>
             <button className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/80 hover:border-white/20 hover:bg-white/[0.06]">
               API Platform
@@ -1958,11 +1959,11 @@ export default function CreateVideoClient() {
                           : "text-white"
                       }`}
                     >
-                      {remainingCreditsAfterCreate ?? "..."}
+                      {remainingCreditsAfterCreate ?? "Loading..."}
                     </span>
                   </div>
 
-                  {!hasEnoughCredits && (
+                  {!hasEnoughCredits && credits != null && (
                     <div className="mt-3 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-200">
                       You do not have enough credits for this video generation.
                     </div>
@@ -1986,7 +1987,7 @@ export default function CreateVideoClient() {
                       void createTextToVideo();
                     }
                   }}
-                  disabled={isCreating || !hasEnoughCredits}
+                  disabled={isCreating || credits == null || !hasEnoughCredits}
                   className="mt-4 w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isCreating

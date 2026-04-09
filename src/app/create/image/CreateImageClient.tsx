@@ -111,8 +111,7 @@ function getImageGenerationCost({
     extraRefCost = Math.max(0, refCount - 1) * 2;
   }
 
-  const total = (perImageCost + extraRefCost) * amount;
-  return total;
+  return (perImageCost + extraRefCost) * amount;
 }
 
 function openImageDb(): Promise<IDBDatabase> {
@@ -524,7 +523,11 @@ function ImageHistoryCard({
   );
 }
 
-export default function CreateImageClient() {
+export default function CreateImageClient({
+  initialCredits,
+}: {
+  initialCredits: number;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = useMemo(() => createClient(), []);
@@ -535,7 +538,7 @@ export default function CreateImageClient() {
   const [mounted, setMounted] = useState(false);
   const [isAuthed, setIsAuthed] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
-  const [credits, setCredits] = useState<number | null>(null);
+  const [credits, setCredits] = useState<number | null>(initialCredits);
 
   const [refImages, setRefImages] = useState<File[]>([]);
   const [referencePrompt, setReferencePrompt] = useState("");
@@ -595,7 +598,7 @@ export default function CreateImageClient() {
   const remainingCreditsAfterCreate =
     credits != null ? credits - imageCreditCost : null;
 
-  const hasEnoughCredits = credits != null ? credits >= imageCreditCost : true;
+  const hasEnoughCredits = credits != null && credits >= imageCreditCost;
 
   const deductCredits = async (
     amountToDeduct: number,
@@ -861,6 +864,7 @@ export default function CreateImageClient() {
 
     try {
       setError(null);
+      setIsCreating(true);
 
       if (credits != null && credits < imageCreditCost) {
         throw new Error(
@@ -909,8 +913,6 @@ export default function CreateImageClient() {
           referenceCount: refImages.length,
         }
       );
-
-      setIsCreating(true);
 
       const timestamp = new Date().toISOString();
 
@@ -1136,7 +1138,7 @@ export default function CreateImageClient() {
 
           <div className="flex items-center gap-2">
             <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/80">
-              ⚡ Credits: {credits ?? "..."}
+              ⚡ Credits: {credits == null ? "Loading..." : credits}
             </div>
             <button className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/80 hover:border-white/20 hover:bg-white/[0.06]">
               API Platform
@@ -1324,11 +1326,11 @@ export default function CreateImageClient() {
                           : "text-white"
                       }`}
                     >
-                      {remainingCreditsAfterCreate ?? "..."}
+                      {remainingCreditsAfterCreate ?? "Loading..."}
                     </span>
                   </div>
 
-                  {!hasEnoughCredits && (
+                  {!hasEnoughCredits && credits != null && (
                     <div className="mt-3 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-200">
                       You do not have enough credits for this image generation.
                     </div>
@@ -1338,7 +1340,7 @@ export default function CreateImageClient() {
                 <button
                   type="button"
                   onClick={() => void createImages()}
-                  disabled={isCreating || !hasEnoughCredits}
+                  disabled={isCreating || credits == null || !hasEnoughCredits}
                   className="mt-4 w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isCreating
