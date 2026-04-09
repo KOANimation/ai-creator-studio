@@ -527,7 +527,7 @@ function ImageHistoryCard({
 export default function CreateImageClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const tabParam = (searchParams.get("tab") || "") as ImageToolKey | "";
   const [active, setActive] = useState<ImageToolKey>("reference-to-image");
