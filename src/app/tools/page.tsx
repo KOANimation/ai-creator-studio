@@ -644,7 +644,12 @@ export default function ToolsPage() {
           <aside className="xl:sticky xl:top-4 xl:self-start">
             <GlassPanel className="overflow-hidden">
               <div className="relative z-10 p-4">
-                <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={goSiteHome}
+                  className="group flex w-full cursor-pointer items-center gap-3 rounded-2xl text-left transition hover:bg-white/[0.04] focus:outline-none"
+                  aria-label="Go to homepage"
+                >
                   <div className="relative flex h-[56px] w-[56px] items-center justify-center overflow-visible">
                     <div className="relative h-[56px] w-[56px]">
                       <Image
@@ -652,20 +657,20 @@ export default function ToolsPage() {
                         alt="KOANimation logo"
                         fill
                         priority
-                        className="object-contain drop-shadow-[0_0_18px_rgba(168,85,247,0.45)]"
+                        className="object-contain drop-shadow-[0_0_18px_rgba(168,85,247,0.45)] transition duration-300 group-hover:scale-[1.03]"
                       />
                     </div>
                   </div>
 
                   <div className="min-w-0">
-                    <div className="text-lg font-semibold tracking-tight">
+                    <div className="text-lg font-semibold tracking-tight text-white transition group-hover:text-white/95">
                       KOANimation
                     </div>
                     <div className="text-[11px] uppercase tracking-[0.22em] text-violet-200/50">
                       Tools
                     </div>
                   </div>
-                </div>
+                </button>
 
                 <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.04] p-3">
                   <div className="flex items-center gap-2 text-sm text-white/85">
