@@ -25,7 +25,6 @@ import {
   Settings,
   Sparkles,
   Wand2,
-  Zap,
   PanelLeft,
   Film,
   History,
@@ -36,6 +35,7 @@ import {
   Command,
   House,
   Coins,
+  CreditCard,
 } from "lucide-react";
 import { createClient } from "@/app/lib/supabase/client";
 
@@ -339,8 +339,9 @@ function ToolCard({
       className="rounded-3xl"
     >
       <button
+        type="button"
         onClick={onClick}
-        className="group relative block w-full overflow-hidden rounded-3xl border border-white/10 bg-black/24 p-5 text-left backdrop-blur-xl transition duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.05]"
+        className="group relative block w-full cursor-pointer overflow-hidden rounded-3xl border border-white/10 bg-black/24 p-5 text-left backdrop-blur-xl transition duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.05]"
       >
         <div
           className={cn(
@@ -478,7 +479,7 @@ function SidebarSectionTitle({ children }: { children: ReactNode }) {
 
 export default function ToolsPage() {
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   useLenisScroll(true);
 
@@ -487,13 +488,31 @@ export default function ToolsPage() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [credits, setCredits] = useState<number | null>(null);
 
+  const refreshWallet = async (userId: string) => {
+    const { data, error } = await supabase
+      .from("credit_wallets")
+      .select("balance")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (!error && data) {
+      setCredits(data.balance);
+    } else {
+      setCredits(0);
+    }
+  };
+
   useEffect(() => {
+    let active = true;
+
     async function loadUserAndCredits() {
       setMounted(true);
 
       const {
         data: { user },
       } = await supabase.auth.getUser();
+
+      if (!active) return;
 
       setIsAuthed(!!user);
 
@@ -504,21 +523,33 @@ export default function ToolsPage() {
       }
 
       setUserEmail(user.email ?? null);
-
-      const { data, error } = await supabase
-        .from("credit_wallets")
-        .select("balance")
-        .eq("user_id", user.id)
-        .single();
-
-      if (!error && data) {
-        setCredits(data.balance);
-      } else {
-        setCredits(0);
-      }
+      await refreshWallet(user.id);
     }
 
     void loadUserAndCredits();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!active) return;
+
+      const user = session?.user ?? null;
+      setIsAuthed(!!user);
+
+      if (!user) {
+        setUserEmail(null);
+        setCredits(null);
+        return;
+      }
+
+      setUserEmail(user.email ?? null);
+      await refreshWallet(user.id);
+    });
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
   }, [supabase]);
 
   const logout = async () => {
@@ -530,19 +561,19 @@ export default function ToolsPage() {
   };
 
   const goVideo = (tool: VideoToolKey) => {
-    const target = `/create/video?tab=${tool}`;
-    if (mounted && isAuthed) router.push(target);
-    else router.push(`/login?redirect=${encodeURIComponent(target)}`);
+    router.push(`/create/video?tab=${tool}`);
   };
 
   const goImage = (tool: ImageToolKey) => {
-    const target = `/create/image?tab=${tool}`;
-    if (mounted && isAuthed) router.push(target);
-    else router.push(`/login?redirect=${encodeURIComponent(target)}`);
+    router.push(`/create/image?tab=${tool}`);
   };
 
   const goSiteHome = () => {
     router.push("/");
+  };
+
+  const goPricing = () => {
+    router.push("/pricing");
   };
 
   const heroVideos = useMemo(
@@ -651,8 +682,9 @@ export default function ToolsPage() {
                   <SidebarSectionTitle>Navigation</SidebarSectionTitle>
 
                   <button
+                    type="button"
                     onClick={goSiteHome}
-                    className="group flex w-full items-center justify-between rounded-2xl border border-white/20 bg-white/[0.07] px-4 py-3 text-left transition hover:bg-white/[0.1]"
+                    className="group flex w-full cursor-pointer items-center justify-between rounded-2xl border border-white/20 bg-white/[0.07] px-4 py-3 text-left transition hover:bg-white/[0.1]"
                   >
                     <div className="flex items-start gap-3">
                       <div className="mt-0.5 inline-flex rounded-xl border border-white/10 bg-white/[0.04] p-2 text-white/80">
@@ -675,8 +707,9 @@ export default function ToolsPage() {
                     {VIDEO_TOOLS.map((item) => (
                       <button
                         key={item.key}
+                        type="button"
                         onClick={() => goVideo(item.key)}
-                        className="group w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left transition hover:border-white/20 hover:bg-white/[0.06]"
+                        className="group w-full cursor-pointer rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left transition hover:border-white/20 hover:bg-white/[0.06]"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex items-start gap-3">
@@ -703,8 +736,9 @@ export default function ToolsPage() {
                     {IMAGE_TOOLS.map((item) => (
                       <button
                         key={item.key}
+                        type="button"
                         onClick={() => goImage(item.key)}
-                        className="group w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left transition hover:border-white/20 hover:bg-white/[0.06]"
+                        className="group w-full cursor-pointer rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left transition hover:border-white/20 hover:bg-white/[0.06]"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex items-start gap-3">
@@ -726,17 +760,26 @@ export default function ToolsPage() {
                     ))}
                   </div>
 
+                  <SidebarSectionTitle>Account</SidebarSectionTitle>
+
+                  <button
+                    type="button"
+                    onClick={goPricing}
+                    className="group flex w-full cursor-pointer items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-sm text-white/80 transition hover:border-white/20 hover:bg-white/[0.06]"
+                  >
+                    <CreditCard className="h-4 w-4 text-white/55" />
+                    Pricing & credits
+                  </button>
+
                   {mounted && isAuthed && (
-                    <>
-                      <SidebarSectionTitle>Account</SidebarSectionTitle>
-                      <button
-                        onClick={() => void logout()}
-                        className="group flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-sm text-white/80 transition hover:border-white/20 hover:bg-white/[0.06]"
-                      >
-                        <LogOut className="h-4 w-4 text-white/55" />
-                        Log out
-                      </button>
-                    </>
+                    <button
+                      type="button"
+                      onClick={() => void logout()}
+                      className="group flex w-full cursor-pointer items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-sm text-white/80 transition hover:border-white/20 hover:bg-white/[0.06]"
+                    >
+                      <LogOut className="h-4 w-4 text-white/55" />
+                      Log out
+                    </button>
                   )}
                 </div>
               </div>
@@ -783,14 +826,16 @@ export default function ToolsPage() {
 
                   <div className="mt-7 flex flex-wrap gap-3">
                     <button
+                      type="button"
                       onClick={() => goVideo("reference-to-video")}
-                      className="rounded-full bg-white px-6 py-3 text-sm font-semibold text-black transition hover:scale-[1.03] hover:bg-white/90"
+                      className="cursor-pointer rounded-full bg-white px-6 py-3 text-sm font-semibold text-black transition hover:scale-[1.03] hover:bg-white/90"
                     >
                       Start with Video
                     </button>
                     <button
+                      type="button"
                       onClick={() => goImage("text-to-image")}
-                      className="rounded-full border border-white/25 bg-white/5 px-6 py-3 text-sm font-semibold text-white/90 transition hover:bg-white/10"
+                      className="cursor-pointer rounded-full border border-white/25 bg-white/5 px-6 py-3 text-sm font-semibold text-white/90 transition hover:bg-white/10"
                     >
                       Start with Image
                     </button>
@@ -976,25 +1021,38 @@ export default function ToolsPage() {
                   </div>
 
                   <div className="mt-5 space-y-3">
-                    <button className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left transition hover:border-white/20 hover:bg-white/[0.06]">
+                    <button
+                      type="button"
+                      onClick={() => goVideo("reference-to-video")}
+                      className="flex w-full cursor-pointer items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left transition hover:border-white/20 hover:bg-white/[0.06]"
+                    >
                       <span className="flex items-center gap-3">
                         <History className="h-4 w-4 text-white/65" />
-                        <span className="text-sm text-white/82">History</span>
-                      </span>
-                      <ChevronRight className="h-4 w-4 text-white/35" />
-                    </button>
-
-                    <button className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left transition hover:border-white/20 hover:bg-white/[0.06]">
-                      <span className="flex items-center gap-3">
-                        <Settings className="h-4 w-4 text-white/65" />
-                        <span className="text-sm text-white/82">Settings</span>
+                        <span className="text-sm text-white/82">
+                          Open video studio
+                        </span>
                       </span>
                       <ChevronRight className="h-4 w-4 text-white/35" />
                     </button>
 
                     <button
+                      type="button"
+                      onClick={goPricing}
+                      className="flex w-full cursor-pointer items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left transition hover:border-white/20 hover:bg-white/[0.06]"
+                    >
+                      <span className="flex items-center gap-3">
+                        <Settings className="h-4 w-4 text-white/65" />
+                        <span className="text-sm text-white/82">
+                          Pricing & plans
+                        </span>
+                      </span>
+                      <ChevronRight className="h-4 w-4 text-white/35" />
+                    </button>
+
+                    <button
+                      type="button"
                       onClick={() => goVideo("text-to-video")}
-                      className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left transition hover:border-white/20 hover:bg-white/[0.06]"
+                      className="flex w-full cursor-pointer items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left transition hover:border-white/20 hover:bg-white/[0.06]"
                     >
                       <span className="flex items-center gap-3">
                         <Play className="h-4 w-4 text-white/65" />
@@ -1006,8 +1064,9 @@ export default function ToolsPage() {
                     </button>
 
                     <button
+                      type="button"
                       onClick={() => goImage("text-to-image")}
-                      className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left transition hover:border-white/20 hover:bg-white/[0.06]"
+                      className="flex w-full cursor-pointer items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left transition hover:border-white/20 hover:bg-white/[0.06]"
                     >
                       <span className="flex items-center gap-3">
                         <ImageIcon className="h-4 w-4 text-white/65" />
@@ -1045,14 +1104,16 @@ export default function ToolsPage() {
 
                 <div className="mt-7 flex flex-wrap justify-center gap-3">
                   <button
+                    type="button"
                     onClick={() => goVideo("reference-to-video")}
-                    className="rounded-full bg-white px-6 py-3 text-sm font-semibold text-black transition hover:bg-white/90"
+                    className="cursor-pointer rounded-full bg-white px-6 py-3 text-sm font-semibold text-black transition hover:bg-white/90"
                   >
                     Open Video Workspace
                   </button>
                   <button
+                    type="button"
                     onClick={() => goImage("reference-to-image")}
-                    className="rounded-full border border-white/20 bg-white/5 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
+                    className="cursor-pointer rounded-full border border-white/20 bg-white/5 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
                   >
                     Open Image Workspace
                   </button>
