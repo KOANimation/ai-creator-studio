@@ -12,7 +12,6 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import FloatingMediaWall from "./components/FloatingMediaWall";
-import { getCurrentUser } from "@/app/lib/supabase/session";
 
 import { motion, useReducedMotion } from "framer-motion";
 import { useInView } from "react-intersection-observer";
@@ -188,23 +187,12 @@ function AmbientBackground({ isMobile }: { isMobile: boolean }) {
   );
 }
 
-async function isLoggedIn(): Promise<boolean> {
-  const user = await getCurrentUser();
-  return !!user;
-}
-
 function useAuthNavigate() {
   const router = useRouter();
 
   return useCallback(
-    async (targetHref: string) => {
-      const loggedIn = await isLoggedIn();
-
-      if (loggedIn) {
-        router.push(targetHref);
-      } else {
-        router.push(`/login?redirect=${encodeURIComponent(targetHref)}`);
-      }
+    (targetHref: string) => {
+      router.push(targetHref);
     },
     [router]
   );
@@ -324,7 +312,7 @@ function AuthCTAButton({
       whileTap={{ scale: 0.985 }}
       onClick={() => go(href)}
       className={cn(
-        "rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/18",
+        "cursor-pointer rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/18",
         className
       )}
     >
@@ -489,7 +477,7 @@ function EmblaVideoCarousel({
         <button
           aria-label="Previous"
           onClick={scrollPrev}
-          className="absolute left-2 top-1/2 z-30 -translate-y-1/2 rounded-full border border-white/10 bg-black/45 p-3 text-white/90 shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur transition duration-300 hover:scale-105 hover:bg-black/60 md:-left-10 md:p-4"
+          className="cursor-pointer absolute left-2 top-1/2 z-30 -translate-y-1/2 rounded-full border border-white/10 bg-black/45 p-3 text-white/90 shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur transition duration-300 hover:scale-105 hover:bg-black/60 md:-left-10 md:p-4"
         >
           <ChevronLeft className="h-6 w-6 md:h-7 md:w-7" />
         </button>
@@ -497,7 +485,7 @@ function EmblaVideoCarousel({
         <button
           aria-label="Next"
           onClick={scrollNext}
-          className="absolute right-2 top-1/2 z-30 -translate-y-1/2 rounded-full border border-white/10 bg-black/45 p-3 text-white/90 shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur transition duration-300 hover:scale-105 hover:bg-black/60 md:-right-10 md:p-4"
+          className="cursor-pointer absolute right-2 top-1/2 z-30 -translate-y-1/2 rounded-full border border-white/10 bg-black/45 p-3 text-white/90 shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur transition duration-300 hover:scale-105 hover:bg-black/60 md:-right-10 md:p-4"
         >
           <ChevronRight className="h-6 w-6 md:h-7 md:w-7" />
         </button>
@@ -539,7 +527,7 @@ function ToolModeCard({
         type="button"
         onClick={() => go(href)}
         className={cn(
-          "group relative w-full overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-5 text-left backdrop-blur transition duration-500",
+          "group relative w-full cursor-pointer overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-5 text-left backdrop-blur transition duration-500",
           "hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.08]",
           accentClass
         )}
@@ -618,7 +606,7 @@ function FeatureCard({
 
           <Link
             href={ctaHref}
-            className="mt-6 inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/35 px-5 py-2.5 text-sm font-semibold text-white/85 backdrop-blur transition duration-300 hover:-translate-y-[1px] hover:bg-white/15 hover:text-white"
+            className="mt-6 inline-flex cursor-pointer items-center gap-2 rounded-full border border-white/15 bg-black/35 px-5 py-2.5 text-sm font-semibold text-white/85 backdrop-blur transition duration-300 hover:-translate-y-[1px] hover:bg-white/15 hover:text-white"
           >
             {ctaLabel} <ArrowRight className="h-4 w-4" />
           </Link>
@@ -705,7 +693,7 @@ function FAQItem({
   return (
     <button
       onClick={onToggle}
-      className="group w-full rounded-2xl border border-white/10 bg-white/5 px-6 py-5 text-left transition duration-300 hover:border-white/20 hover:bg-white/[0.07] backdrop-blur"
+      className="group w-full cursor-pointer rounded-2xl border border-white/10 bg-white/5 px-6 py-5 text-left transition duration-300 hover:border-white/20 hover:bg-white/[0.07] backdrop-blur"
     >
       <div className="flex items-center justify-between gap-4">
         <span className="text-sm font-semibold text-white/90 sm:text-base">
@@ -948,11 +936,11 @@ export default function Home() {
   const [faqOpen, setFaqOpen] = useState<number | null>(0);
 
   const TOOL_ROUTES = {
-    referenceToVideo: "/create/video?tool=reference-to-video",
-    imageToVideo: "/create/video?tool=image-to-video",
-    textToVideo: "/create/video?tool=text-to-video",
-    referenceToImage: "/create/image?tool=reference-to-image",
-    textToImage: "/create/image?tool=text-to-image",
+    referenceToVideo: "/create/video?tab=reference-to-video",
+    imageToVideo: "/create/video?tab=image-to-video",
+    textToVideo: "/create/video?tab=text-to-video",
+    referenceToImage: "/create/image?tab=reference-to-image",
+    textToImage: "/create/image?tab=text-to-image",
   };
 
   return (
@@ -1002,11 +990,13 @@ export default function Home() {
             <nav className="hidden items-center gap-7 text-[13px] font-medium tracking-wide text-white/65 md:flex">
               <div className="group relative">
                 <a
-                  className="inline-flex items-center gap-2 rounded-full px-2 py-1 transition duration-300 hover:bg-white/5 hover:text-white"
+                  className="rounded-full px-2 py-1 transition duration-300 hover:bg-white/5 hover:text-white"
                   href="#features"
                 >
-                  Features
-                  <ChevronDown className="h-3.5 w-3.5 text-white/35" />
+                  <span className="inline-flex items-center gap-2">
+                    Features
+                    <ChevronDown className="h-3.5 w-3.5 text-white/35" />
+                  </span>
                 </a>
 
                 <div className="absolute left-0 top-full h-4 w-full" />
