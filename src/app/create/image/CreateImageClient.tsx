@@ -856,203 +856,213 @@ export default function CreateImageClient() {
     router.push(`/create/image?tab=${k}`);
   };
 
-const createImages = async () => {
-  const trimmedPrompt = activePrompt.trim();
-
-  try {
-    setError(null);
-
-    if (credits != null && credits < imageCreditCost) {
-      throw new Error(
-        `You need ${imageCreditCost} credits, but only have ${credits}.`
-      );
-    }
-
-    if (!trimmedPrompt) {
-      throw new Error("Please enter a prompt.");
-    }
-
-    if (active === "reference-to-image" && refImages.length === 0) {
-      throw new Error("Please upload at least 1 reference image.");
-    }
-
-    if (active === "reference-to-image" && refImages.length > 4) {
-      throw new Error("You can upload at most 4 reference images.");
-    }
-
-    if (
-      provider === "byteplus" &&
-      active === "reference-to-image" &&
-      byteplusModel === "seedream-3-0-t2i-250415"
-    ) {
-      throw new Error(
-        "Seedream 3.0 is text-to-image only. Choose Seedream 4.0, 4.5, or 5.0 for references."
-      );
-    }
-
-    const totalCredits = imageCreditCost;
-    const perItemCredits = totalCredits / amount;
-
-    // 🚨 TEMPORARY BYPASS
-    console.log("[createImages] skipping deductCredits temporarily");
-
-    setIsCreating(true);
-
-    const timestamp = new Date().toISOString();
-
-    const pendingItems: SavedImageGeneration[] = Array.from(
-      { length: amount },
-      (_, index) => {
-        const requestKey =
-          typeof crypto !== "undefined" && "randomUUID" in crypto
-            ? crypto.randomUUID()
-            : `${Date.now()}-${index}-${Math.random()}`;
-
-        return {
-          id:
-            typeof crypto !== "undefined" && "randomUUID" in crypto
-              ? crypto.randomUUID()
-              : `${Date.now()}-${index}-${Math.random()}`,
-          kind: active,
-          provider,
-          prompt: trimmedPrompt,
-          model,
-          aspect,
-          outputFormat,
-          amountRequest: amount,
-          createdAt: timestamp,
-          status: "processing",
-          imageUrl: null,
-          mimeType: null,
-          note: null,
-          error: null,
-          referenceCount:
-            active === "reference-to-image" ? refImages.length : 0,
-          chargedCredits: perItemCredits,
-          refundStatus: "none",
-          requestKey,
-        };
-      }
-    );
-
-    setGenerations((prev) => [...pendingItems, ...prev]);
-    setSelectedGeneration(pendingItems[0] ?? null);
-
-    const formData = new FormData();
-    formData.append("provider", provider);
-    formData.append("mode", active);
-    formData.append("prompt", trimmedPrompt);
-    formData.append("aspect", aspect);
-    formData.append("amount", String(amount));
-    formData.append("outputFormat", outputFormat);
-
-    if (provider === "byteplus") {
-      formData.append("byteplusModel", byteplusModel);
-    }
-
-    if (active === "reference-to-image") {
-      refImages.forEach((file) => {
-        formData.append("refs", file);
-      });
-    }
-
-    console.log("[createImages] calling /api/images/generate");
-
-    const res = await fetch("/api/images/generate", {
-      method: "POST",
-      body: formData,
-    });
-
-    console.log("[createImages] response status:", res.status);
-
-    const raw = await res.text();
-    let data: {
-      results?: Array<{
-        id?: string;
-        imageUrl?: string;
-        mimeType?: string;
-        text?: string | null;
-        createdAt?: string;
-      }>;
-      error?: string;
-    } | null = null;
+  const createImages = async () => {
+    const trimmedPrompt = activePrompt.trim();
 
     try {
-      data = JSON.parse(raw);
-    } catch {
-      data = null;
-    }
+      setError(null);
 
-    if (!res.ok) {
-      throw new Error(data?.error || raw || "Image generation failed.");
-    }
+      if (credits != null && credits < imageCreditCost) {
+        throw new Error(
+          `You need ${imageCreditCost} credits, but only have ${credits}.`
+        );
+      }
 
-    const resultItems = data?.results ?? [];
+      if (!trimmedPrompt) {
+        throw new Error("Please enter a prompt.");
+      }
 
-    if (resultItems.length === 0) {
-      throw new Error("No images were returned.");
-    }
+      if (active === "reference-to-image" && refImages.length === 0) {
+        throw new Error("Please upload at least 1 reference image.");
+      }
 
-    setGenerations((prev) => {
-      const pendingIds = new Set(pendingItems.map((item) => item.id));
-      const withoutPending = prev.filter((item) => !pendingIds.has(item.id));
+      if (active === "reference-to-image" && refImages.length > 4) {
+        throw new Error("You can upload at most 4 reference images.");
+      }
 
-      const completed: SavedImageGeneration[] = pendingItems.map(
-        (pendingItem, index) => {
-          const result = resultItems[index];
+      if (
+        provider === "byteplus" &&
+        active === "reference-to-image" &&
+        byteplusModel === "seedream-3-0-t2i-250415"
+      ) {
+        throw new Error(
+          "Seedream 3.0 is text-to-image only. Choose Seedream 4.0, 4.5, or 5.0 for references."
+        );
+      }
 
-          if (result) {
-            return {
-              ...pendingItem,
-              id: result.id || pendingItem.id,
-              createdAt: result.createdAt || pendingItem.createdAt,
-              status: "success",
-              imageUrl: result.imageUrl || null,
-              mimeType: result.mimeType || "image/png",
-              note: result.text || null,
-              error: null,
-              refundStatus: "none",
-            };
-          }
+      const totalCredits = imageCreditCost;
+      const perItemCredits = totalCredits / amount;
+
+      await deductCredits(
+        totalCredits,
+        active === "reference-to-image"
+          ? "Reference to image generation"
+          : "Text to image generation",
+        {
+          kind: active,
+          provider,
+          model,
+          byteplusModel,
+          aspect,
+          outputFormat,
+          amount,
+          referenceCount: refImages.length,
+        }
+      );
+
+      setIsCreating(true);
+
+      const timestamp = new Date().toISOString();
+
+      const pendingItems: SavedImageGeneration[] = Array.from(
+        { length: amount },
+        (_, index) => {
+          const requestKey =
+            typeof crypto !== "undefined" && "randomUUID" in crypto
+              ? crypto.randomUUID()
+              : `${Date.now()}-${index}-${Math.random()}`;
 
           return {
-            ...pendingItem,
-            status: "failed",
-            error: "No image was returned for this item.",
-            refundStatus: "pending",
+            id:
+              typeof crypto !== "undefined" && "randomUUID" in crypto
+                ? crypto.randomUUID()
+                : `${Date.now()}-${index}-${Math.random()}`,
+            kind: active,
+            provider,
+            prompt: trimmedPrompt,
+            model,
+            aspect,
+            outputFormat,
+            amountRequest: amount,
+            createdAt: timestamp,
+            status: "processing",
+            imageUrl: null,
+            mimeType: null,
+            note: null,
+            error: null,
+            referenceCount:
+              active === "reference-to-image" ? refImages.length : 0,
+            chargedCredits: perItemCredits,
+            refundStatus: "none",
+            requestKey,
           };
         }
       );
 
-      if (completed[0]) {
-        setSelectedGeneration(completed[0]);
+      setGenerations((prev) => [...pendingItems, ...prev]);
+      setSelectedGeneration(pendingItems[0] ?? null);
+
+      const formData = new FormData();
+      formData.append("provider", provider);
+      formData.append("mode", active);
+      formData.append("prompt", trimmedPrompt);
+      formData.append("aspect", aspect);
+      formData.append("amount", String(amount));
+      formData.append("outputFormat", outputFormat);
+
+      if (provider === "byteplus") {
+        formData.append("byteplusModel", byteplusModel);
       }
 
-      return [...completed, ...withoutPending];
-    });
-  } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Something went wrong.";
+      if (active === "reference-to-image") {
+        refImages.forEach((file) => {
+          formData.append("refs", file);
+        });
+      }
 
-    setError(message);
+      const res = await fetch("/api/images/generate", {
+        method: "POST",
+        body: formData,
+      });
 
-    setGenerations((prev) =>
-      prev.map((item) =>
-        item.status === "processing"
-          ? {
-              ...item,
-              status: "failed",
-              error: message,
-              refundStatus:
-                item.refundStatus === "refunded" ? "refunded" : "pending",
+      const raw = await res.text();
+      let data: {
+        results?: Array<{
+          id?: string;
+          imageUrl?: string;
+          mimeType?: string;
+          text?: string | null;
+          createdAt?: string;
+        }>;
+        error?: string;
+      } | null = null;
+
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        data = null;
+      }
+
+      if (!res.ok) {
+        throw new Error(data?.error || raw || "Image generation failed.");
+      }
+
+      const resultItems = data?.results ?? [];
+
+      if (resultItems.length === 0) {
+        throw new Error("No images were returned.");
+      }
+
+      setGenerations((prev) => {
+        const pendingIds = new Set(pendingItems.map((item) => item.id));
+        const withoutPending = prev.filter((item) => !pendingIds.has(item.id));
+
+        const completed: SavedImageGeneration[] = pendingItems.map(
+          (pendingItem, index) => {
+            const result = resultItems[index];
+
+            if (result) {
+              return {
+                ...pendingItem,
+                id: result.id || pendingItem.id,
+                createdAt: result.createdAt || pendingItem.createdAt,
+                status: "success",
+                imageUrl: result.imageUrl || null,
+                mimeType: result.mimeType || "image/png",
+                note: result.text || null,
+                error: null,
+                refundStatus: "none",
+              };
             }
-          : item
-      )
-    );
-  } finally {
-    setIsCreating(false);
-  }
-};
+
+            return {
+              ...pendingItem,
+              status: "failed",
+              error: "No image was returned for this item.",
+              refundStatus: "pending",
+            };
+          }
+        );
+
+        if (completed[0]) {
+          setSelectedGeneration(completed[0]);
+        }
+
+        return [...completed, ...withoutPending];
+      });
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Something went wrong.";
+
+      setError(message);
+
+      setGenerations((prev) =>
+        prev.map((item) =>
+          item.status === "processing"
+            ? {
+                ...item,
+                status: "failed",
+                error: message,
+                refundStatus:
+                  item.refundStatus === "refunded" ? "refunded" : "pending",
+              }
+            : item
+        )
+      );
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   useEffect(() => {
     const failedNeedingRefund = generations.filter(
