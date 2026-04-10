@@ -34,6 +34,10 @@ export default function ResetPasswordPage() {
         const code = queryParams.get("code");
 
         if (accessToken && refreshToken) {
+          if (type && type !== "recovery") {
+            throw new Error("This password reset link is invalid.");
+          }
+
           const { error } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken,
@@ -43,10 +47,7 @@ export default function ResetPasswordPage() {
             throw error;
           }
 
-          if (type && type !== "recovery") {
-            throw new Error("This password reset link is invalid.");
-          }
-
+          window.history.replaceState({}, document.title, "/reset-password");
           setSessionReady(true);
           return;
         }
@@ -58,6 +59,7 @@ export default function ResetPasswordPage() {
             throw error;
           }
 
+          window.history.replaceState({}, document.title, "/reset-password");
           setSessionReady(true);
           return;
         }

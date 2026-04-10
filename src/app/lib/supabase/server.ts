@@ -17,8 +17,8 @@ export async function createClient() {
             cookiesToSet.forEach(({ name, value, options }) => {
               cookieStore.set(name, value, options);
             });
-          } catch {
-            // no-op
+          } catch (err) {
+            console.error("Failed to set Supabase cookies:", err);
           }
         },
       },

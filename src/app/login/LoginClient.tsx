@@ -32,7 +32,9 @@ export default function LoginClient() {
   };
 
   const handleEmailAuth = async () => {
-    if (!email || !password) {
+    const cleanEmail = email.trim();
+
+    if (!cleanEmail || !password) {
       alert("Please enter your email and password.");
       return;
     }
@@ -41,17 +43,19 @@ export default function LoginClient() {
 
     try {
       if (isSignup) {
+        const emailRedirectTo =
+          typeof window !== "undefined"
+            ? `${window.location.origin}${redirect}`
+            : undefined;
+
         const { error } = await supabase.auth.signUp({
-          email,
+          email: cleanEmail,
           password,
           options: {
             data: {
-              invitationCode,
+              invitationCode: invitationCode.trim(),
             },
-            emailRedirectTo:
-              typeof window !== "undefined"
-                ? `${window.location.origin}${redirect}`
-                : undefined,
+            emailRedirectTo,
           },
         });
 
@@ -62,7 +66,7 @@ export default function LoginClient() {
         }
       } else {
         const { error } = await supabase.auth.signInWithPassword({
-          email,
+          email: cleanEmail,
           password,
         });
 
@@ -70,8 +74,12 @@ export default function LoginClient() {
           alert(error.message);
         } else {
           router.replace(redirect);
+          router.refresh();
         }
       }
+    } catch (err) {
+      console.error("Login/signup failed:", err);
+      alert("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -201,6 +209,11 @@ export default function LoginClient() {
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm text-white placeholder:text-white/40 outline-none transition focus:border-white/25"
                   placeholder="Email address"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !loading) {
+                      void handleEmailAuth();
+                    }
+                  }}
                 />
 
                 <input
@@ -257,6 +270,11 @@ export default function LoginClient() {
               onChange={(e) => setInvitationCode(e.target.value)}
               className="mt-6 w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm text-white placeholder:text-white/40 outline-none transition focus:border-white/25"
               placeholder="Enter invitation code (optional)"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !loading && showEmailForm) {
+                  void handleEmailAuth();
+                }
+              }}
             />
 
             <p className="mt-6 text-xs leading-relaxed text-white/55">

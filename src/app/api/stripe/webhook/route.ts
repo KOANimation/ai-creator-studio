@@ -49,7 +49,9 @@ async function resolveUserIdFromCustomer(
 
   if (error) {
     console.error("Could not resolve stripe customer to user:", error);
-    return null;
+    throw new Error(
+      error.message || "Could not resolve stripe customer to user"
+    );
   }
 
   return data?.user_id ?? null;
@@ -89,36 +91,36 @@ async function syncSubscriptionRecord(
 
   if (!customerId) {
     console.error("Subscription missing customer id:", subscription.id);
-    return;
+    throw new Error(`Subscription missing customer id: ${subscription.id}`);
   }
 
   const userId = await resolveUserIdFromCustomer(customerId);
 
   if (!userId) {
     console.error("No user found for stripe customer:", customerId);
-    return;
+    throw new Error(`No user found for stripe customer: ${customerId}`);
   }
 
   const priceId = subscription.items.data[0]?.price?.id ?? null;
   const currentPeriodEnd = getSubscriptionCurrentPeriodEndIso(subscription);
 
-  const { error } = await supabase.from("subscriptions").upsert(
-    {
-      id: subscription.id,
-      user_id: userId,
-      status: subscription.status,
-      price_id: priceId,
-      current_period_end: currentPeriodEnd,
-      cancel_at_period_end: subscription.cancel_at_period_end ?? false,
-      created_at: new Date().toISOString(),
-    },
-    {
-      onConflict: "id",
-    }
-  );
+  const payload = {
+    id: subscription.id,
+    user_id: userId,
+    status: subscription.status,
+    price_id: priceId,
+    current_period_end: currentPeriodEnd,
+    cancel_at_period_end: subscription.cancel_at_period_end ?? false,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { error } = await supabase.from("subscriptions").upsert(payload, {
+    onConflict: "id",
+  });
 
   if (error) {
     console.error("Failed to upsert subscription:", error);
+    throw new Error(error.message || "Failed to upsert subscription");
   }
 }
 
@@ -138,22 +140,24 @@ async function ensureStripeCustomerMapping(
       customerId,
       userId,
     });
-    return;
+    throw new Error(
+      `Missing customerId or userId in checkout.session.completed for session ${session.id}`
+    );
   }
 
-  const { error } = await supabase.from("stripe_customers").upsert(
-    {
-      user_id: userId,
-      stripe_customer_id: customerId,
-      created_at: new Date().toISOString(),
-    },
-    {
-      onConflict: "user_id",
-    }
-  );
+  const payload = {
+    user_id: userId,
+    stripe_customer_id: customerId,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { error } = await supabase.from("stripe_customers").upsert(payload, {
+    onConflict: "user_id",
+  });
 
   if (error) {
     console.error("Failed to upsert stripe customer:", error);
+    throw new Error(error.message || "Failed to upsert stripe customer");
   }
 }
 
@@ -189,7 +193,8 @@ function getInvoiceSubscriptionId(invoice: Stripe.Invoice): string | null {
 
 async function applySubscriptionCreditsFromInvoice(
   invoice: Stripe.Invoice,
-  eventLivemode: boolean
+  eventLivemode: boolean,
+  eventId?: string
 ): Promise<void> {
   const customerId =
     typeof invoice.customer === "string"
@@ -198,19 +203,22 @@ async function applySubscriptionCreditsFromInvoice(
 
   const subscriptionId = getInvoiceSubscriptionId(invoice);
 
-  console.log("Invoice event received:", invoice.id);
-  console.log("Invoice livemode:", eventLivemode);
-  console.log("Invoice customer:", customerId);
-  console.log("Resolved subscription id:", subscriptionId);
+  console.log("Invoice event received:", {
+    eventId: eventId ?? null,
+    invoiceId: invoice.id,
+    livemode: eventLivemode,
+    customerId,
+    subscriptionId,
+  });
 
   if (!customerId) {
     console.error("Invoice missing customer id:", invoice.id);
-    return;
+    throw new Error(`Invoice missing customer id: ${invoice.id}`);
   }
 
   if (!subscriptionId) {
     console.error("Invoice missing subscription id:", invoice.id);
-    return;
+    throw new Error(`Invoice missing subscription id: ${invoice.id}`);
   }
 
   const subscription = await stripe.subscriptions.retrieve(subscriptionId);
@@ -220,31 +228,37 @@ async function applySubscriptionCreditsFromInvoice(
 
   if (!priceId) {
     console.error("Subscription missing price id:", subscription.id);
-    return;
+    throw new Error(`Subscription missing price id: ${subscription.id}`);
   }
 
   const credits = getCreditsForPrice(priceId);
   const userId = await resolveUserIdFromCustomer(customerId);
 
-  console.log("Resolved user id for invoice:", userId);
-  console.log("Resolved subscription price id:", priceId);
-  console.log("Credits for price:", credits);
+  console.log("Resolved invoice credit context:", {
+    eventId: eventId ?? null,
+    invoiceId: invoice.id,
+    userId,
+    priceId,
+    credits,
+  });
 
   if (!userId) {
     console.error("No user found for invoice customer:", customerId);
-    return;
+    throw new Error(`No user found for invoice customer: ${customerId}`);
   }
 
   if (credits <= 0) {
     console.error("No credits configured for price id:", priceId);
-    return;
+    throw new Error(`No credits configured for price id: ${priceId}`);
   }
 
   if (!eventLivemode && !allowTestCreditGrants) {
     console.log(
-      "Skipping test-mode credit grant for invoice:",
-      invoice.id,
-      "because STRIPE_ALLOW_TEST_CREDIT_GRANTS is false"
+      "Skipping test-mode credit grant for invoice because STRIPE_ALLOW_TEST_CREDIT_GRANTS is false:",
+      {
+        eventId: eventId ?? null,
+        invoiceId: invoice.id,
+      }
     );
     return;
   }
@@ -272,52 +286,31 @@ async function applySubscriptionCreditsFromInvoice(
   );
 
   if (applyError) {
-    console.error("Apply subscription credits failed:", applyError);
+    console.error("Apply subscription credits failed:", {
+      eventId: eventId ?? null,
+      invoiceId: invoice.id,
+      userId,
+      priceId,
+      credits,
+      billingReason,
+      isRenewal,
+      error: applyError,
+    });
+
     throw new Error(
       applyError.message || "Failed to apply subscription credits"
     );
   }
 
-  console.log("Subscription credits applied successfully for invoice:", {
+  console.log("Subscription credits applied successfully:", {
+    eventId: eventId ?? null,
     invoiceId: invoice.id,
     userId,
     credits,
     billingReason,
     isRenewal,
+    referenceKey,
   });
-}
-
-async function handleInvoicePaymentPaid(
-  invoicePayment: Record<string, unknown>,
-  eventLivemode: boolean
-): Promise<void> {
-  console.log("Invoice payment event received:", invoicePayment?.id ?? null);
-
-  const linkedInvoice =
-    invoicePayment["invoice"] ?? invoicePayment["invoice_id"] ?? null;
-
-  const invoiceId =
-    typeof linkedInvoice === "string"
-      ? linkedInvoice
-      : linkedInvoice &&
-          typeof linkedInvoice === "object" &&
-          "id" in linkedInvoice &&
-          typeof (linkedInvoice as { id?: unknown }).id === "string"
-        ? (linkedInvoice as { id: string }).id
-        : null;
-
-  console.log("Resolved invoice id from invoice_payment.paid:", invoiceId);
-
-  if (!invoiceId) {
-    console.error(
-      "invoice_payment.paid missing linked invoice id:",
-      invoicePayment?.id ?? null
-    );
-    return;
-  }
-
-  const invoice = await stripe.invoices.retrieve(invoiceId);
-  await applySubscriptionCreditsFromInvoice(invoice, eventLivemode);
 }
 
 export async function POST(req: Request) {
@@ -357,28 +350,35 @@ export async function POST(req: Request) {
 
       case "invoice.paid": {
         const invoice = event.data.object as Stripe.Invoice;
-        await applySubscriptionCreditsFromInvoice(invoice, event.livemode);
-        break;
-      }
-
-      case "invoice_payment.paid": {
-        const invoicePayment =
-          event.data.object as unknown as Record<string, unknown>;
-        await handleInvoicePaymentPaid(invoicePayment, event.livemode);
+        await applySubscriptionCreditsFromInvoice(
+          invoice,
+          event.livemode,
+          event.id
+        );
         break;
       }
 
       default: {
-        console.log("Unhandled Stripe event type:", event.type);
+        console.log("Unhandled Stripe event type:", {
+          eventId: event.id,
+          type: event.type,
+        });
         break;
       }
     }
 
     return NextResponse.json({ received: true });
   } catch (err) {
-    console.error("Webhook handler failed:", err);
+    console.error("Webhook handler failed:", {
+      eventId: event.id,
+      type: event.type,
+      error: err,
+    });
+
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Webhook handler failed" },
+      {
+        error: err instanceof Error ? err.message : "Webhook handler failed",
+      },
       { status: 500 }
     );
   }
