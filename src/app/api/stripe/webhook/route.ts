@@ -209,6 +209,12 @@ async function applySubscriptionCreditsFromInvoice(
     livemode: eventLivemode,
     customerId,
     subscriptionId,
+    billingReason:
+      typeof (invoice as Stripe.Invoice & { billing_reason?: unknown })
+        .billing_reason === "string"
+        ? (invoice as Stripe.Invoice & { billing_reason?: string })
+            .billing_reason
+        : null,
   });
 
   if (!customerId) {
@@ -254,7 +260,7 @@ async function applySubscriptionCreditsFromInvoice(
 
   if (!eventLivemode && !allowTestCreditGrants) {
     console.log(
-      "Skipping test-mode credit grant for invoice because STRIPE_ALLOW_TEST_CREDIT_GRANTS is false:",
+      "Skipping test-mode credit grant because STRIPE_ALLOW_TEST_CREDIT_GRANTS is false:",
       {
         eventId: eventId ?? null,
         invoiceId: invoice.id,
@@ -272,7 +278,10 @@ async function applySubscriptionCreditsFromInvoice(
       ? invoiceAny.billing_reason
       : null;
 
-  const isRenewal = billingReason === "subscription_cycle";
+  const isRenewal = ["subscription_cycle", "subscription_renewal"].includes(
+    billingReason ?? ""
+  );
+
   const referenceKey = `invoice_${invoice.id}`;
 
   const { error: applyError } = await supabase.rpc(
@@ -313,6 +322,40 @@ async function applySubscriptionCreditsFromInvoice(
   });
 }
 
+async function handleInvoicePaymentPaid(
+  invoicePayment: Record<string, unknown>,
+  eventLivemode: boolean,
+  eventId?: string
+): Promise<void> {
+  const linkedInvoice =
+    invoicePayment["invoice"] ?? invoicePayment["invoice_id"] ?? null;
+
+  const invoiceId =
+    typeof linkedInvoice === "string"
+      ? linkedInvoice
+      : linkedInvoice &&
+          typeof linkedInvoice === "object" &&
+          "id" in linkedInvoice &&
+          typeof (linkedInvoice as { id?: unknown }).id === "string"
+        ? (linkedInvoice as { id: string }).id
+        : null;
+
+  console.log("invoice_payment.paid received:", {
+    eventId: eventId ?? null,
+    invoicePaymentId:
+      typeof invoicePayment["id"] === "string" ? invoicePayment["id"] : null,
+    invoiceId,
+    livemode: eventLivemode,
+  });
+
+  if (!invoiceId) {
+    throw new Error("invoice_payment.paid missing linked invoice id");
+  }
+
+  const invoice = await stripe.invoices.retrieve(invoiceId);
+  await applySubscriptionCreditsFromInvoice(invoice, eventLivemode, eventId);
+}
+
 export async function POST(req: Request) {
   const body = await req.text();
   const headerStore = await headers();
@@ -348,13 +391,21 @@ export async function POST(req: Request) {
         break;
       }
 
-      case "invoice.paid": {
+      case "invoice.paid":
+      case "invoice.payment_succeeded": {
         const invoice = event.data.object as Stripe.Invoice;
         await applySubscriptionCreditsFromInvoice(
           invoice,
           event.livemode,
           event.id
         );
+        break;
+      }
+
+      case "invoice_payment.paid": {
+        const invoicePayment =
+          event.data.object as unknown as Record<string, unknown>;
+        await handleInvoicePaymentPaid(invoicePayment, event.livemode, event.id);
         break;
       }
 
