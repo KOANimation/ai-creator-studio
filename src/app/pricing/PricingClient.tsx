@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, useCallback, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Lenis from "lenis";
 import {
@@ -348,7 +348,7 @@ export default function PricingClient() {
   const success = searchParams.get("success") === "1";
   const canceled = searchParams.get("canceled") === "1";
 
-  const loadCurrentSubscription = async () => {
+  const loadCurrentSubscription = useCallback(async () => {
     try {
       const res = await fetch("/api/billing/current-subscription", {
         method: "GET",
@@ -382,7 +382,7 @@ export default function PricingClient() {
       });
       return null;
     }
-  };
+  }, []);
 
   useEffect(() => {
     const planParam = normalizePlanKey(searchParams.get("plan"));
@@ -425,23 +425,36 @@ export default function PricingClient() {
     const syncAuth = async () => {
       setMounted(true);
 
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      try {
+        const {
+          data: { session },
+          error: sessionError,
+        } = await supabase.auth.getSession();
 
-      if (!active) return;
+        if (sessionError) {
+          console.error("[PricingClient] getSession error:", sessionError);
+        }
 
-      const sessionUser = session?.user ?? null;
-      await applyAuthState(sessionUser);
+        if (!active) return;
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+        const sessionUser = session?.user ?? null;
+        await applyAuthState(sessionUser);
 
-      if (!active) return;
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
 
-      await applyAuthState(user ?? sessionUser);
-      if (active) setAuthLoaded(true);
+        if (userError) {
+          console.error("[PricingClient] getUser error:", userError);
+        }
+
+        if (!active) return;
+
+        await applyAuthState(user ?? sessionUser);
+      } finally {
+        if (active) setAuthLoaded(true);
+      }
     };
 
     void syncAuth();
@@ -462,7 +475,7 @@ export default function PricingClient() {
       active = false;
       subscription.unsubscribe();
     };
-  }, [supabase, searchParams]);
+  }, [supabase, searchParams, loadCurrentSubscription]);
 
   useEffect(() => {
     if (success && isAuthed) {
@@ -473,7 +486,7 @@ export default function PricingClient() {
         }
       });
     }
-  }, [success, isAuthed, searchParams]);
+  }, [success, isAuthed, searchParams, loadCurrentSubscription]);
 
   const updatePricingUrl = (plan: PlanKey) => {
     router.replace(getPricingPath(plan), { scroll: false });
@@ -485,15 +498,27 @@ export default function PricingClient() {
     updatePricingUrl(plan);
   };
 
-  const goToLogin = () => {
-    router.push(
-      `/login?redirect=${encodeURIComponent(getPricingPath(selectedPlan))}`
-    );
-  };
+  const getLoginRedirectForPlan = useCallback(
+    (plan?: PlanKey) => getPricingPath(plan ?? selectedPlan),
+    [selectedPlan]
+  );
+
+  const goToLogin = useCallback(
+    (redirectPath?: string) => {
+      router.push(
+        `/login?redirect=${encodeURIComponent(
+          redirectPath ?? getLoginRedirectForPlan()
+        )}`
+      );
+    },
+    [router, getLoginRedirectForPlan]
+  );
 
   const handleTryKoa = () => {
+    if (!authLoaded) return;
+
     if (!isAuthed) {
-      router.push(`/login?redirect=${encodeURIComponent("/tools")}`);
+      goToLogin("/tools");
       return;
     }
 
@@ -502,8 +527,10 @@ export default function PricingClient() {
 
   const handleManageSubscription = async () => {
     try {
+      if (!authLoaded) return;
+
       if (!isAuthed) {
-        router.push(`/login?redirect=${encodeURIComponent("/pricing")}`);
+        goToLogin("/pricing");
         return;
       }
 
@@ -536,24 +563,19 @@ export default function PricingClient() {
   };
 
   const handlePlanAction = async (planKey: PlanKey) => {
-    if (currentSubscription.currentPlan === planKey) {
-      return;
-    }
+    if (!authLoaded) return;
+    if (currentSubscription.currentPlan === planKey) return;
 
     handleSelectPlan(planKey);
+
+    if (!isAuthed) {
+      goToLogin(getPricingPath(planKey));
+      return;
+    }
 
     const stripePlan = mapPlanKeyToStripePlan(planKey);
 
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        goToLogin();
-        return;
-      }
-
       setActiveCheckoutPlan(planKey);
 
       const res = await fetch("/api/stripe/create-checkout-session", {
@@ -1072,7 +1094,7 @@ export default function PricingClient() {
                       e.stopPropagation();
                       void handlePlanAction(p.key);
                     }}
-                    disabled={isLoading || isCurrent}
+                    disabled={isLoading || isCurrent || !authLoaded}
                     className={cn(
                       "relative z-10 mt-6 w-full rounded-xl px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60",
                       isCurrent
@@ -1197,11 +1219,7 @@ export default function PricingClient() {
 
                     <button
                       type="button"
-                      onClick={() =>
-                        router.push(
-                          `/login?redirect=${encodeURIComponent("/pricing")}`
-                        )
-                      }
+                      onClick={() => goToLogin("/pricing")}
                       className="w-full cursor-pointer rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/15"
                     >
                       Log in to buy credits
@@ -1353,7 +1371,7 @@ export default function PricingClient() {
                         <button
                           type="button"
                           onClick={() => void handlePlanAction(plan.key)}
-                          disabled={isCurrent || isLoading}
+                          disabled={isCurrent || isLoading || !authLoaded}
                           className={cn(
                             "w-full rounded-xl px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60",
                             isCurrent

@@ -6,6 +6,7 @@ import React, {
   useEffect,
   useMemo,
   useState,
+  useCallback,
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
@@ -496,43 +497,46 @@ export default function ToolsPage() {
   const [walletLoading, setWalletLoading] = useState(false);
   const [walletRefreshTick, setWalletRefreshTick] = useState(0);
 
-  const refreshWallet = async (nextUserId?: string | null) => {
-    const activeUserId = nextUserId ?? userId;
+  const refreshWallet = useCallback(
+    async (nextUserId?: string | null) => {
+      const activeUserId = nextUserId ?? userId;
 
-    if (!activeUserId) {
-      setCredits(null);
-      return;
-    }
-
-    try {
-      setWalletLoading(true);
-
-      const { data, error } = await supabase
-        .from("credit_wallets")
-        .select("balance")
-        .eq("user_id", activeUserId)
-        .maybeSingle();
-
-      if (error) {
-        console.error("[ToolsPage] Failed to load wallet:", error);
-        setCredits(0);
+      if (!activeUserId) {
+        setCredits(null);
         return;
       }
 
-      if (!data) {
-        console.warn("[ToolsPage] No wallet row found for user:", activeUserId);
-        setCredits(0);
-        return;
-      }
+      try {
+        setWalletLoading(true);
 
-      setCredits(typeof data.balance === "number" ? data.balance : 0);
-    } catch (err) {
-      console.error("[ToolsPage] Wallet refresh crashed:", err);
-      setCredits(0);
-    } finally {
-      setWalletLoading(false);
-    }
-  };
+        const { data, error } = await supabase
+          .from("credit_wallets")
+          .select("balance")
+          .eq("user_id", activeUserId)
+          .maybeSingle();
+
+        if (error) {
+          console.error("[ToolsPage] Failed to load wallet:", error);
+          setCredits(0);
+          return;
+        }
+
+        if (!data) {
+          console.warn("[ToolsPage] No wallet row found for user:", activeUserId);
+          setCredits(0);
+          return;
+        }
+
+        setCredits(typeof data.balance === "number" ? data.balance : 0);
+      } catch (err) {
+        console.error("[ToolsPage] Wallet refresh crashed:", err);
+        setCredits(0);
+      } finally {
+        setWalletLoading(false);
+      }
+    },
+    [supabase, userId]
+  );
 
   useEffect(() => {
     let active = true;
@@ -559,23 +563,36 @@ export default function ToolsPage() {
     async function bootstrapAuth() {
       setMounted(true);
 
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      try {
+        const {
+          data: { session },
+          error: sessionError,
+        } = await supabase.auth.getSession();
 
-      if (!active) return;
+        if (sessionError) {
+          console.error("[ToolsPage] getSession error:", sessionError);
+        }
 
-      const sessionUser = session?.user ?? null;
-      await applyUserState(sessionUser);
+        if (!active) return;
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+        const sessionUser = session?.user ?? null;
+        await applyUserState(sessionUser);
 
-      if (!active) return;
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
 
-      await applyUserState(user ?? sessionUser);
-      setAuthLoaded(true);
+        if (userError) {
+          console.error("[ToolsPage] getUser error:", userError);
+        }
+
+        if (!active) return;
+
+        await applyUserState(user ?? sessionUser);
+      } finally {
+        if (active) setAuthLoaded(true);
+      }
     }
 
     void bootstrapAuth();
@@ -595,12 +612,12 @@ export default function ToolsPage() {
       active = false;
       subscription.unsubscribe();
     };
-  }, [supabase]);
+  }, [supabase, refreshWallet]);
 
   useEffect(() => {
     if (!authLoaded || !isAuthed || !userId) return;
     void refreshWallet(userId);
-  }, [walletRefreshTick, authLoaded, isAuthed, userId]);
+  }, [walletRefreshTick, authLoaded, isAuthed, userId, refreshWallet]);
 
   useEffect(() => {
     const onFocus = () => {
@@ -624,6 +641,20 @@ export default function ToolsPage() {
     };
   }, [userId]);
 
+  const pushProtected = useCallback(
+    (targetHref: string) => {
+      if (!authLoaded) return;
+
+      if (!isAuthed) {
+        router.push(`/login?redirect=${encodeURIComponent(targetHref)}`);
+        return;
+      }
+
+      router.push(targetHref);
+    },
+    [authLoaded, isAuthed, router]
+  );
+
   const logout = async () => {
     await supabase.auth.signOut();
     setIsAuthed(false);
@@ -634,11 +665,11 @@ export default function ToolsPage() {
   };
 
   const goVideo = (tool: VideoToolKey) => {
-    router.push(`/create/video?tab=${tool}`);
+    pushProtected(`/create/video?tab=${tool}`);
   };
 
   const goImage = (tool: ImageToolKey) => {
-    router.push(`/create/image?tab=${tool}`);
+    pushProtected(`/create/image?tab=${tool}`);
   };
 
   const goSiteHome = () => {
@@ -647,6 +678,10 @@ export default function ToolsPage() {
 
   const goPricing = () => {
     router.push("/pricing");
+  };
+
+  const goLogin = () => {
+    router.push(`/login?redirect=${encodeURIComponent("/tools")}`);
   };
 
   const heroVideos = useMemo(
@@ -671,10 +706,10 @@ export default function ToolsPage() {
   const creditsLabel = !authLoaded
     ? "..."
     : !isAuthed
-    ? "—"
-    : credits === null
-    ? "..."
-    : `${credits}`;
+      ? "—"
+      : credits === null
+        ? "..."
+        : `${credits}`;
 
   return (
     <div className="relative min-h-screen overflow-x-hidden text-white">
@@ -861,6 +896,17 @@ export default function ToolsPage() {
                     <CreditCard className="h-4 w-4 text-white/55" />
                     Pricing & credits
                   </button>
+
+                  {authLoaded && !isAuthed && (
+                    <button
+                      type="button"
+                      onClick={goLogin}
+                      className="group flex w-full cursor-pointer items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-sm text-white/80 transition hover:border-white/20 hover:bg-white/[0.06]"
+                    >
+                      <ShieldCheck className="h-4 w-4 text-white/55" />
+                      Log in
+                    </button>
+                  )}
 
                   {authLoaded && isAuthed && (
                     <button
@@ -1087,9 +1133,7 @@ export default function ToolsPage() {
 
                       <button
                         type="button"
-                        onClick={() =>
-                          router.push(`/login?redirect=${encodeURIComponent("/tools")}`)
-                        }
+                        onClick={goLogin}
                         className="w-full cursor-pointer rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/15"
                       >
                         Log in to access wallet

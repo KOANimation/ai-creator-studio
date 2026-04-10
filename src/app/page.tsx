@@ -12,6 +12,7 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import FloatingMediaWall from "./components/FloatingMediaWall";
+import { createClient } from "@/app/lib/supabase/client";
 
 import { motion, useReducedMotion } from "framer-motion";
 import { useInView } from "react-intersection-observer";
@@ -187,14 +188,70 @@ function AmbientBackground({ isMobile }: { isMobile: boolean }) {
   );
 }
 
+function useSessionState() {
+  const supabase = useMemo(() => createClient(), []);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadSession = async () => {
+      try {
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession();
+
+        if (error) {
+          console.error("[home] getSession error:", error);
+        }
+
+        if (!isMounted) return;
+        setIsLoggedIn(!!session);
+      } catch (error) {
+        console.error("[home] unexpected getSession error:", error);
+        if (!isMounted) return;
+        setIsLoggedIn(false);
+      } finally {
+        if (isMounted) setAuthLoading(false);
+      }
+    };
+
+    loadSession();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsLoggedIn(!!session);
+      setAuthLoading(false);
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, [supabase]);
+
+  return { isLoggedIn, authLoading };
+}
+
 function useAuthNavigate() {
   const router = useRouter();
+  const { isLoggedIn, authLoading } = useSessionState();
 
   return useCallback(
-    (targetHref: string) => {
+    (targetHref: string, requireAuth = false) => {
+      if (authLoading) return;
+
+      if (requireAuth && !isLoggedIn) {
+        router.push(`/login?redirect=${encodeURIComponent(targetHref)}`);
+        return;
+      }
+
       router.push(targetHref);
     },
-    [router]
+    [router, isLoggedIn, authLoading]
   );
 }
 
@@ -279,13 +336,21 @@ function Reveal({
   );
 }
 
-function AuthMenuItem({ href, label }: { href: string; label: string }) {
+function AuthMenuItem({
+  href,
+  label,
+  requireAuth = false,
+}: {
+  href: string;
+  label: string;
+  requireAuth?: boolean;
+}) {
   const go = useAuthNavigate();
 
   return (
     <button
       type="button"
-      onClick={() => go(href)}
+      onClick={() => go(href, requireAuth)}
       className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-[13px] text-white/75 transition hover:bg-white/5 hover:text-white"
     >
       <span>{label}</span>
@@ -298,10 +363,12 @@ function AuthCTAButton({
   href,
   children,
   className = "",
+  requireAuth = false,
 }: {
   href: string;
   children: ReactNode;
   className?: string;
+  requireAuth?: boolean;
 }) {
   const go = useAuthNavigate();
 
@@ -310,7 +377,7 @@ function AuthCTAButton({
       type="button"
       whileHover={{ y: -2, scale: 1.015 }}
       whileTap={{ scale: 0.985 }}
-      onClick={() => go(href)}
+      onClick={() => go(href, requireAuth)}
       className={cn(
         "cursor-pointer rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/18",
         className
@@ -504,12 +571,14 @@ function ToolModeCard({
   href,
   accentClass,
   icon,
+  requireAuth = false,
 }: {
   title: string;
   desc: string;
   href: string;
   accentClass: string;
   icon: ReactNode;
+  requireAuth?: boolean;
 }) {
   const go = useAuthNavigate();
 
@@ -525,7 +594,7 @@ function ToolModeCard({
     >
       <button
         type="button"
-        onClick={() => go(href)}
+        onClick={() => go(href, requireAuth)}
         className={cn(
           "group relative w-full cursor-pointer overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-5 text-left backdrop-blur transition duration-500",
           "hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.08]",
@@ -1006,23 +1075,28 @@ export default function Home() {
                     <AuthMenuItem
                       href={TOOL_ROUTES.referenceToVideo}
                       label="Reference to Video"
+                      requireAuth
                     />
                     <AuthMenuItem
                       href={TOOL_ROUTES.imageToVideo}
                       label="Image to Video"
+                      requireAuth
                     />
                     <AuthMenuItem
                       href={TOOL_ROUTES.textToVideo}
                       label="Text to Video"
+                      requireAuth
                     />
                     <div className="my-2 h-px bg-white/10" />
                     <AuthMenuItem
                       href={TOOL_ROUTES.referenceToImage}
                       label="Reference to Image"
+                      requireAuth
                     />
                     <AuthMenuItem
                       href={TOOL_ROUTES.textToImage}
                       label="Text to Image"
+                      requireAuth
                     />
                   </div>
                 </div>
@@ -1117,6 +1191,7 @@ export default function Home() {
                 <AuthCTAButton
                   href={TOOL_ROUTES.referenceToVideo}
                   className="bg-white/8 hover:bg-white/18"
+                  requireAuth
                 >
                   Explore Workflows
                 </AuthCTAButton>
@@ -1310,6 +1385,7 @@ export default function Home() {
                 href={TOOL_ROUTES.referenceToVideo}
                 accentClass="hover:bg-violet-500/[0.12]"
                 icon={<Film className="h-5 w-5" />}
+                requireAuth
               />
             </Reveal>
             <Reveal delay={0.08}>
@@ -1319,6 +1395,7 @@ export default function Home() {
                 href={TOOL_ROUTES.imageToVideo}
                 accentClass="hover:bg-blue-500/[0.12]"
                 icon={<Clapperboard className="h-5 w-5" />}
+                requireAuth
               />
             </Reveal>
             <Reveal delay={0.14}>
@@ -1328,6 +1405,7 @@ export default function Home() {
                 href={TOOL_ROUTES.textToVideo}
                 accentClass="hover:bg-fuchsia-500/[0.12]"
                 icon={<Wand2 className="h-5 w-5" />}
+                requireAuth
               />
             </Reveal>
             <Reveal delay={0.2}>
@@ -1337,6 +1415,7 @@ export default function Home() {
                 href={TOOL_ROUTES.referenceToImage}
                 accentClass="hover:bg-amber-400/[0.12]"
                 icon={<ImageIcon className="h-5 w-5" />}
+                requireAuth
               />
             </Reveal>
             <Reveal delay={0.26}>
@@ -1346,6 +1425,7 @@ export default function Home() {
                 href={TOOL_ROUTES.textToImage}
                 accentClass="hover:bg-white/[0.10]"
                 icon={<Sparkles className="h-5 w-5" />}
+                requireAuth
               />
             </Reveal>
           </div>
@@ -1405,7 +1485,7 @@ export default function Home() {
             </div>
 
             <div className="mt-2 flex items-center gap-3 md:mt-0">
-              <AuthCTAButton href={TOOL_ROUTES.referenceToVideo}>
+              <AuthCTAButton href={TOOL_ROUTES.referenceToVideo} requireAuth>
                 Open Studio
               </AuthCTAButton>
             </div>
@@ -1544,7 +1624,7 @@ export default function Home() {
             </div>
 
             <div className="mt-1 flex items-center gap-3 md:mt-0">
-              <AuthCTAButton href={TOOL_ROUTES.imageToVideo}>
+              <AuthCTAButton href={TOOL_ROUTES.imageToVideo} requireAuth>
                 Open Studio
               </AuthCTAButton>
             </div>
@@ -1779,6 +1859,7 @@ export default function Home() {
                   <AuthCTAButton
                     href={TOOL_ROUTES.referenceToVideo}
                     className="mt-6 border-0 bg-blue-600 shadow-[0_0_34px_rgba(37,99,235,0.26)] hover:bg-blue-500 hover:shadow-[0_0_50px_rgba(37,99,235,0.35)]"
+                    requireAuth
                   >
                     Try it now
                   </AuthCTAButton>
