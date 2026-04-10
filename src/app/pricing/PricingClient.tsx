@@ -27,6 +27,7 @@ import {
   Star,
 } from "lucide-react";
 import { createClient } from "@/app/lib/supabase/client";
+import TopupButtons from "@/app/components/TopupButtons";
 
 type PlanKey = "essential" | "advanced" | "infinite" | "wonder";
 
@@ -1061,6 +1062,101 @@ export default function PricingClient() {
 
       <section className="relative pb-20">
         <div className="mx-auto max-w-7xl px-6">
+          <GlassPanel className="overflow-hidden">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(168,85,247,0.14),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(34,211,238,0.10),transparent_30%)]" />
+
+            <div className="relative z-10 grid gap-8 px-6 py-8 lg:grid-cols-[1.2fr_0.9fr] lg:px-8 lg:py-10">
+              <div>
+                <SectionEyebrow
+                  label="Credit top-ups"
+                  icon={<BadgePlus className="h-3.5 w-3.5 text-cyan-300" />}
+                />
+
+                <h2 className="mt-5 text-3xl font-semibold tracking-[-0.03em] md:text-4xl">
+                  Need extra credits without changing your plan?
+                </h2>
+
+                <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/65 md:text-base">
+                  Buy one-time credit packs whenever you need extra output.
+                  Your monthly subscription credits still reset normally, while
+                  purchased top-up credits stay on your account.
+                </p>
+
+                <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                  {[
+                    {
+                      title: "Flexible scaling",
+                      desc: "Add more credits only when you need them.",
+                    },
+                    {
+                      title: "Top-ups persist",
+                      desc: "Purchased credits remain available through monthly resets.",
+                    },
+                    {
+                      title: "Fast checkout",
+                      desc: "Buy more credits instantly from Stripe checkout.",
+                    },
+                  ].map((item) => (
+                    <div
+                      key={item.title}
+                      className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"
+                    >
+                      <div className="text-sm font-semibold text-white/88">
+                        {item.title}
+                      </div>
+                      <div className="mt-1 text-xs leading-relaxed text-white/55">
+                        {item.desc}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-white/10 bg-black/30 p-5 backdrop-blur-xl">
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="inline-flex rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-white/85">
+                    <Wallet className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-white/88">
+                      One-time credit packs
+                    </div>
+                    <div className="text-xs text-white/55">
+                      Perfect for extra generations on demand
+                    </div>
+                  </div>
+                </div>
+
+                {mounted && isAuthed ? (
+                  <TopupButtons />
+                ) : (
+                  <div className="space-y-3">
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4 text-sm leading-relaxed text-white/65">
+                      Log in first to purchase one-time credit packs and add
+                      them directly to your KOANimation wallet.
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        router.push(
+                          `/login?redirect=${encodeURIComponent("/pricing")}`
+                        )
+                      }
+                      className="w-full cursor-pointer rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/15"
+                    >
+                      Log in to buy credits
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </GlassPanel>
+        </div>
+      </section>
+
+      <section className="relative pb-20">
+        <div className="mx-auto max-w-7xl px-6">
           <div className="mx-auto max-w-4xl text-center">
             <SectionEyebrow
               label="Compare plans"
@@ -1129,7 +1225,9 @@ export default function PricingClient() {
                           {plan.name}
                         </div>
                         <div className="mt-2 flex items-end justify-center gap-2">
-                          <span className="text-4xl font-semibold">{plan.price}$</span>
+                          <span className="text-4xl font-semibold">
+                            {plan.price}$
+                          </span>
                           <span className="pb-1 text-white/45">/ month</span>
                         </div>
                       </div>

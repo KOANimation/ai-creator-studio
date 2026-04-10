@@ -38,6 +38,21 @@ function getCreditsForPrice(priceId: string): number {
   }
 }
 
+function getTopupCredits(priceId: string): number {
+  switch (priceId) {
+    case process.env.STRIPE_TOPUP_1000_PRICE_ID:
+      return 1000;
+    case process.env.STRIPE_TOPUP_5000_PRICE_ID:
+      return 5000;
+    case process.env.STRIPE_TOPUP_15000_PRICE_ID:
+      return 15000;
+    case process.env.STRIPE_TOPUP_50000_PRICE_ID:
+      return 50000;
+    default:
+      return 0;
+  }
+}
+
 async function resolveUserIdFromCustomer(
   customerId: string
 ): Promise<string | null> {
@@ -205,6 +220,7 @@ async function applySubscriptionCreditsFromInvoice(
 
   console.log("Invoice event received:", {
     eventId: eventId ?? null,
+    eventType: "subscription_invoice",
     invoiceId: invoice.id,
     livemode: eventLivemode,
     customerId,
@@ -259,13 +275,10 @@ async function applySubscriptionCreditsFromInvoice(
   }
 
   if (!eventLivemode && !allowTestCreditGrants) {
-    console.log(
-      "Skipping test-mode credit grant because STRIPE_ALLOW_TEST_CREDIT_GRANTS is false:",
-      {
-        eventId: eventId ?? null,
-        invoiceId: invoice.id,
-      }
-    );
+    console.log("Skipping test-mode subscription grant:", {
+      eventId: eventId ?? null,
+      invoiceId: invoice.id,
+    });
     return;
   }
 
@@ -318,6 +331,78 @@ async function applySubscriptionCreditsFromInvoice(
     credits,
     billingReason,
     isRenewal,
+    referenceKey,
+  });
+}
+
+async function applyTopupCreditsFromSession(
+  session: Stripe.Checkout.Session,
+  eventLivemode: boolean,
+  eventId?: string
+): Promise<void> {
+  console.log("Top-up checkout session received:", {
+    eventId: eventId ?? null,
+    sessionId: session.id,
+    livemode: eventLivemode,
+    mode: session.mode,
+    purchaseType: session.metadata?.purchase_type ?? null,
+    userId: session.metadata?.supabase_user_id ?? null,
+  });
+
+  if (!eventLivemode && !allowTestCreditGrants) {
+    console.log("Skipping test-mode top-up grant:", {
+      eventId: eventId ?? null,
+      sessionId: session.id,
+    });
+    return;
+  }
+
+  const userId = session.metadata?.supabase_user_id ?? null;
+
+  if (!userId) {
+    throw new Error(`Missing user id in top-up checkout session: ${session.id}`);
+  }
+
+  const lineItems = await stripe.checkout.sessions.listLineItems(session.id);
+
+  const priceId = lineItems.data[0]?.price?.id ?? null;
+
+  if (!priceId) {
+    throw new Error(`Missing price id in top-up checkout session: ${session.id}`);
+  }
+
+  const credits = getTopupCredits(priceId);
+
+  if (credits <= 0) {
+    throw new Error(`No top-up credits configured for price id: ${priceId}`);
+  }
+
+  const referenceKey = `topup_${session.id}`;
+
+  const { error } = await supabase.rpc("apply_topup_credits", {
+    p_user_id: userId,
+    p_amount: credits,
+    p_reference_key: referenceKey,
+  });
+
+  if (error) {
+    console.error("Apply top-up credits failed:", {
+      eventId: eventId ?? null,
+      sessionId: session.id,
+      userId,
+      priceId,
+      credits,
+      error,
+    });
+    throw new Error(error.message || "Failed to apply top-up credits");
+  }
+
+  console.log("Top-up credits applied successfully:", {
+    eventId: eventId ?? null,
+    sessionId: session.id,
+    userId,
+    credits,
+    priceId,
     referenceKey,
   });
 }
@@ -375,11 +460,27 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: message }, { status: 400 });
   }
 
+  console.log("Stripe webhook received:", {
+    eventId: event.id,
+    eventType: event.type,
+    livemode: event.livemode,
+  });
+
   try {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
+
         await ensureStripeCustomerMapping(session);
+
+        if (session.mode === "payment") {
+          const purchaseType = session.metadata?.purchase_type ?? null;
+
+          if (purchaseType === "topup") {
+            await applyTopupCreditsFromSession(session, event.livemode, event.id);
+          }
+        }
+
         break;
       }
 

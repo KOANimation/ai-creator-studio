@@ -31,6 +31,7 @@ import {
   Wand2,
   X,
 } from "lucide-react";
+import TopupButtons from "@/app/components/TopupButtons";
 
 type VideoToolKey = "reference-to-video" | "image-to-video" | "text-to-video";
 type GenerationKind =
@@ -1143,6 +1144,7 @@ export default function CreateVideoClient({
   const [isAuthed, setIsAuthed] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
   const [credits, setCredits] = useState<number | null>(initialCredits);
+  const [showTopupPanel, setShowTopupPanel] = useState(false);
 
   const [startFrame, setStartFrame] = useState<File | null>(null);
   const [endFrame, setEndFrame] = useState<File | null>(null);
@@ -1392,6 +1394,12 @@ export default function CreateVideoClient({
     credits != null ? credits - videoCreditCost : null;
 
   const hasEnoughCredits = credits != null && credits >= videoCreditCost;
+
+  useEffect(() => {
+    if (credits != null && !hasEnoughCredits) {
+      setShowTopupPanel(true);
+    }
+  }, [credits, hasEnoughCredits]);
 
   const deductCredits = async (
     description: string,
@@ -2130,6 +2138,14 @@ export default function CreateVideoClient({
             <CreditsPill credits={credits} />
 
             <TopbarButton
+              onClick={() => setShowTopupPanel((prev) => !prev)}
+              icon={<Coins size={16} className="opacity-80" />}
+              highlighted
+            >
+              Buy credits
+            </TopbarButton>
+
+            <TopbarButton
               onClick={goPricing}
               icon={<WalletCards size={16} className="opacity-80" />}
             >
@@ -2435,6 +2451,44 @@ export default function CreateVideoClient({
                   </div>
                 )}
 
+                <AnimatePresence>
+                  {showTopupPanel && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 8 }}
+                      transition={{ duration: 0.2 }}
+                      className="mt-3 overflow-hidden rounded-[22px] border border-amber-300/20 bg-[linear-gradient(180deg,rgba(255,224,138,0.08),rgba(255,196,77,0.03))] p-4"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-semibold text-amber-50">
+                            Top up your credits
+                          </div>
+                          <div className="mt-1 text-xs leading-relaxed text-amber-100/65">
+                            Buy one-time credit packs without changing your
+                            subscription. Purchased top-up credits persist through
+                            monthly resets.
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setShowTopupPanel(false)}
+                          className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-xl border border-white/10 bg-black/20 text-white/70 transition hover:border-white/20 hover:bg-black/30 hover:text-white"
+                          aria-label="Close top-up panel"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+
+                      <div className="mt-4">
+                        <TopupButtons />
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
                 <motion.button
                   type="button"
                   whileTap={{ scale: 0.99 }}
@@ -2460,7 +2514,9 @@ export default function CreateVideoClient({
                   <span>
                     {isCreating
                       ? `Generating ${amount} video${amount > 1 ? "s" : ""}...`
-                      : `Create • ${videoCreditCost} credits`}
+                      : !hasEnoughCredits && credits != null
+                        ? `Insufficient credits • Need ${videoCreditCost}`
+                        : `Create • ${videoCreditCost} credits`}
                   </span>
                 </motion.button>
               </div>
