@@ -29,10 +29,10 @@ export async function POST(req: NextRequest) {
 
     const {
       data: { user },
-      error: authError,
+      error: userError,
     } = await supabase.auth.getUser();
 
-    if (authError || !user) {
+    if (userError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
 
     if (!topupKey || !["1000", "5000", "15000", "50000"].includes(topupKey)) {
       return NextResponse.json(
-        { error: "Invalid top-up selection" },
+        { error: "Invalid top-up option." },
         { status: 400 }
       );
     }
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
 
     if (!priceId) {
       return NextResponse.json(
-        { error: "Missing Stripe price id for selected top-up" },
+        { error: `Missing Stripe price id for top-up ${topupKey}.` },
         { status: 500 }
       );
     }
@@ -76,6 +76,13 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    if (!session.url) {
+      return NextResponse.json(
+        { error: "No Stripe checkout URL returned." },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json({ url: session.url });
   } catch (error) {
     console.error("create-topup-checkout-session failed:", error);
@@ -85,7 +92,7 @@ export async function POST(req: NextRequest) {
         error:
           error instanceof Error
             ? error.message
-            : "Failed to create top-up checkout session",
+            : "Failed to create top-up checkout session.",
       },
       { status: 500 }
     );

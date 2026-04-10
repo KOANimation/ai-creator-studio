@@ -1,31 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRight, Gem, Sparkles, Zap, Wallet } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowRight, Gem, Sparkles, Wallet, Zap } from "lucide-react";
 
 type TopupKey = "1000" | "5000" | "15000" | "50000";
-
-async function startTopupCheckout(topupKey: TopupKey) {
-  const res = await fetch("/api/stripe/create-topup-checkout-session", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ topupKey }),
-  });
-
-  const data = await res.json();
-
-  if (!res.ok) {
-    throw new Error(data?.error || "Failed to start top-up checkout");
-  }
-
-  if (!data?.url) {
-    throw new Error("Missing checkout URL");
-  }
-
-  window.location.href = data.url;
-}
 
 const PACKS: Array<{
   key: TopupKey;
@@ -65,6 +44,7 @@ const PACKS: Array<{
 ];
 
 export default function TopupButtons() {
+  const router = useRouter();
   const [loadingKey, setLoadingKey] = useState<TopupKey | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -72,9 +52,37 @@ export default function TopupButtons() {
     try {
       setError(null);
       setLoadingKey(topupKey);
-      await startTopupCheckout(topupKey);
+
+      const res = await fetch("/api/stripe/create-topup-checkout-session", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ topupKey }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (res.status === 401) {
+        router.push(`/login?redirect=${encodeURIComponent("/pricing")}`);
+        return;
+      }
+
+      if (!res.ok) {
+        throw new Error(
+          data?.error || "Failed to start top-up checkout session."
+        );
+      }
+
+      if (!data?.url) {
+        throw new Error("Stripe checkout URL was not returned.");
+      }
+
+      window.location.href = data.url;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      setError(
+        err instanceof Error ? err.message : "Something went wrong."
+      );
       setLoadingKey(null);
     }
   };
@@ -120,7 +128,11 @@ export default function TopupButtons() {
         );
       })}
 
-      {error ? <p className="pt-1 text-sm text-red-400">{error}</p> : null}
+      {error ? (
+        <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          {error}
+        </div>
+      ) : null}
     </div>
   );
 }
