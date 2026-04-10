@@ -326,12 +326,17 @@ export default function PricingClient() {
 
   const [selectedPlan, setSelectedPlan] = useState<PlanKey>("advanced");
   const [faqOpen, setFaqOpen] = useState<number | null>(null);
-  const [isAuthed, setIsAuthed] = useState(false);
+
   const [mounted, setMounted] = useState(false);
+  const [authLoaded, setAuthLoaded] = useState(false);
+  const [isAuthed, setIsAuthed] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
   const [activeCheckoutPlan, setActiveCheckoutPlan] = useState<PlanKey | null>(
     null
   );
   const [isManagingBilling, setIsManagingBilling] = useState(false);
+
   const [currentSubscription, setCurrentSubscription] =
     useState<CurrentSubscription>({
       currentPlan: null,
@@ -348,27 +353,34 @@ export default function PricingClient() {
       const res = await fetch("/api/billing/current-subscription", {
         method: "GET",
         cache: "no-store",
+        credentials: "include",
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "Failed to load subscription");
+        throw new Error(data?.error || "Failed to load subscription");
       }
 
+      const normalizedPlan = normalizePlanKey(data?.currentPlan);
+
       setCurrentSubscription({
-        currentPlan: normalizePlanKey(data.currentPlan),
-        status: data.status ?? null,
-        currentPeriodEnd: data.currentPeriodEnd ?? null,
-        cancelAtPeriodEnd: data.cancelAtPeriodEnd ?? false,
+        currentPlan: normalizedPlan,
+        status: data?.status ?? null,
+        currentPeriodEnd: data?.currentPeriodEnd ?? null,
+        cancelAtPeriodEnd: Boolean(data?.cancelAtPeriodEnd),
       });
-    } catch {
+
+      return normalizedPlan;
+    } catch (err) {
+      console.error("[PricingClient] loadCurrentSubscription failed:", err);
       setCurrentSubscription({
         currentPlan: null,
         status: null,
         currentPeriodEnd: null,
         cancelAtPeriodEnd: false,
       });
+      return null;
     }
   };
 
@@ -380,13 +392,36 @@ export default function PricingClient() {
   }, [searchParams]);
 
   useEffect(() => {
-    const planParam = normalizePlanKey(searchParams.get("plan"));
-    if (!planParam && currentSubscription.currentPlan) {
-      setSelectedPlan(currentSubscription.currentPlan);
-    }
-  }, [currentSubscription.currentPlan, searchParams]);
+    let active = true;
 
-  useEffect(() => {
+    const applyAuthState = async (
+      user: { id: string; email?: string | null } | null
+    ) => {
+      if (!active) return;
+
+      const authed = !!user;
+      setIsAuthed(authed);
+      setUserEmail(user?.email ?? null);
+
+      if (!authed) {
+        setCurrentSubscription({
+          currentPlan: null,
+          status: null,
+          currentPeriodEnd: null,
+          cancelAtPeriodEnd: false,
+        });
+        return;
+      }
+
+      const currentPlan = await loadCurrentSubscription();
+      if (!active) return;
+
+      const planParam = normalizePlanKey(searchParams.get("plan"));
+      if (!planParam && currentPlan) {
+        setSelectedPlan(currentPlan);
+      }
+    };
+
     const syncAuth = async () => {
       setMounted(true);
 
@@ -394,12 +429,19 @@ export default function PricingClient() {
         data: { session },
       } = await supabase.auth.getSession();
 
-      const authed = !!session;
-      setIsAuthed(authed);
+      if (!active) return;
 
-      if (authed) {
-        await loadCurrentSubscription();
-      }
+      const sessionUser = session?.user ?? null;
+      await applyAuthState(sessionUser);
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!active) return;
+
+      await applyAuthState(user ?? sessionUser);
+      if (active) setAuthLoaded(true);
     };
 
     void syncAuth();
@@ -407,38 +449,38 @@ export default function PricingClient() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      const authed = !!session;
-      setIsAuthed(authed);
-      setMounted(true);
+      if (!active) return;
 
-      if (authed) {
-        await loadCurrentSubscription();
-      } else {
-        setCurrentSubscription({
-          currentPlan: null,
-          status: null,
-          currentPeriodEnd: null,
-          cancelAtPeriodEnd: false,
-        });
+      await applyAuthState(session?.user ?? null);
+      if (active) {
+        setMounted(true);
+        setAuthLoaded(true);
       }
     });
 
     return () => {
+      active = false;
       subscription.unsubscribe();
     };
-  }, [supabase]);
+  }, [supabase, searchParams]);
 
   useEffect(() => {
     if (success && isAuthed) {
-      void loadCurrentSubscription();
+      void loadCurrentSubscription().then((currentPlan) => {
+        const planParam = normalizePlanKey(searchParams.get("plan"));
+        if (!planParam && currentPlan) {
+          setSelectedPlan(currentPlan);
+        }
+      });
     }
-  }, [success, isAuthed]);
+  }, [success, isAuthed, searchParams]);
 
   const updatePricingUrl = (plan: PlanKey) => {
     router.replace(getPricingPath(plan), { scroll: false });
   };
 
   const handleSelectPlan = (plan: PlanKey) => {
+    if (currentSubscription.currentPlan === plan) return;
     setSelectedPlan(plan);
     updatePricingUrl(plan);
   };
@@ -474,6 +516,7 @@ export default function PricingClient() {
 
       const res = await fetch("/api/stripe/create-portal-session", {
         method: "POST",
+        credentials: "include",
       });
 
       const data = await res.json();
@@ -493,11 +536,11 @@ export default function PricingClient() {
   };
 
   const handlePlanAction = async (planKey: PlanKey) => {
-    handleSelectPlan(planKey);
-
     if (currentSubscription.currentPlan === planKey) {
       return;
     }
+
+    handleSelectPlan(planKey);
 
     const stripePlan = mapPlanKeyToStripePlan(planKey);
 
@@ -518,6 +561,7 @@ export default function PricingClient() {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({
           plan: stripePlan,
         }),
@@ -526,24 +570,32 @@ export default function PricingClient() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "Failed to start checkout.");
+        throw new Error(data?.error || "Failed to start checkout.");
       }
 
-      if (data.updated) {
-        await loadCurrentSubscription();
+      if (data?.updated) {
+        const currentPlan = await loadCurrentSubscription();
+        if (currentPlan) {
+          setSelectedPlan(currentPlan);
+          updatePricingUrl(currentPlan);
+        }
         alert(
-          data.message ||
+          data?.message ||
             "Plan updated successfully. Stripe will handle any prorated difference automatically."
         );
         return;
       }
 
-      if (data.alreadySubscribed) {
-        await loadCurrentSubscription();
+      if (data?.alreadySubscribed) {
+        const currentPlan = await loadCurrentSubscription();
+        if (currentPlan) {
+          setSelectedPlan(currentPlan);
+          updatePricingUrl(currentPlan);
+        }
         return;
       }
 
-      if (!data.url) {
+      if (!data?.url) {
         throw new Error("No checkout URL returned.");
       }
 
@@ -782,7 +834,7 @@ export default function PricingClient() {
             </div>
 
             <div className="flex items-center gap-3 text-sm">
-              {isAuthed && currentSubscription.currentPlan ? (
+              {authLoaded && isAuthed && currentSubscription.currentPlan ? (
                 <button
                   type="button"
                   onClick={() => void handleManageSubscription()}
@@ -876,12 +928,12 @@ export default function PricingClient() {
             })}
           </div>
 
-          {mounted && (
+          {mounted && authLoaded && (
             <div className="mt-7 text-center text-sm text-white/45">
               {isAuthed
                 ? currentPlanName
-                  ? `You are logged in. Current plan: ${currentPlanName}.`
-                  : "You are logged in. You can subscribe or switch plans."
+                  ? `You are logged in as ${userEmail ?? "your account"}. Current plan: ${currentPlanName}.`
+                  : `You are logged in as ${userEmail ?? "your account"}. You can subscribe or switch plans.`
                 : "You can view pricing freely. Log in when you want to subscribe."}
             </div>
           )}
@@ -927,7 +979,9 @@ export default function PricingClient() {
         <div className="mx-auto max-w-7xl px-6">
           <div className="grid gap-6 lg:grid-cols-4">
             {plans.map((p) => {
-              const isSelected = selectedPlan === p.key;
+              const isSelected =
+                selectedPlan === p.key &&
+                currentSubscription.currentPlan !== p.key;
               const isCurrent = currentSubscription.currentPlan === p.key;
               const isLoading = activeCheckoutPlan === p.key;
               const buttonLabel = getPlanActionLabel(
@@ -940,7 +994,8 @@ export default function PricingClient() {
                 <div
                   key={p.key}
                   className={cn(
-                    "group relative overflow-hidden rounded-3xl border bg-black/30 p-6 backdrop-blur-xl transition duration-300 hover:-translate-y-1",
+                    "group relative overflow-hidden rounded-3xl border bg-black/30 p-6 backdrop-blur-xl transition duration-300",
+                    !isCurrent && "hover:-translate-y-1",
                     p.glowClass,
                     isSelected && p.selectedGlowClass,
                     isCurrent && p.currentGlowClass
@@ -963,7 +1018,7 @@ export default function PricingClient() {
                     )}
                   />
 
-                  {p.badge ? (
+                  {p.badge && !isCurrent ? (
                     <div className="absolute right-4 top-4 z-20 rounded-full bg-[#6B70FF] px-3 py-1 text-xs font-semibold text-white shadow-[0_0_18px_rgba(107,112,255,0.45)]">
                       {p.badge}
                     </div>
@@ -981,12 +1036,14 @@ export default function PricingClient() {
                     </div>
                   )}
 
-                  <button
-                    type="button"
-                    onClick={() => handleSelectPlan(p.key)}
-                    className="absolute inset-0 z-0 cursor-pointer"
-                    aria-label={`Select ${p.name}`}
-                  />
+                  {!isCurrent && (
+                    <button
+                      type="button"
+                      onClick={() => handleSelectPlan(p.key)}
+                      className="absolute inset-0 z-0 cursor-pointer"
+                      aria-label={`Select ${p.name}`}
+                    />
+                  )}
 
                   <div className="relative z-10 pt-10">
                     <div className="mb-4 inline-flex rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-white/80">
@@ -1017,8 +1074,10 @@ export default function PricingClient() {
                     }}
                     disabled={isLoading || isCurrent}
                     className={cn(
-                      "relative z-10 mt-6 w-full cursor-pointer rounded-xl px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60",
-                      p.buttonStyle
+                      "relative z-10 mt-6 w-full rounded-xl px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60",
+                      isCurrent
+                        ? "cursor-not-allowed border border-emerald-300/20 bg-emerald-300/10 text-emerald-100"
+                        : cn("cursor-pointer", p.buttonStyle)
                     )}
                   >
                     {isLoading ? "Processing..." : buttonLabel}
@@ -1127,7 +1186,7 @@ export default function PricingClient() {
                   </div>
                 </div>
 
-                {mounted && isAuthed ? (
+                {mounted && authLoaded && isAuthed ? (
                   <TopupButtons />
                 ) : (
                   <div className="space-y-3">
@@ -1182,7 +1241,9 @@ export default function PricingClient() {
                   </div>
 
                   {plans.map((plan) => {
-                    const isSelected = selectedPlan === plan.key;
+                    const isSelected =
+                      selectedPlan === plan.key &&
+                      currentSubscription.currentPlan !== plan.key;
                     const isCurrent = currentSubscription.currentPlan === plan.key;
 
                     return (
@@ -1251,7 +1312,9 @@ export default function PricingClient() {
 
                     {row.values.map((value, index) => {
                       const plan = plans[index];
-                      const isSelected = selectedPlan === plan.key;
+                      const isSelected =
+                        selectedPlan === plan.key &&
+                        currentSubscription.currentPlan !== plan.key;
                       const isCurrent = currentSubscription.currentPlan === plan.key;
 
                       return (
@@ -1292,8 +1355,10 @@ export default function PricingClient() {
                           onClick={() => void handlePlanAction(plan.key)}
                           disabled={isCurrent || isLoading}
                           className={cn(
-                            "w-full cursor-pointer rounded-xl px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60",
-                            plan.buttonStyle
+                            "w-full rounded-xl px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60",
+                            isCurrent
+                              ? "cursor-not-allowed border border-emerald-300/20 bg-emerald-300/10 text-emerald-100"
+                              : cn("cursor-pointer", plan.buttonStyle)
                           )}
                         >
                           {isLoading ? "Processing..." : buttonLabel}

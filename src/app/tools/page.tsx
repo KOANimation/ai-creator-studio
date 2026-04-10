@@ -16,28 +16,32 @@ import Marquee from "react-fast-marquee";
 import Balancer from "react-wrap-balancer";
 import {
   ArrowRight,
+  BadgePlus,
   Clapperboard,
+  CreditCard,
+  House,
+  ChevronRight,
+  Coins,
+  Command,
+  Film,
+  History,
   ImageIcon,
   Layers3,
   LogOut,
+  PanelLeft,
   Play,
+  RefreshCw,
   ScanSearch,
   Settings,
-  Sparkles,
-  Wand2,
-  PanelLeft,
-  Film,
-  History,
-  ChevronRight,
-  Workflow,
   ShieldCheck,
+  Sparkles,
   Stars,
-  Command,
-  House,
-  Coins,
-  CreditCard,
+  Wallet,
+  Wand2,
+  Workflow,
 } from "lucide-react";
 import { createClient } from "@/app/lib/supabase/client";
+import TopupButtons from "@/app/components/TopupButtons";
 
 type VideoToolKey = "reference-to-video" | "image-to-video" | "text-to-video";
 type ImageToolKey = "reference-to-image" | "text-to-image";
@@ -486,37 +490,68 @@ export default function ToolsPage() {
   const [mounted, setMounted] = useState(false);
   const [authLoaded, setAuthLoaded] = useState(false);
   const [isAuthed, setIsAuthed] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [credits, setCredits] = useState<number | null>(null);
+  const [walletLoading, setWalletLoading] = useState(false);
+  const [walletRefreshTick, setWalletRefreshTick] = useState(0);
 
-  const refreshWallet = async (userId: string) => {
-    const { data, error } = await supabase
-      .from("credit_wallets")
-      .select("balance")
-      .eq("user_id", userId)
-      .maybeSingle();
+  const refreshWallet = async (nextUserId?: string | null) => {
+    const activeUserId = nextUserId ?? userId;
 
-    if (!error && data) {
-      setCredits(data.balance);
-    } else {
+    if (!activeUserId) {
+      setCredits(null);
+      return;
+    }
+
+    try {
+      setWalletLoading(true);
+
+      const { data, error } = await supabase
+        .from("credit_wallets")
+        .select("balance")
+        .eq("user_id", activeUserId)
+        .maybeSingle();
+
+      if (error) {
+        console.error("[ToolsPage] Failed to load wallet:", error);
+        setCredits(0);
+        return;
+      }
+
+      if (!data) {
+        console.warn("[ToolsPage] No wallet row found for user:", activeUserId);
+        setCredits(0);
+        return;
+      }
+
+      setCredits(typeof data.balance === "number" ? data.balance : 0);
+    } catch (err) {
+      console.error("[ToolsPage] Wallet refresh crashed:", err);
       setCredits(0);
+    } finally {
+      setWalletLoading(false);
     }
   };
 
   useEffect(() => {
     let active = true;
 
-    const applyUserState = async (user: { id: string; email?: string | null } | null) => {
+    const applyUserState = async (
+      user: { id: string; email?: string | null } | null
+    ) => {
       if (!active) return;
 
       setIsAuthed(!!user);
 
       if (!user) {
+        setUserId(null);
         setUserEmail(null);
         setCredits(null);
         return;
       }
 
+      setUserId(user.id);
       setUserEmail(user.email ?? null);
       await refreshWallet(user.id);
     };
@@ -550,8 +585,7 @@ export default function ToolsPage() {
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!active) return;
 
-      const user = session?.user ?? null;
-      await applyUserState(user);
+      await applyUserState(session?.user ?? null);
       if (active) {
         setAuthLoaded(true);
       }
@@ -563,9 +597,37 @@ export default function ToolsPage() {
     };
   }, [supabase]);
 
+  useEffect(() => {
+    if (!authLoaded || !isAuthed || !userId) return;
+    void refreshWallet(userId);
+  }, [walletRefreshTick, authLoaded, isAuthed, userId]);
+
+  useEffect(() => {
+    const onFocus = () => {
+      if (userId) {
+        setWalletRefreshTick((v) => v + 1);
+      }
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible" && userId) {
+        setWalletRefreshTick((v) => v + 1);
+      }
+    };
+
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [userId]);
+
   const logout = async () => {
     await supabase.auth.signOut();
     setIsAuthed(false);
+    setUserId(null);
     setUserEmail(null);
     setCredits(null);
     router.replace("/tools");
@@ -605,6 +667,14 @@ export default function ToolsPage() {
   const accountLabel = !authLoaded
     ? "Checking session..."
     : userEmail ?? "Not logged in";
+
+  const creditsLabel = !authLoaded
+    ? "..."
+    : !isAuthed
+    ? "—"
+    : credits === null
+    ? "..."
+    : `${credits}`;
 
   return (
     <div className="relative min-h-screen overflow-x-hidden text-white">
@@ -893,7 +963,7 @@ export default function ToolsPage() {
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <QuickStat
                 label="Credits"
-                value={!authLoaded ? "..." : credits === null ? "..." : `${credits}`}
+                value={creditsLabel}
                 icon={<Coins className="h-5 w-5" />}
                 className="border-yellow-300/20 shadow-[0_0_0_1px_rgba(250,204,21,0.10),0_0_28px_rgba(250,204,21,0.12),0_24px_80px_rgba(0,0,0,0.32)]"
                 iconClassName="border-yellow-300/20 bg-yellow-300/10 text-yellow-200 shadow-[0_0_22px_rgba(250,204,21,0.22)]"
@@ -914,6 +984,121 @@ export default function ToolsPage() {
                 icon={<Stars className="h-5 w-5" />}
               />
             </div>
+
+            <GlassPanel className="overflow-hidden">
+              <div className="relative z-10 grid gap-8 px-6 py-8 lg:grid-cols-[1.2fr_0.9fr] lg:px-8 lg:py-8">
+                <div>
+                  <SectionEyebrow
+                    label="Wallet"
+                    icon={<Wallet className="h-3.5 w-3.5 text-yellow-300" />}
+                  />
+
+                  <h2 className="mt-5 text-3xl font-semibold tracking-[-0.03em]">
+                    Credits and top-ups
+                  </h2>
+
+                  <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/65 md:text-base">
+                    Check your available credits and buy one-time top-up packs
+                    without leaving the studio.
+                  </p>
+
+                  <div className="mt-6 grid gap-4 sm:grid-cols-3">
+                    <div className="rounded-2xl border border-yellow-300/20 bg-yellow-300/10 p-4">
+                      <div className="text-xs uppercase tracking-[0.18em] text-yellow-100/70">
+                        Available now
+                      </div>
+                      <div className="mt-2 text-3xl font-semibold text-white">
+                        {creditsLabel}
+                      </div>
+                      <div className="mt-2 text-xs text-white/60">
+                        Your current KOANimation wallet balance
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                      <div className="text-xs uppercase tracking-[0.18em] text-white/40">
+                        Refresh
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setWalletRefreshTick((v) => v + 1)}
+                        disabled={!isAuthed || walletLoading}
+                        className="mt-3 inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <RefreshCw className={cn("h-4 w-4", walletLoading && "animate-spin")} />
+                        {walletLoading ? "Refreshing..." : "Refresh credits"}
+                      </button>
+                      <div className="mt-2 text-xs text-white/55">
+                        Use this after a purchase if the balance did not update yet
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                      <div className="text-xs uppercase tracking-[0.18em] text-white/40">
+                        More options
+                      </div>
+                      <button
+                        type="button"
+                        onClick={goPricing}
+                        className="mt-3 inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/15"
+                      >
+                        <CreditCard className="h-4 w-4" />
+                        Open pricing
+                      </button>
+                      <div className="mt-2 text-xs text-white/55">
+                        Manage plans and see all credit options
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-3xl border border-white/10 bg-black/30 p-5 backdrop-blur-xl">
+                  <div className="mb-4 flex items-center gap-3">
+                    <div className="inline-flex rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-white/85">
+                      <BadgePlus className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold text-white/88">
+                        One-time credit packs
+                      </div>
+                      <div className="text-xs text-white/55">
+                        Add extra credits instantly
+                      </div>
+                    </div>
+                  </div>
+
+                  {mounted && authLoaded && isAuthed ? (
+                    <div className="space-y-4">
+                      <TopupButtons />
+                      <button
+                        type="button"
+                        onClick={() => setWalletRefreshTick((v) => v + 1)}
+                        className="w-full cursor-pointer rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/15"
+                      >
+                        Refresh wallet after top-up
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4 text-sm leading-relaxed text-white/65">
+                        Log in first to view your wallet balance and purchase one-time
+                        credit packs.
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          router.push(`/login?redirect=${encodeURIComponent("/tools")}`)
+                        }
+                        className="w-full cursor-pointer rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/15"
+                      >
+                        Log in to access wallet
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </GlassPanel>
 
             <RecentCreationsStrip />
 
