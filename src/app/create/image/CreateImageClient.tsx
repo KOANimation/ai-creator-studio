@@ -1031,11 +1031,25 @@ export default function CreateImageClient({
       .eq("user_id", user.id)
       .maybeSingle();
 
-    if (!error && data) {
-      setCredits(data.balance);
-    } else {
+    console.log("[CreateImageClient] wallet result:", {
+      userId: user.id,
+      data,
+      error,
+    });
+
+    if (error) {
+      console.error("[CreateImageClient] Failed to load wallet:", error);
       setCredits(0);
+      return;
     }
+
+    if (!data) {
+      console.warn("[CreateImageClient] No wallet row found for user:", user.id);
+      setCredits(0);
+      return;
+    }
+
+    setCredits(typeof data.balance === "number" ? data.balance : 0);
   };
 
   const imageCreditCost = useMemo(() => {
@@ -1118,9 +1132,6 @@ export default function CreateImageClient({
     return data;
   };
 
-  const buildRefundReferenceKey = (requestKey: string) =>
-    `image-refund:${requestKey}`;
-
   useEffect(() => {
     let isActive = true;
 
@@ -1128,15 +1139,25 @@ export default function CreateImageClient({
       setMounted(true);
 
       const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!isActive) return;
+
+      const sessionUser = session?.user ?? null;
+      setIsAuthed(!!sessionUser);
+
+      const {
         data: { user },
       } = await supabase.auth.getUser();
 
       if (!isActive) return;
 
-      setIsAuthed(!!user);
+      const resolvedUser = user ?? sessionUser;
+      setIsAuthed(!!resolvedUser);
       setAuthChecked(true);
 
-      if (!user) {
+      if (!resolvedUser) {
         setCredits(null);
         return;
       }
@@ -1152,7 +1173,7 @@ export default function CreateImageClient({
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!isActive) return;
 
-      setIsAuthed(!!session);
+      setIsAuthed(!!session?.user);
       setAuthChecked(true);
 
       if (!session?.user) {
@@ -1169,6 +1190,28 @@ export default function CreateImageClient({
       subscription.unsubscribe();
     };
   }, [supabase]);
+
+  useEffect(() => {
+    const onFocus = () => {
+      if (isAuthed) {
+        void refreshCredits();
+      }
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible" && isAuthed) {
+        void refreshCredits();
+      }
+    };
+
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [isAuthed]);
 
   useEffect(() => {
     if (provider === "openai") {
@@ -1359,6 +1402,7 @@ export default function CreateImageClient({
 
   const createImages = async () => {
     const trimmedPrompt = activePrompt.trim();
+    let pendingItems: SavedImageGeneration[] = [];
 
     try {
       setError(null);
@@ -1414,40 +1458,37 @@ export default function CreateImageClient({
 
       const timestamp = new Date().toISOString();
 
-      const pendingItems: SavedImageGeneration[] = Array.from(
-        { length: amount },
-        (_, index) => {
-          const requestKey =
+      pendingItems = Array.from({ length: amount }, (_, index) => {
+        const requestKey =
+          typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? crypto.randomUUID()
+            : `${Date.now()}-${index}-${Math.random()}`;
+
+        return {
+          id:
             typeof crypto !== "undefined" && "randomUUID" in crypto
               ? crypto.randomUUID()
-              : `${Date.now()}-${index}-${Math.random()}`;
-
-          return {
-            id:
-              typeof crypto !== "undefined" && "randomUUID" in crypto
-                ? crypto.randomUUID()
-                : `${Date.now()}-${index}-${Math.random()}`,
-            kind: active,
-            provider,
-            prompt: trimmedPrompt,
-            model,
-            aspect,
-            outputFormat,
-            amountRequest: amount,
-            createdAt: timestamp,
-            status: "processing",
-            imageUrl: null,
-            mimeType: null,
-            note: null,
-            error: null,
-            referenceCount:
-              active === "reference-to-image" ? refImages.length : 0,
-            chargedCredits: perItemCredits,
-            refundStatus: "none",
-            requestKey,
-          };
-        }
-      );
+              : `${Date.now()}-${index}-${Math.random()}`,
+          kind: active,
+          provider,
+          prompt: trimmedPrompt,
+          model,
+          aspect,
+          outputFormat,
+          amountRequest: amount,
+          createdAt: timestamp,
+          status: "processing",
+          imageUrl: null,
+          mimeType: null,
+          note: null,
+          error: null,
+          referenceCount:
+            active === "reference-to-image" ? refImages.length : 0,
+          chargedCredits: perItemCredits,
+          refundStatus: "none",
+          requestKey,
+        };
+      });
 
       setGenerations((prev) => [...pendingItems, ...prev]);
       setSelectedGeneration(pendingItems[0] ?? null);
@@ -1529,7 +1570,7 @@ export default function CreateImageClient({
               ...pendingItem,
               status: "failed",
               error: "No image was returned for this item.",
-              refundStatus: "pending",
+              refundStatus: "none",
             };
           }
         );
@@ -1546,72 +1587,51 @@ export default function CreateImageClient({
 
       setError(message);
 
-      setGenerations((prev) =>
-        prev.map((item) =>
-          item.status === "processing"
-            ? {
-                ...item,
-                status: "failed",
-                error: message,
-                refundStatus:
-                  item.refundStatus === "refunded" ? "refunded" : "pending",
-              }
-            : item
-        )
-      );
-    } finally {
-      setIsCreating(false);
-    }
-  };
+      if (pendingItems.length > 0) {
+        const totalRefund = pendingItems.reduce(
+          (sum, item) => sum + item.chargedCredits,
+          0
+        );
 
-  useEffect(() => {
-    const failedNeedingRefund = generations.filter(
-      (item) => item.status === "failed" && item.refundStatus === "pending"
-    );
-
-    if (failedNeedingRefund.length === 0) return;
-
-    let cancelled = false;
-
-    const runRefunds = async () => {
-      for (const item of failedNeedingRefund) {
         try {
           await refundCredits(
-            item.chargedCredits,
-            "Refund for failed image generation",
-            buildRefundReferenceKey(item.requestKey),
+            totalRefund,
+            "Refund for failed image generation batch",
+            `image-batch-refund:${pendingItems.map((i) => i.requestKey).join("|")}`,
             {
-              requestKey: item.requestKey,
-              kind: item.kind,
-              provider: item.provider,
-              model: item.model,
-              aspect: item.aspect,
-              outputFormat: item.outputFormat,
-              amountRequest: item.amountRequest,
-              referenceCount: item.referenceCount,
-              chargedCredits: item.chargedCredits,
+              requestKeys: pendingItems.map((i) => i.requestKey),
+              kind: active,
+              provider,
+              model,
+              aspect,
+              outputFormat,
+              amountRequest: amount,
+              referenceCount: refImages.length,
+              chargedCredits: totalRefund,
             }
           );
-
-          if (!cancelled) {
-            setGenerations((prev) =>
-              prev.map((g) =>
-                g.id === item.id ? { ...g, refundStatus: "refunded" } : g
-              )
-            );
-          }
         } catch (refundErr) {
-          console.error("Image refund failed:", refundErr);
+          console.error("Batch image refund failed:", refundErr);
         }
+
+        setGenerations((prev) =>
+          prev.map((item) =>
+            pendingItems.some((p) => p.id === item.id)
+              ? {
+                  ...item,
+                  status: "failed",
+                  error: message,
+                  refundStatus: "refunded",
+                }
+              : item
+          )
+        );
       }
-    };
-
-    void runRefunds();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [generations]);
+    } finally {
+      setIsCreating(false);
+      await refreshCredits();
+    }
+  };
 
   const reusePrompt = (item: SavedImageGeneration) => {
     if (item.kind === "reference-to-image") {

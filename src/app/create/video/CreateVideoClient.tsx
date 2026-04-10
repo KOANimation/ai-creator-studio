@@ -12,7 +12,6 @@ import {
   Coins,
   Crown,
   Download,
-  Film,
   Gift,
   Home,
   ImageIcon,
@@ -48,6 +47,8 @@ type SavedGenerationStatus =
   | "success"
   | "failed";
 
+type RefundStatus = "none" | "pending" | "refunded";
+
 type SavedGeneration = {
   id: string;
   kind: GenerationKind;
@@ -63,6 +64,7 @@ type SavedGeneration = {
   coverUrl: string | null;
   error: string | null;
   chargedCredits: number;
+  refundStatus: RefundStatus;
 };
 
 const VIDEO_TOOLS: { key: VideoToolKey; label: string }[] = [
@@ -1033,6 +1035,43 @@ function getTimelineSteps(status: SavedGenerationStatus | null) {
   ];
 }
 
+function normalizeGeneration(item: Partial<SavedGeneration>): SavedGeneration {
+  return {
+    id:
+      item.id ??
+      (typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random()}`),
+    kind: (item.kind as GenerationKind) ?? "text-to-video",
+    taskId: item.taskId ?? "",
+    prompt: item.prompt ?? "",
+    model: item.model ?? "",
+    duration: typeof item.duration === "number" ? item.duration : 5,
+    resolution: item.resolution ?? "720p",
+    aspect: item.aspect ?? "16:9",
+    createdAt: item.createdAt ?? new Date().toISOString(),
+    status: (item.status as SavedGenerationStatus) ?? "created",
+    videoUrl: item.videoUrl ?? null,
+    coverUrl: item.coverUrl ?? null,
+    error: item.error ?? null,
+    chargedCredits: typeof item.chargedCredits === "number" ? item.chargedCredits : 0,
+    refundStatus:
+      item.refundStatus === "pending" ||
+      item.refundStatus === "refunded" ||
+      item.refundStatus === "none"
+        ? item.refundStatus
+        : "none",
+  };
+}
+
+function buildTaskRefundReferenceKey(taskId: string) {
+  return `video-task-refund:${taskId}`;
+}
+
+function buildBatchRefundReferenceKey(batchKey: string) {
+  return `video-batch-refund:${batchKey}`;
+}
+
 function VideoHistoryCard({
   item,
   onOpen,
@@ -1169,9 +1208,6 @@ export default function CreateVideoClient({
   const [selectedGeneration, setSelectedGeneration] =
     useState<SavedGeneration | null>(null);
   const [hasLoadedGenerations, setHasLoadedGenerations] = useState(false);
-  const [refundedFailedTaskIds, setRefundedFailedTaskIds] = useState<string[]>(
-    []
-  );
 
   const [historyFilter, setHistoryFilter] = useState<
     "all" | "success" | "failed" | "processing"
@@ -1194,11 +1230,25 @@ export default function CreateVideoClient({
       .eq("user_id", user.id)
       .maybeSingle();
 
-    if (!error && data) {
-      setCredits(data.balance);
-    } else {
+    console.log("[CreateVideoClient] wallet result:", {
+      userId: user.id,
+      data,
+      error,
+    });
+
+    if (error) {
+      console.error("[CreateVideoClient] Failed to load wallet:", error);
       setCredits(0);
+      return;
     }
+
+    if (!data) {
+      console.warn("[CreateVideoClient] No wallet row found for user:", user.id);
+      setCredits(0);
+      return;
+    }
+
+    setCredits(typeof data.balance === "number" ? data.balance : 0);
   };
 
   useEffect(() => {
@@ -1208,15 +1258,25 @@ export default function CreateVideoClient({
       setMounted(true);
 
       const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!isActive) return;
+
+      const sessionUser = session?.user ?? null;
+      setIsAuthed(!!sessionUser);
+
+      const {
         data: { user },
       } = await supabase.auth.getUser();
 
       if (!isActive) return;
 
-      setIsAuthed(!!user);
+      const resolvedUser = user ?? sessionUser;
+      setIsAuthed(!!resolvedUser);
       setAuthChecked(true);
 
-      if (!user) {
+      if (!resolvedUser) {
         setCredits(null);
         return;
       }
@@ -1232,7 +1292,7 @@ export default function CreateVideoClient({
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!isActive) return;
 
-      setIsAuthed(!!session);
+      setIsAuthed(!!session?.user);
       setAuthChecked(true);
 
       if (!session?.user) {
@@ -1249,6 +1309,28 @@ export default function CreateVideoClient({
       subscription.unsubscribe();
     };
   }, [supabase]);
+
+  useEffect(() => {
+    const onFocus = () => {
+      if (isAuthed) {
+        void refreshCredits();
+      }
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible" && isAuthed) {
+        void refreshCredits();
+      }
+    };
+
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [isAuthed]);
 
   const setStartFile = (f: File | null) => {
     setStartFrame(f);
@@ -1280,11 +1362,12 @@ export default function CreateVideoClient({
       const raw = localStorage.getItem(GENERATIONS_STORAGE_KEY);
       if (!raw) return;
 
-      const parsed = JSON.parse(raw) as SavedGeneration[];
+      const parsed = JSON.parse(raw) as Partial<SavedGeneration>[];
       if (Array.isArray(parsed)) {
-        setGenerations(parsed);
-        if (parsed.length > 0) {
-          setSelectedGeneration(parsed[0]);
+        const normalized = parsed.map((item) => normalizeGeneration(item));
+        setGenerations(normalized);
+        if (normalized.length > 0) {
+          setSelectedGeneration(normalized[0]);
         }
       }
     } catch (err) {
@@ -1402,6 +1485,7 @@ export default function CreateVideoClient({
   }, [credits, hasEnoughCredits]);
 
   const deductCredits = async (
+    amountValue: number,
     description: string,
     metadata: Record<string, unknown>
   ) => {
@@ -1413,9 +1497,9 @@ export default function CreateVideoClient({
       throw new Error("You must be logged in.");
     }
 
-    const { data, error } = await supabase.rpc("deduct_credits", {
+    const { data, error } = await supabase.rpc("deduct_credits_safe", {
       p_user_id: user.id,
-      p_amount: videoCreditCost,
+      p_amount: amountValue,
       p_description: description,
       p_metadata: metadata,
     });
@@ -1431,6 +1515,7 @@ export default function CreateVideoClient({
   const refundCredits = async (
     amountValue: number,
     description: string,
+    referenceKey: string,
     metadata: Record<string, unknown>
   ) => {
     const {
@@ -1441,10 +1526,11 @@ export default function CreateVideoClient({
       throw new Error("You must be logged in.");
     }
 
-    const { data, error } = await supabase.rpc("refund_credits", {
+    const { data, error } = await supabase.rpc("refund_credits_safe", {
       p_user_id: user.id,
       p_amount: amountValue,
       p_description: description,
+      p_reference_key: referenceKey,
       p_metadata: metadata,
     });
 
@@ -1479,6 +1565,11 @@ export default function CreateVideoClient({
     router.push(`/create/video?tab=${k}`);
 
   const createReferenceToVideo = async () => {
+    const batchKey =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random()}`;
+
     try {
       setError(null);
       setIsCreating(true);
@@ -1515,7 +1606,9 @@ export default function CreateVideoClient({
         );
       }
 
-      await deductCredits("Reference to video generation", {
+      const perItemCredits = videoCreditCost / amount;
+
+      await deductCredits(videoCreditCost, "Reference to video generation", {
         kind: "reference-to-video",
         model,
         duration,
@@ -1524,6 +1617,7 @@ export default function CreateVideoClient({
         amount,
         refClipCount: refClips.length,
         refImageCount: refImages.length,
+        batchKey,
       });
 
       const requests = Array.from({ length: amount }, async () => {
@@ -1575,12 +1669,45 @@ export default function CreateVideoClient({
         return { taskId: createdTaskId, state: createdState };
       });
 
-      const createdTasks = await Promise.all(requests);
-      const timestamp = new Date().toISOString();
-      const perItemCredits = videoCreditCost / amount;
+      const results = await Promise.allSettled(requests);
 
-      const newGenerations: SavedGeneration[] = createdTasks.map(
-        (task, index) => ({
+      const successes = results.flatMap((result) =>
+        result.status === "fulfilled" ? [result.value] : []
+      );
+
+      const failedCount = results.length - successes.length;
+
+      if (failedCount > 0) {
+        const refundAmount = perItemCredits * failedCount;
+        try {
+          await refundCredits(
+            refundAmount,
+            "Refund for failed reference-to-video batch items",
+            buildBatchRefundReferenceKey(`${batchKey}:reference:${failedCount}`),
+            {
+              batchKey,
+              kind: "reference-to-video",
+              failedCount,
+              amountRefunded: refundAmount,
+              model,
+              duration,
+              resolution,
+              aspect,
+            }
+          );
+        } catch (refundErr) {
+          console.error("Reference batch refund failed:", refundErr);
+        }
+      }
+
+      if (successes.length === 0) {
+        throw new Error("No video tasks were created.");
+      }
+
+      const timestamp = new Date().toISOString();
+
+      const newGenerations: SavedGeneration[] = successes.map((task, index) =>
+        normalizeGeneration({
           id:
             typeof crypto !== "undefined" && "randomUUID" in crypto
               ? crypto.randomUUID()
@@ -1598,18 +1725,32 @@ export default function CreateVideoClient({
           coverUrl: null,
           error: null,
           chargedCredits: perItemCredits,
+          refundStatus: "none",
         })
       );
 
       setGenerations((prev) => [...newGenerations, ...prev]);
       setSelectedGeneration(newGenerations[0] ?? null);
+
+      if (failedCount > 0) {
+        setError(
+          `${failedCount} generation${failedCount > 1 ? "s were" : " was"} not created and refunded automatically.`
+        );
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
       setIsCreating(false);
+      await refreshCredits();
     }
   };
 
   const createImageOrStartEndVideo = async () => {
+    const batchKey =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random()}`;
+
     try {
       setError(null);
       setIsCreating(true);
@@ -1636,18 +1777,6 @@ export default function CreateVideoClient({
         throw new Error("End frame must be an image.");
       }
 
-      await deductCredits(
-        endFrame ? "Start-end video generation" : "Image to video generation",
-        {
-          kind: endFrame ? "start-end-to-video" : "image-to-video",
-          model,
-          duration,
-          resolution,
-          aspect,
-          amount,
-        }
-      );
-
       let mode: GenerationKind = "image-to-video";
       let endpoint = "/api/vidu/image";
 
@@ -1670,6 +1799,22 @@ export default function CreateVideoClient({
         mode = "start-end-to-video";
         endpoint = "/api/vidu/start-end";
       }
+
+      const perItemCredits = videoCreditCost / amount;
+
+      await deductCredits(
+        videoCreditCost,
+        endFrame ? "Start-end video generation" : "Image to video generation",
+        {
+          kind: mode,
+          model,
+          duration,
+          resolution,
+          aspect,
+          amount,
+          batchKey,
+        }
+      );
 
       const requests = Array.from({ length: amount }, async () => {
         const formData = new FormData();
@@ -1721,12 +1866,45 @@ export default function CreateVideoClient({
         };
       });
 
-      const createdTasks = await Promise.all(requests);
-      const timestamp = new Date().toISOString();
-      const perItemCredits = videoCreditCost / amount;
+      const results = await Promise.allSettled(requests);
 
-      const newGenerations: SavedGeneration[] = createdTasks.map(
-        (task, index) => ({
+      const successes = results.flatMap((result) =>
+        result.status === "fulfilled" ? [result.value] : []
+      );
+
+      const failedCount = results.length - successes.length;
+
+      if (failedCount > 0) {
+        const refundAmount = perItemCredits * failedCount;
+        try {
+          await refundCredits(
+            refundAmount,
+            "Refund for failed image/start-end batch items",
+            buildBatchRefundReferenceKey(`${batchKey}:${mode}:${failedCount}`),
+            {
+              batchKey,
+              kind: mode,
+              failedCount,
+              amountRefunded: refundAmount,
+              model,
+              duration,
+              resolution,
+              aspect,
+            }
+          );
+        } catch (refundErr) {
+          console.error("Image/start-end batch refund failed:", refundErr);
+        }
+      }
+
+      if (successes.length === 0) {
+        throw new Error("No video tasks were created.");
+      }
+
+      const timestamp = new Date().toISOString();
+
+      const newGenerations: SavedGeneration[] = successes.map((task, index) =>
+        normalizeGeneration({
           id:
             typeof crypto !== "undefined" && "randomUUID" in crypto
               ? crypto.randomUUID()
@@ -1744,18 +1922,32 @@ export default function CreateVideoClient({
           coverUrl: null,
           error: null,
           chargedCredits: perItemCredits,
+          refundStatus: "none",
         })
       );
 
       setGenerations((prev) => [...newGenerations, ...prev]);
       setSelectedGeneration(newGenerations[0] ?? null);
+
+      if (failedCount > 0) {
+        setError(
+          `${failedCount} generation${failedCount > 1 ? "s were" : " was"} not created and refunded automatically.`
+        );
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
       setIsCreating(false);
+      await refreshCredits();
     }
   };
 
   const createTextToVideo = async () => {
+    const batchKey =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random()}`;
+
     try {
       setError(null);
       setIsCreating(true);
@@ -1770,13 +1962,16 @@ export default function CreateVideoClient({
         throw new Error("Please enter a prompt.");
       }
 
-      await deductCredits("Text to video generation", {
+      const perItemCredits = videoCreditCost / amount;
+
+      await deductCredits(videoCreditCost, "Text to video generation", {
         kind: "text-to-video",
         model,
         duration,
         resolution,
         aspect,
         amount,
+        batchKey,
       });
 
       const requests = Array.from({ length: amount }, async () => {
@@ -1825,12 +2020,45 @@ export default function CreateVideoClient({
         };
       });
 
-      const createdTasks = await Promise.all(requests);
-      const timestamp = new Date().toISOString();
-      const perItemCredits = videoCreditCost / amount;
+      const results = await Promise.allSettled(requests);
 
-      const newGenerations: SavedGeneration[] = createdTasks.map(
-        (task, index) => ({
+      const successes = results.flatMap((result) =>
+        result.status === "fulfilled" ? [result.value] : []
+      );
+
+      const failedCount = results.length - successes.length;
+
+      if (failedCount > 0) {
+        const refundAmount = perItemCredits * failedCount;
+        try {
+          await refundCredits(
+            refundAmount,
+            "Refund for failed text-to-video batch items",
+            buildBatchRefundReferenceKey(`${batchKey}:text:${failedCount}`),
+            {
+              batchKey,
+              kind: "text-to-video",
+              failedCount,
+              amountRefunded: refundAmount,
+              model,
+              duration,
+              resolution,
+              aspect,
+            }
+          );
+        } catch (refundErr) {
+          console.error("Text batch refund failed:", refundErr);
+        }
+      }
+
+      if (successes.length === 0) {
+        throw new Error("No video tasks were created.");
+      }
+
+      const timestamp = new Date().toISOString();
+
+      const newGenerations: SavedGeneration[] = successes.map((task, index) =>
+        normalizeGeneration({
           id:
             typeof crypto !== "undefined" && "randomUUID" in crypto
               ? crypto.randomUUID()
@@ -1848,14 +2076,23 @@ export default function CreateVideoClient({
           coverUrl: null,
           error: null,
           chargedCredits: perItemCredits,
+          refundStatus: "none",
         })
       );
 
       setGenerations((prev) => [...newGenerations, ...prev]);
       setSelectedGeneration(newGenerations[0] ?? null);
+
+      if (failedCount > 0) {
+        setError(
+          `${failedCount} generation${failedCount > 1 ? "s were" : " was"} not created and refunded automatically.`
+        );
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
       setIsCreating(false);
+      await refreshCredits();
     }
   };
 
@@ -1944,6 +2181,8 @@ export default function CreateVideoClient({
                 ...item,
                 status: "failed" as const,
                 error: match.errCode || "Vidu generation failed.",
+                refundStatus:
+                  item.refundStatus === "refunded" ? "refunded" : "pending",
               };
             }
 
@@ -1990,9 +2229,7 @@ export default function CreateVideoClient({
 
   useEffect(() => {
     const failedNeedingRefund = generations.filter(
-      (item) =>
-        item.status === "failed" &&
-        !refundedFailedTaskIds.includes(item.taskId)
+      (item) => item.status === "failed" && item.refundStatus === "pending"
     );
 
     if (failedNeedingRefund.length === 0) return;
@@ -2002,23 +2239,32 @@ export default function CreateVideoClient({
     const runRefunds = async () => {
       for (const item of failedNeedingRefund) {
         try {
-          const refundAmount = item.chargedCredits;
-
-          await refundCredits(refundAmount, "Refund for failed video generation", {
-            taskId: item.taskId,
-            kind: item.kind,
-            model: item.model,
-            duration: item.duration,
-            resolution: item.resolution,
-            aspect: item.aspect,
-            chargedCredits: item.chargedCredits,
-          });
+          await refundCredits(
+            item.chargedCredits,
+            "Refund for failed video generation",
+            buildTaskRefundReferenceKey(item.taskId),
+            {
+              taskId: item.taskId,
+              kind: item.kind,
+              model: item.model,
+              duration: item.duration,
+              resolution: item.resolution,
+              aspect: item.aspect,
+              chargedCredits: item.chargedCredits,
+            }
+          );
 
           if (!cancelled) {
-            setRefundedFailedTaskIds((prev) => [...prev, item.taskId]);
+            setGenerations((prev) =>
+              prev.map((g) =>
+                g.taskId === item.taskId
+                  ? { ...g, refundStatus: "refunded" }
+                  : g
+              )
+            );
           }
-        } catch (err) {
-          console.error("Video refund failed:", err);
+        } catch (refundErr) {
+          console.error("Video refund failed:", refundErr);
         }
       }
     };
@@ -2028,7 +2274,7 @@ export default function CreateVideoClient({
     return () => {
       cancelled = true;
     };
-  }, [generations, refundedFailedTaskIds]);
+  }, [generations]);
 
   useEffect(() => {
     if (!selectedGeneration && generations.length > 0) {
@@ -2698,6 +2944,11 @@ export default function CreateVideoClient({
                           <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
                             {selectedGeneration.chargedCredits} credits
                           </div>
+                          {selectedGeneration.status === "failed" && (
+                            <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
+                              refund: {selectedGeneration.refundStatus}
+                            </div>
+                          )}
                         </div>
 
                         <div className="mt-4 flex flex-wrap gap-2">
@@ -2908,7 +3159,6 @@ export default function CreateVideoClient({
                     setGenerations([]);
                     setSelectedGeneration(null);
                     setError(null);
-                    setRefundedFailedTaskIds([]);
                     setHistorySearch("");
                     setHistoryFilter("all");
                     try {
