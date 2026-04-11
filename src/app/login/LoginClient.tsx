@@ -34,12 +34,22 @@ export default function LoginClient() {
   }, [authLoading, user, redirect, router]);
 
   const goHome = useCallback(() => {
-    router.push("/");
+    try {
+      router.push("/");
+      router.refresh();
+    } catch {
+      window.location.href = "/";
+    }
   }, [router]);
 
   const goBack = useCallback(() => {
-    router.push(redirect || "/tools");
-  }, [redirect, router]);
+    try {
+      router.push("/");
+      router.refresh();
+    } catch {
+      window.location.href = "/";
+    }
+  }, [router]);
 
   const handleEmailAuth = useCallback(async () => {
     const cleanEmail = email.trim();
@@ -117,7 +127,7 @@ export default function LoginClient() {
     alert("Apple login comes later. For now use Continue with Email.");
   }, []);
 
-  const isBusy = authLoading || submitting;
+  const isBusy = submitting;
 
   return (
     <div className="min-h-screen bg-[#070B12] text-white">
@@ -141,9 +151,8 @@ export default function LoginClient() {
             <button
               type="button"
               onClick={goHome}
-              className="cursor-pointer rounded-full border border-white/15 bg-black/30 px-4 py-2 text-sm font-semibold text-white/85 transition hover:bg-black/45"
+              className="rounded-full border border-white/15 bg-black/30 px-4 py-2 text-sm font-semibold text-white/85 transition hover:bg-black/45"
               title="Home"
-              disabled={isBusy}
             >
               Home
             </button>
@@ -151,9 +160,8 @@ export default function LoginClient() {
             <button
               type="button"
               onClick={goHome}
-              className="group relative flex cursor-pointer items-center gap-3 rounded-2xl text-left transition hover:bg-white/[0.04] focus:outline-none"
+              className="group relative flex items-center gap-3 rounded-2xl text-left transition hover:bg-white/[0.04] focus:outline-none"
               aria-label="Go to homepage"
-              disabled={isBusy}
             >
               <div className="relative h-9 w-9 overflow-hidden rounded-xl border border-white/10 bg-black/30">
                 <Image
@@ -173,8 +181,7 @@ export default function LoginClient() {
           <button
             type="button"
             onClick={goBack}
-            className="cursor-pointer rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white/90 transition hover:bg-white/15"
-            disabled={isBusy}
+            className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white/90 transition hover:bg-white/15"
           >
             Back
           </button>
@@ -185,9 +192,8 @@ export default function LoginClient() {
             <button
               type="button"
               onClick={goHome}
-              className="mx-auto mb-6 flex h-14 w-14 cursor-pointer items-center justify-center rounded-2xl border border-white/10 bg-black/25 transition hover:bg-black/35"
+              className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-black/25 transition hover:bg-black/35"
               aria-label="Go to homepage"
-              disabled={isBusy}
             >
               <div className="text-xl font-bold">K</div>
             </button>
@@ -203,7 +209,7 @@ export default function LoginClient() {
               <button
                 type="button"
                 onClick={handleGooglePlaceholder}
-                className="w-full cursor-pointer rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
+                className="w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={isBusy}
               >
                 Continue with Google
@@ -212,7 +218,7 @@ export default function LoginClient() {
               <button
                 type="button"
                 onClick={handleApplePlaceholder}
-                className="w-full cursor-pointer rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
+                className="w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={isBusy}
               >
                 Continue with Apple
@@ -221,7 +227,7 @@ export default function LoginClient() {
               <button
                 type="button"
                 onClick={() => setShowEmailForm((prev) => !prev)}
-                className="w-full cursor-pointer rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
+                className="w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={isBusy}
               >
                 Continue with Email
@@ -294,7 +300,7 @@ export default function LoginClient() {
                   type="button"
                   onClick={() => void handleEmailAuth()}
                   disabled={isBusy}
-                  className="w-full cursor-pointer rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isBusy
                     ? "Please wait..."
@@ -307,7 +313,7 @@ export default function LoginClient() {
                   type="button"
                   onClick={() => setIsSignup((prev) => !prev)}
                   disabled={isBusy}
-                  className="w-full cursor-pointer text-sm text-white/70 underline underline-offset-2 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                  className="w-full text-sm text-white/70 underline underline-offset-2 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isSignup
                     ? "Already have an account? Log in"
