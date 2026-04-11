@@ -484,24 +484,57 @@ function SidebarSectionTitle({ children }: { children: ReactNode }) {
 
 export default function ToolsPage() {
   const router = useRouter();
-  const { user, loading, credits, refreshCredits, signOut } = useAuth();
+  const {
+    user,
+    loading,
+    credits,
+    refreshCredits,
+    refreshAuth,
+    signOut,
+  } = useAuth();
 
   useLenisScroll(true);
 
   const [walletRefreshing, setWalletRefreshing] = useState(false);
 
-  const pushProtected = useCallback(
-    (targetHref: string) => {
-      if (loading) return;
-
-      if (!user) {
-        router.push(`/login?redirect=${encodeURIComponent(targetHref)}`);
-        return;
+  useEffect(() => {
+    const onPageShow = async () => {
+      try {
+        setWalletRefreshing(false);
+        await refreshAuth();
+        await refreshCredits();
+        router.refresh();
+      } catch (err) {
+        console.error("[ToolsPage] pageshow refresh failed:", err);
       }
+    };
 
-      router.push(targetHref);
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, [refreshAuth, refreshCredits, router]);
+
+  const pushProtected = useCallback(
+    async (targetHref: string) => {
+      try {
+        let activeUser = user;
+
+        if (loading) {
+          await refreshAuth();
+          activeUser = user;
+        }
+
+        if (!activeUser) {
+          router.push(`/login?redirect=${encodeURIComponent(targetHref)}`);
+          return;
+        }
+
+        router.push(targetHref);
+      } catch (err) {
+        console.error("[ToolsPage] pushProtected failed:", err);
+        router.push(`/login?redirect=${encodeURIComponent(targetHref)}`);
+      }
     },
-    [loading, router, user]
+    [loading, refreshAuth, router, user]
   );
 
   const logout = useCallback(async () => {
@@ -531,14 +564,14 @@ export default function ToolsPage() {
 
   const goVideo = useCallback(
     (tool: VideoToolKey) => {
-      pushProtected(`/create/video?tab=${tool}`);
+      void pushProtected(`/create/video?tab=${tool}`);
     },
     [pushProtected]
   );
 
   const goImage = useCallback(
     (tool: ImageToolKey) => {
-      pushProtected(`/create/image?tab=${tool}`);
+      void pushProtected(`/create/image?tab=${tool}`);
     },
     [pushProtected]
   );
@@ -989,7 +1022,13 @@ export default function ToolsPage() {
                     </div>
                   </div>
 
-                  {!loading && user ? (
+                  {loading ? (
+                    <div className="space-y-3">
+                      <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4 text-sm leading-relaxed text-white/65">
+                        Checking your account...
+                      </div>
+                    </div>
+                  ) : user ? (
                     <div className="space-y-4">
                       <TopupButtons />
                       <button
