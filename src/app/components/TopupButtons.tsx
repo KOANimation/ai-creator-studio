@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Gem, Sparkles, Wallet, Zap } from "lucide-react";
 
 type TopupKey = "1000" | "5000" | "15000" | "50000";
@@ -46,9 +46,16 @@ const PACKS: Array<{
 export default function TopupButtons() {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   const [loadingKey, setLoadingKey] = useState<TopupKey | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const currentPathWithQuery = (() => {
+    const query = searchParams?.toString();
+    if (!pathname) return "/pricing";
+    return query ? `${pathname}?${query}` : pathname;
+  })();
 
   const handleBuy = async (topupKey: TopupKey) => {
     try {
@@ -60,14 +67,18 @@ export default function TopupButtons() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ topupKey }),
+        credentials: "include",
+        body: JSON.stringify({
+          topupKey,
+          redirectPath: currentPathWithQuery,
+        }),
       });
 
       const data = await res.json().catch(() => null);
 
       if (res.status === 401) {
         router.push(
-          `/login?redirect=${encodeURIComponent(pathname || "/pricing")}`
+          `/login?redirect=${encodeURIComponent(currentPathWithQuery)}`
         );
         return;
       }
@@ -99,7 +110,7 @@ export default function TopupButtons() {
           <button
             key={pack.key}
             type="button"
-            onClick={() => handleBuy(pack.key)}
+            onClick={() => void handleBuy(pack.key)}
             disabled={loadingKey !== null}
             className="group relative w-full overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-left transition hover:bg-white/[0.07] disabled:cursor-not-allowed disabled:opacity-60"
           >

@@ -26,21 +26,15 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const supabase = useMemo(() => createClient(), []);
+  const mountedRef = useRef(false);
 
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
   const [credits, setCredits] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const mountedRef = useRef(false);
-  const authRefreshInFlightRef = useRef(false);
-  const walletRequestIdRef = useRef(0);
-
-  const applySignedOutState = useCallback(() => {
-    if (!mountedRef.current) return;
-    setSession(null);
-    setUser(null);
-    setCredits(null);
+  const safelySetState = useCallback((fn: () => void) => {
+    if (mountedRef.current) fn();
   }, []);
 
   const loadCredits = useCallback(
@@ -48,77 +42,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const targetUserId = userId ?? user?.id ?? null;
 
       if (!targetUserId) {
-        if (mountedRef.current) {
-          setCredits(null);
-        }
+        safelySetState(() => setCredits(null));
         return;
       }
 
-      const requestId = ++walletRequestIdRef.current;
-
-      try {
-        const { data, error } = await supabase
-          .from("credit_wallets")
-          .select("balance")
-          .eq("user_id", targetUserId)
-          .maybeSingle();
-
-        if (!mountedRef.current) return;
-        if (requestId !== walletRequestIdRef.current) return;
-
-        if (error) {
-          console.error("[AuthProvider] Failed to load credits:", error);
-          setCredits(0);
-          return;
-        }
-
-        setCredits(typeof data?.balance === "number" ? data.balance : 0);
-      } catch (err) {
-        if (!mountedRef.current) return;
-        if (requestId !== walletRequestIdRef.current) return;
-
-        console.error("[AuthProvider] Credit load crashed:", err);
-        setCredits(0);
-      }
-    },
-    [supabase, user?.id]
-  );
-
-  const refreshAuth = useCallback(async () => {
-    if (!mountedRef.current) return;
-
-    if (authRefreshInFlightRef.current) return;
-    authRefreshInFlightRef.current = true;
-
-    if (mountedRef.current) {
-      setLoading(true);
-    }
-
-    try {
-      const {
-        data: { session: sessionFromSession },
-        error: sessionError,
-      } = await supabase.auth.getSession();
-
-      if (sessionError) {
-        console.error("[AuthProvider] getSession failed:", sessionError);
-      }
-
-      const {
-        data: { user: userFromUser },
-        error: userError,
-      } = await supabase.auth.getUser();
-
-      if (userError) {
-        console.error("[AuthProvider] getUser failed:", userError);
-      }
+      const { data, error } = await supabase
+        .from("credit_wallets")
+        .select("balance")
+        .eq("user_id", targetUserId)
+        .maybeSingle();
 
       if (!mountedRef.current) return;
 
-      const resolvedUser = userFromUser ?? sessionFromSession?.user ?? null;
-      const resolvedSession = sessionFromSession ?? null;
+      if (error) {
+        console.error("[AuthProvider] Failed to load credits:", error);
+        setCredits(0);
+        return;
+      }
 
-      setSession(resolvedSession);
+      setCredits(typeof data?.balance === "number" ? data.balance : 0);
+    },
+    [supabase, user?.id, safelySetState]
+  );
+
+  const refreshAuth = useCallback(async () => {
+    safelySetState(() => setLoading(true));
+
+    try {
+      const [
+        {
+          data: { session: sessionResult },
+          error: sessionError,
+        },
+        {
+          data: { user: userResult },
+          error: userError,
+        },
+      ] = await Promise.all([supabase.auth.getSession(), supabase.auth.getUser()]);
+
+      if (!mountedRef.current) return;
+
+      if (sessionError) {
+        console.error("[AuthProvider] getSession error:", sessionError);
+      }
+
+      if (userError) {
+        console.error("[AuthProvider] getUser error:", userError);
+      }
+
+      const resolvedUser = userResult ?? sessionResult?.user ?? null;
+
+      setSession(sessionResult ?? null);
       setUser(resolvedUser);
 
       if (resolvedUser) {
@@ -127,21 +101,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setCredits(null);
       }
     } catch (err) {
-      console.error("[AuthProvider] refreshAuth crashed:", err);
-      applySignedOutState();
-    } finally {
-      authRefreshInFlightRef.current = false;
+      console.error("[AuthProvider] refreshAuth failed:", err);
 
-      if (mountedRef.current) {
-        setLoading(false);
-      }
+      if (!mountedRef.current) return;
+
+      setSession(null);
+      setUser(null);
+      setCredits(null);
+    } finally {
+      safelySetState(() => setLoading(false));
     }
-  }, [supabase, loadCredits, applySignedOutState]);
+  }, [supabase, loadCredits, safelySetState]);
 
   const refreshCredits = useCallback(async () => {
-    if (!mountedRef.current) return;
-    await loadCredits();
-  }, [loadCredits]);
+    const targetUserId = user?.id ?? session?.user?.id ?? null;
+
+    if (!targetUserId) {
+      safelySetState(() => setCredits(null));
+      return;
+    }
+
+    await loadCredits(targetUserId);
+  }, [user?.id, session?.user?.id, loadCredits, safelySetState]);
 
   const signOut = useCallback(async () => {
     try {
@@ -150,16 +131,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error) {
         console.error("[AuthProvider] Sign out failed:", error);
       }
-    } catch (err) {
-      console.error("[AuthProvider] Sign out crashed:", err);
     } finally {
-      applySignedOutState();
+      if (!mountedRef.current) return;
 
-      if (mountedRef.current) {
-        setLoading(false);
-      }
+      setSession(null);
+      setUser(null);
+      setCredits(null);
+      setLoading(false);
     }
-  }, [supabase, applySignedOutState]);
+  }, [supabase]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -168,14 +148,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, nextSession) => {
+    } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
       if (!mountedRef.current) return;
 
-      setSession(nextSession ?? null);
-      setUser(nextSession?.user ?? null);
+      const nextUser = nextSession?.user ?? null;
 
-      if (nextSession?.user) {
-        await loadCredits(nextSession.user.id);
+      setSession(nextSession ?? null);
+      setUser(nextUser);
+
+      if (nextUser) {
+        await loadCredits(nextUser.id);
       } else {
         setCredits(null);
       }
@@ -183,34 +165,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (mountedRef.current) {
         setLoading(false);
       }
-
-      console.log("[AuthProvider] onAuthStateChange:", event);
     });
 
-    const onFocus = () => {
+    const handlePageShow = () => {
       void refreshAuth();
     };
 
-    const onVisibility = () => {
+    const handleFocus = () => {
+      void refreshAuth();
+    };
+
+    const handleVisibility = () => {
       if (document.visibilityState === "visible") {
         void refreshAuth();
       }
     };
 
-    const onPageShow = () => {
-      void refreshAuth();
-    };
-
-    window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", onVisibility);
-    window.addEventListener("pageshow", onPageShow);
+    window.addEventListener("pageshow", handlePageShow);
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
       mountedRef.current = false;
       subscription.unsubscribe();
-      window.removeEventListener("focus", onFocus);
-      document.removeEventListener("visibilitychange", onVisibility);
-      window.removeEventListener("pageshow", onPageShow);
+      window.removeEventListener("pageshow", handlePageShow);
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, [supabase, refreshAuth, loadCredits]);
 

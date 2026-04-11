@@ -320,25 +320,22 @@ function getPlanActionLabel(
 export default function PricingClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, loading, refreshCredits } = useAuth();
+  const { user, loading, refreshCredits, refreshAuth } = useAuth();
 
   useLenisScroll(true);
 
   const [selectedPlan, setSelectedPlan] = useState<PlanKey>("advanced");
   const [faqOpen, setFaqOpen] = useState<number | null>(null);
-
-  const [activeCheckoutPlan, setActiveCheckoutPlan] = useState<PlanKey | null>(
-    null
-  );
+  const [activeCheckoutPlan, setActiveCheckoutPlan] = useState<PlanKey | null>(null);
   const [isManagingBilling, setIsManagingBilling] = useState(false);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(true);
 
-  const [currentSubscription, setCurrentSubscription] =
-    useState<CurrentSubscription>({
-      currentPlan: null,
-      status: null,
-      currentPeriodEnd: null,
-      cancelAtPeriodEnd: false,
-    });
+  const [currentSubscription, setCurrentSubscription] = useState<CurrentSubscription>({
+    currentPlan: null,
+    status: null,
+    currentPeriodEnd: null,
+    cancelAtPeriodEnd: false,
+  });
 
   const success = searchParams.get("success") === "1";
   const canceled = searchParams.get("canceled") === "1";
@@ -351,8 +348,11 @@ export default function PricingClient() {
         currentPeriodEnd: null,
         cancelAtPeriodEnd: false,
       });
+      setSubscriptionLoading(false);
       return null;
     }
+
+    setSubscriptionLoading(true);
 
     try {
       const res = await fetch("/api/billing/current-subscription", {
@@ -361,7 +361,7 @@ export default function PricingClient() {
         credentials: "include",
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
 
       if (!res.ok) {
         throw new Error(data?.error || "Failed to load subscription");
@@ -386,6 +386,8 @@ export default function PricingClient() {
         cancelAtPeriodEnd: false,
       });
       return null;
+    } finally {
+      setSubscriptionLoading(false);
     }
   }, [user]);
 
@@ -406,6 +408,7 @@ export default function PricingClient() {
         currentPeriodEnd: null,
         cancelAtPeriodEnd: false,
       });
+      setSubscriptionLoading(false);
       return;
     }
 
@@ -416,6 +419,17 @@ export default function PricingClient() {
       }
     });
   }, [loading, user, loadCurrentSubscription, searchParams]);
+
+  useEffect(() => {
+    const handlePageShow = () => {
+      void refreshAuth();
+      void loadCurrentSubscription();
+      void refreshCredits();
+    };
+
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
+  }, [loadCurrentSubscription, refreshAuth, refreshCredits]);
 
   useEffect(() => {
     if (success && user) {
@@ -446,13 +460,11 @@ export default function PricingClient() {
 
   const goToLogin = useCallback(
     (redirectPath?: string) => {
-      router.push(
-        `/login?redirect=${encodeURIComponent(
-          redirectPath ?? getLoginRedirectForPlan()
-        )}`
-      );
+      window.location.href = `/login?redirect=${encodeURIComponent(
+        redirectPath ?? getLoginRedirectForPlan()
+      )}`;
     },
-    [router, getLoginRedirectForPlan]
+    [getLoginRedirectForPlan]
   );
 
   const handleTryKoa = () => {
@@ -487,7 +499,7 @@ export default function PricingClient() {
         credentials: "include",
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
 
       if (!res.ok || !data?.url) {
         throw new Error(data?.error || "Failed to open billing portal.");
@@ -530,7 +542,7 @@ export default function PricingClient() {
         }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
 
       if (!res.ok) {
         throw new Error(data?.error || "Failed to start checkout.");
@@ -852,7 +864,7 @@ export default function PricingClient() {
             </p>
           </div>
 
-          {!loading && (
+          {(!loading || !subscriptionLoading) && (
             <div className="mt-7 text-center text-sm text-white/45">
               {user
                 ? currentPlanName
@@ -1040,7 +1052,7 @@ export default function PricingClient() {
                       e.stopPropagation();
                       void handlePlanAction(p.key);
                     }}
-                    disabled={isLoading || isCurrent || loading}
+                    disabled={isLoading || isCurrent || loading || subscriptionLoading}
                     className={cn(
                       "relative z-10 mt-6 w-full rounded-xl px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60",
                       isCurrent
@@ -1317,7 +1329,7 @@ export default function PricingClient() {
                         <button
                           type="button"
                           onClick={() => void handlePlanAction(plan.key)}
-                          disabled={isCurrent || isLoading || loading}
+                          disabled={isCurrent || isLoading || loading || subscriptionLoading}
                           className={cn(
                             "w-full rounded-xl px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60",
                             isCurrent

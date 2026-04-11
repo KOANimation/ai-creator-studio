@@ -3,64 +3,43 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useMemo, useState } from "react";
 import { createClient } from "@/app/lib/supabase/client";
-import { useAuth } from "@/app/components/providers/AuthProvider";
 
 export default function LoginClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = useMemo(() => createClient(), []);
-  const { user, loading: authLoading, refreshAuth } = useAuth();
 
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [isSignup, setIsSignup] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [invitationCode, setInvitationCode] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const redirect = useMemo(() => {
     const r = searchParams.get("next") || searchParams.get("redirect");
     return r && r.startsWith("/") ? r : "/tools";
   }, [searchParams]);
 
-  useEffect(() => {
-    if (authLoading) return;
-    if (!user) return;
+  const goHome = () => {
+    window.location.href = "/";
+  };
 
-    router.replace(redirect);
-    router.refresh();
-  }, [authLoading, user, redirect, router]);
+  const goBack = () => {
+    window.location.href = redirect || "/tools";
+  };
 
-  const goHome = useCallback(() => {
-    try {
-      router.push("/");
-      router.refresh();
-    } catch {
-      window.location.href = "/";
-    }
-  }, [router]);
-
-  const goBack = useCallback(() => {
-    try {
-      router.push("/");
-      router.refresh();
-    } catch {
-      window.location.href = "/";
-    }
-  }, [router]);
-
-  const handleEmailAuth = useCallback(async () => {
+  const handleEmailAuth = async () => {
     const cleanEmail = email.trim();
-    const cleanInvitationCode = invitationCode.trim();
 
     if (!cleanEmail || !password) {
       alert("Please enter your email and password.");
       return;
     }
 
-    setSubmitting(true);
+    setLoading(true);
 
     try {
       if (isSignup) {
@@ -74,7 +53,7 @@ export default function LoginClient() {
           password,
           options: {
             data: {
-              invitationCode: cleanInvitationCode || null,
+              invitationCode: invitationCode.trim(),
             },
             emailRedirectTo,
           },
@@ -82,52 +61,34 @@ export default function LoginClient() {
 
         if (error) {
           alert(error.message);
+        } else {
+          alert("Account created. Check your email to confirm your signup.");
+        }
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: cleanEmail,
+          password,
+        });
+
+        if (error) {
+          alert(error.message);
+          setLoading(false);
           return;
         }
 
-        alert("Account created. Check your email to confirm your signup.");
+        await supabase.auth.getSession();
+        await supabase.auth.getUser();
+
+        window.location.href = redirect;
         return;
       }
-
-      const { error } = await supabase.auth.signInWithPassword({
-        email: cleanEmail,
-        password,
-      });
-
-      if (error) {
-        alert(error.message);
-        return;
-      }
-
-      await refreshAuth();
-      router.replace(redirect);
-      router.refresh();
     } catch (err) {
       console.error("Login/signup failed:", err);
       alert("Something went wrong. Please try again.");
     } finally {
-      setSubmitting(false);
+      setLoading(false);
     }
-  }, [
-    email,
-    invitationCode,
-    isSignup,
-    password,
-    redirect,
-    refreshAuth,
-    router,
-    supabase,
-  ]);
-
-  const handleGooglePlaceholder = useCallback(() => {
-    alert("Google login comes next. For now use Continue with Email.");
-  }, []);
-
-  const handleApplePlaceholder = useCallback(() => {
-    alert("Apple login comes later. For now use Continue with Email.");
-  }, []);
-
-  const isBusy = submitting;
+  };
 
   return (
     <div className="min-h-screen bg-[#070B12] text-white">
@@ -208,22 +169,24 @@ export default function LoginClient() {
             <div className="mt-8 space-y-3">
               <button
                 type="button"
-                onClick={handleGooglePlaceholder}
-                className={`w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-white/90 ${
-                  isBusy ? "cursor-not-allowed opacity-60" : "cursor-pointer"
-                }`}
-                disabled={isBusy}
+                onClick={() =>
+                  alert(
+                    "Google login comes next. For now use Continue with Email."
+                  )
+                }
+                className="w-full cursor-pointer rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-white/90"
               >
                 Continue with Google
               </button>
 
               <button
                 type="button"
-                onClick={handleApplePlaceholder}
-                className={`w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-white/90 ${
-                  isBusy ? "cursor-not-allowed opacity-60" : "cursor-pointer"
-                }`}
-                disabled={isBusy}
+                onClick={() =>
+                  alert(
+                    "Apple login comes later. For now use Continue with Email."
+                  )
+                }
+                className="w-full cursor-pointer rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-white/90"
               >
                 Continue with Apple
               </button>
@@ -231,10 +194,7 @@ export default function LoginClient() {
               <button
                 type="button"
                 onClick={() => setShowEmailForm((prev) => !prev)}
-                className={`w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-white/90 ${
-                  isBusy ? "cursor-not-allowed opacity-60" : "cursor-pointer"
-                }`}
-                disabled={isBusy}
+                className="w-full cursor-pointer rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-white/90"
               >
                 Continue with Email
               </button>
@@ -254,9 +214,8 @@ export default function LoginClient() {
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm text-white placeholder:text-white/40 outline-none transition focus:border-white/25"
                   placeholder="Email address"
-                  disabled={isBusy}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && !isBusy) {
+                    if (e.key === "Enter" && !loading) {
                       void handleEmailAuth();
                     }
                   }}
@@ -268,28 +227,12 @@ export default function LoginClient() {
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm text-white placeholder:text-white/40 outline-none transition focus:border-white/25"
                   placeholder="Password"
-                  disabled={isBusy}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && !isBusy) {
+                    if (e.key === "Enter" && !loading) {
                       void handleEmailAuth();
                     }
                   }}
                 />
-
-                {isSignup && (
-                  <input
-                    value={invitationCode}
-                    onChange={(e) => setInvitationCode(e.target.value)}
-                    className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm text-white placeholder:text-white/40 outline-none transition focus:border-white/25"
-                    placeholder="Enter invitation code (optional)"
-                    disabled={isBusy}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !isBusy) {
-                        void handleEmailAuth();
-                      }
-                    }}
-                  />
-                )}
 
                 {!isSignup && (
                   <div className="text-right">
@@ -305,12 +248,10 @@ export default function LoginClient() {
                 <button
                   type="button"
                   onClick={() => void handleEmailAuth()}
-                  disabled={isBusy}
-                  className={`w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-white/90 ${
-                    isBusy ? "cursor-not-allowed opacity-60" : "cursor-pointer"
-                  }`}
+                  disabled={loading}
+                  className="w-full cursor-pointer rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {isBusy
+                  {loading
                     ? "Please wait..."
                     : isSignup
                       ? "Sign Up with Email"
@@ -320,10 +261,7 @@ export default function LoginClient() {
                 <button
                   type="button"
                   onClick={() => setIsSignup((prev) => !prev)}
-                  disabled={isBusy}
-                  className={`w-full text-sm text-white/70 underline underline-offset-2 transition hover:text-white ${
-                    isBusy ? "cursor-not-allowed opacity-60" : "cursor-pointer"
-                  }`}
+                  className="w-full cursor-pointer text-sm text-white/70 underline underline-offset-2 transition hover:text-white"
                 >
                   {isSignup
                     ? "Already have an account? Log in"
@@ -332,15 +270,17 @@ export default function LoginClient() {
               </div>
             )}
 
-            {!showEmailForm && (
-              <input
-                value={invitationCode}
-                onChange={(e) => setInvitationCode(e.target.value)}
-                className="mt-6 w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm text-white placeholder:text-white/40 outline-none transition focus:border-white/25"
-                placeholder="Enter invitation code (optional)"
-                disabled={isBusy}
-              />
-            )}
+            <input
+              value={invitationCode}
+              onChange={(e) => setInvitationCode(e.target.value)}
+              className="mt-6 w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm text-white placeholder:text-white/40 outline-none transition focus:border-white/25"
+              placeholder="Enter invitation code (optional)"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !loading && showEmailForm) {
+                  void handleEmailAuth();
+                }
+              }}
+            />
 
             <p className="mt-6 text-xs leading-relaxed text-white/55">
               By clicking a continue button, you confirm that you’ve read and
