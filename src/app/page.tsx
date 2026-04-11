@@ -3,11 +3,14 @@
 import Link from "next/link";
 import Image from "next/image";
 import {
+  createContext,
   useCallback,
+  useContext,
   useEffect,
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
@@ -50,15 +53,39 @@ function cn(...inputs: Array<string | undefined | false | null>) {
   return twMerge(clsx(inputs));
 }
 
+type AuthNavigateFn = (targetHref: string, requireAuth?: boolean) => void;
+
+const AuthNavContext = createContext<AuthNavigateFn | null>(null);
+
+function useAuthNavigate() {
+  const ctx = useContext(AuthNavContext);
+
+  if (!ctx) {
+    throw new Error("useAuthNavigate must be used within AuthNavContext");
+  }
+
+  return ctx;
+}
+
 function useIsMobile(breakpoint = 1024) {
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     const media = window.matchMedia(`(max-width: ${breakpoint}px)`);
-    const onChange = () => setIsMobile(media.matches);
+
+    const onChange = () => {
+      setIsMobile(media.matches);
+    };
+
     onChange();
-    media.addEventListener("change", onChange);
-    return () => media.removeEventListener("change", onChange);
+
+    if (typeof media.addEventListener === "function") {
+      media.addEventListener("change", onChange);
+      return () => media.removeEventListener("change", onChange);
+    }
+
+    media.addListener(onChange);
+    return () => media.removeListener(onChange);
   }, [breakpoint]);
 
   return isMobile;
@@ -190,11 +217,19 @@ function AmbientBackground({ isMobile }: { isMobile: boolean }) {
 
 function useSessionState() {
   const supabase = useMemo(() => createClient(), []);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.sessionStorage.getItem("koa-auth") === "1";
+  });
   const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
+
+    const syncStorage = (loggedIn: boolean) => {
+      if (typeof window === "undefined") return;
+      window.sessionStorage.setItem("koa-auth", loggedIn ? "1" : "0");
+    };
 
     const loadSession = async () => {
       try {
@@ -208,11 +243,15 @@ function useSessionState() {
         }
 
         if (!isMounted) return;
-        setIsLoggedIn(!!session);
+
+        const loggedIn = !!session;
+        setIsLoggedIn(loggedIn);
+        syncStorage(loggedIn);
       } catch (error) {
         console.error("[home] unexpected getSession error:", error);
         if (!isMounted) return;
         setIsLoggedIn(false);
+        syncStorage(false);
       } finally {
         if (isMounted) setAuthLoading(false);
       }
@@ -223,8 +262,10 @@ function useSessionState() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsLoggedIn(!!session);
+      const loggedIn = !!session;
+      setIsLoggedIn(loggedIn);
       setAuthLoading(false);
+      syncStorage(loggedIn);
     });
 
     return () => {
@@ -236,13 +277,25 @@ function useSessionState() {
   return { isLoggedIn, authLoading };
 }
 
-function useAuthNavigate() {
+function useAuthController() {
   const router = useRouter();
   const { isLoggedIn, authLoading } = useSessionState();
+  const pendingNavigationRef = useRef<{
+    href: string;
+    requireAuth: boolean;
+  } | null>(null);
 
-  return useCallback(
+  const navigate = useCallback(
     (targetHref: string, requireAuth = false) => {
-      if (authLoading) return;
+      if (!targetHref) return;
+
+      if (requireAuth && authLoading) {
+        pendingNavigationRef.current = {
+          href: targetHref,
+          requireAuth,
+        };
+        return;
+      }
 
       if (requireAuth && !isLoggedIn) {
         router.push(`/login?redirect=${encodeURIComponent(targetHref)}`);
@@ -251,8 +304,43 @@ function useAuthNavigate() {
 
       router.push(targetHref);
     },
-    [router, isLoggedIn, authLoading]
+    [authLoading, isLoggedIn, router]
   );
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!pendingNavigationRef.current) return;
+
+    const pending = pendingNavigationRef.current;
+    pendingNavigationRef.current = null;
+
+    if (pending.requireAuth && !isLoggedIn) {
+      router.push(`/login?redirect=${encodeURIComponent(pending.href)}`);
+      return;
+    }
+
+    router.push(pending.href);
+  }, [authLoading, isLoggedIn, router]);
+
+  useEffect(() => {
+    const routesToPrefetch = [
+      "/tools",
+      "/pricing",
+      "/roadmap",
+      "/login",
+      "/create/video?tab=reference-to-video",
+      "/create/video?tab=image-to-video",
+      "/create/video?tab=text-to-video",
+      "/create/image?tab=reference-to-image",
+      "/create/image?tab=text-to-image",
+    ];
+
+    routesToPrefetch.forEach((route) => {
+      router.prefetch(route);
+    });
+  }, [router]);
+
+  return navigate;
 }
 
 function useLenisScroll(enabled: boolean) {
@@ -351,7 +439,7 @@ function AuthMenuItem({
     <button
       type="button"
       onClick={() => go(href, requireAuth)}
-      className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-[13px] text-white/75 transition hover:bg-white/5 hover:text-white"
+      className="flex w-full cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-[13px] text-white/75 transition hover:bg-white/5 hover:text-white"
     >
       <span>{label}</span>
       <ArrowRight className="h-4 w-4 text-white/30" />
@@ -515,6 +603,7 @@ function EmblaVideoCarousel({
                 return (
                   <button
                     key={item.src}
+                    type="button"
                     onClick={() => emblaApi?.scrollTo(index)}
                     aria-label={`Select ${item.title}`}
                     className={cn(
@@ -542,6 +631,7 @@ function EmblaVideoCarousel({
         </GlassCard>
 
         <button
+          type="button"
           aria-label="Previous"
           onClick={scrollPrev}
           className="cursor-pointer absolute left-2 top-1/2 z-30 -translate-y-1/2 rounded-full border border-white/10 bg-black/45 p-3 text-white/90 shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur transition duration-300 hover:scale-105 hover:bg-black/60 md:-left-10 md:p-4"
@@ -550,6 +640,7 @@ function EmblaVideoCarousel({
         </button>
 
         <button
+          type="button"
           aria-label="Next"
           onClick={scrollNext}
           className="cursor-pointer absolute right-2 top-1/2 z-30 -translate-y-1/2 rounded-full border border-white/10 bg-black/45 p-3 text-white/90 shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur transition duration-300 hover:scale-105 hover:bg-black/60 md:-right-10 md:p-4"
@@ -650,6 +741,7 @@ function FeatureCard({
   ctaLabel,
   glowClass,
   badge,
+  requireAuth = false,
 }: {
   title: string;
   desc: string;
@@ -658,7 +750,10 @@ function FeatureCard({
   ctaLabel: string;
   glowClass: string;
   badge: string;
+  requireAuth?: boolean;
 }) {
+  const go = useAuthNavigate();
+
   return (
     <GlassCard className={cn("p-8", glowClass)}>
       <div className="pointer-events-none absolute -top-10 left-8 h-28 w-28 rounded-full bg-white/10 blur-3xl opacity-35 transition duration-500 group-hover:opacity-60" />
@@ -673,12 +768,13 @@ function FeatureCard({
           </h3>
           <p className="mt-3 text-sm leading-relaxed text-white/70">{desc}</p>
 
-          <Link
-            href={ctaHref}
+          <button
+            type="button"
+            onClick={() => go(ctaHref, requireAuth)}
             className="mt-6 inline-flex cursor-pointer items-center gap-2 rounded-full border border-white/15 bg-black/35 px-5 py-2.5 text-sm font-semibold text-white/85 backdrop-blur transition duration-300 hover:-translate-y-[1px] hover:bg-white/15 hover:text-white"
           >
             {ctaLabel} <ArrowRight className="h-4 w-4" />
-          </Link>
+          </button>
         </div>
 
         <div className="relative hidden w-[260px] shrink-0 md:block">
@@ -761,6 +857,7 @@ function FAQItem({
 
   return (
     <button
+      type="button"
       onClick={onToggle}
       className="group w-full cursor-pointer rounded-2xl border border-white/10 bg-white/5 px-6 py-5 text-left transition duration-300 hover:border-white/20 hover:bg-white/[0.07] backdrop-blur"
     >
@@ -834,17 +931,14 @@ function StudioTimeline({
   );
 }
 
-function HoverSpotlightSection({
-  children,
-}: {
-  children: ReactNode;
-}) {
+function HoverSpotlightSection({ children }: { children: ReactNode }) {
   const ref = useRef<HTMLDivElement | null>(null);
-  const [style, setStyle] = useState<React.CSSProperties>({});
+  const [style, setStyle] = useState<CSSProperties>({});
 
   const handleMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = ref.current?.getBoundingClientRect();
     if (!rect) return;
+
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
@@ -915,6 +1009,7 @@ export default function Home() {
   const prefersReducedMotion = useReducedMotion();
   const isMobile = useIsMobile();
   const enableLenis = !prefersReducedMotion;
+  const go = useAuthController();
 
   useLenisScroll(enableLenis);
 
@@ -954,16 +1049,19 @@ export default function Home() {
         scrub: true,
         onUpdate: (self) => {
           const p = self.progress;
+
           gsap.to(heroTitleRef.current, {
             y: p * 30,
             overwrite: true,
             duration: 0.1,
           });
+
           gsap.to(heroTextRef.current, {
             y: p * 20,
             overwrite: true,
             duration: 0.1,
           });
+
           gsap.to(heroPreviewRef.current, {
             y: p * 40,
             scale: 1 - p * 0.03,
@@ -1013,932 +1111,957 @@ export default function Home() {
   };
 
   return (
-    <main className="relative min-h-screen overflow-x-hidden text-white">
-      <ScrollProgress />
-      <WallpaperRevealBackground
-        src="/wallpaper.jpg"
-        radius={isMobile ? 160 : 220}
-      />
-      <AmbientBackground isMobile={isMobile} />
+    <AuthNavContext.Provider value={go}>
+      <main className="relative min-h-screen overflow-x-hidden text-white">
+        <ScrollProgress />
+        <WallpaperRevealBackground
+          src="/wallpaper.jpg"
+          radius={isMobile ? 160 : 220}
+        />
+        <AmbientBackground isMobile={isMobile} />
 
-      <header className="fixed inset-x-0 top-0 z-[2000]">
-        <div className="mx-auto w-full max-w-7xl px-6">
-          <motion.div
-            initial={{ y: -18, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-            className="relative mt-4 flex items-center justify-between overflow-visible rounded-[26px] border border-white/10 bg-[linear-gradient(to_right,rgba(8,8,12,0.72),rgba(16,16,24,0.58),rgba(8,8,12,0.72))] px-5 py-3 shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur transition duration-300 hover:border-white/15"
-          >
-            <div className="flex items-center gap-3 md:gap-4">
-              <div className="relative -ml-3 -my-3 flex h-[66px] w-[84px] items-center justify-center overflow-visible md:-ml-4 md:h-[72px] md:w-[92px]">
-                <div className="pointer-events-none absolute -inset-4 rounded-full bg-[radial-gradient(circle,rgba(168,85,247,0.38)_0%,rgba(168,85,247,0.16)_36%,transparent_72%)] blur-2xl" />
-                <div className="pointer-events-none absolute inset-0 scale-[1.18] rounded-full border border-violet-300/10 bg-white/[0.03] blur-md" />
-                <div className="pointer-events-none absolute left-0 top-1/2 h-[78%] w-[90%] -translate-x-[14%] -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.10)_0%,transparent_65%)] blur-2xl" />
-
-                <div className="relative h-[66px] w-[66px] -translate-y-[3px] -rotate-[3deg] animate-[logoFloat_4.5s_ease-in-out_infinite] md:h-[72px] md:w-[72px]">
-                  <Image
-                    src="/koanimationlogo.png"
-                    alt="KOANimation logo"
-                    fill
-                    priority
-                    className="object-contain drop-shadow-[0_0_24px_rgba(168,85,247,0.58)]"
-                  />
-                </div>
-              </div>
-
-              <div className="flex flex-col leading-none">
-                <span className="text-[1.05rem] font-semibold tracking-tight text-white md:text-[1.1rem]">
-                  KOANimation
-                </span>
-                <span className="mt-1 text-[11px] uppercase tracking-[0.24em] text-violet-200/55">
-                  Studio
-                </span>
-              </div>
-            </div>
-
-            <nav className="hidden items-center gap-7 text-[13px] font-medium tracking-wide text-white/65 md:flex">
-              <div className="group relative">
-                <a
-                  className="rounded-full px-2 py-1 transition duration-300 hover:bg-white/5 hover:text-white"
-                  href="#features"
+        <header className="fixed inset-x-0 top-0 z-[2000]">
+          <div className="mx-auto w-full max-w-7xl px-6">
+            <motion.div
+              initial={{ y: -18, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+              className="relative mt-4 flex items-center justify-between overflow-visible rounded-[26px] border border-white/10 bg-[linear-gradient(to_right,rgba(8,8,12,0.72),rgba(16,16,24,0.58),rgba(8,8,12,0.72))] px-5 py-3 shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur transition duration-300 hover:border-white/15"
+            >
+              <div className="flex items-center gap-3 md:gap-4">
+                <button
+                  type="button"
+                  onClick={() => go("/")}
+                  className="relative -ml-3 -my-3 flex h-[66px] w-[84px] cursor-pointer items-center justify-center overflow-visible md:-ml-4 md:h-[72px] md:w-[92px]"
+                  aria-label="Go to homepage"
                 >
-                  <span className="inline-flex items-center gap-2">
-                    Features
-                    <ChevronDown className="h-3.5 w-3.5 text-white/35" />
-                  </span>
-                </a>
+                  <div className="pointer-events-none absolute -inset-4 rounded-full bg-[radial-gradient(circle,rgba(168,85,247,0.38)_0%,rgba(168,85,247,0.16)_36%,transparent_72%)] blur-2xl" />
+                  <div className="pointer-events-none absolute inset-0 scale-[1.18] rounded-full border border-violet-300/10 bg-white/[0.03] blur-md" />
+                  <div className="pointer-events-none absolute left-0 top-1/2 h-[78%] w-[90%] -translate-x-[14%] -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.10)_0%,transparent_65%)] blur-2xl" />
 
-                <div className="absolute left-0 top-full h-4 w-full" />
-
-                <div className="pointer-events-none absolute left-0 top-full z-[3000] mt-2 w-64 translate-y-2 rounded-2xl border border-white/10 bg-black/70 opacity-0 shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur transition duration-200 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100">
-                  <div className="p-2">
-                    <AuthMenuItem
-                      href={TOOL_ROUTES.referenceToVideo}
-                      label="Reference to Video"
-                      requireAuth
-                    />
-                    <AuthMenuItem
-                      href={TOOL_ROUTES.imageToVideo}
-                      label="Image to Video"
-                      requireAuth
-                    />
-                    <AuthMenuItem
-                      href={TOOL_ROUTES.textToVideo}
-                      label="Text to Video"
-                      requireAuth
-                    />
-                    <div className="my-2 h-px bg-white/10" />
-                    <AuthMenuItem
-                      href={TOOL_ROUTES.referenceToImage}
-                      label="Reference to Image"
-                      requireAuth
-                    />
-                    <AuthMenuItem
-                      href={TOOL_ROUTES.textToImage}
-                      label="Text to Image"
-                      requireAuth
+                  <div className="relative h-[66px] w-[66px] -translate-y-[3px] -rotate-[3deg] animate-[logoFloat_4.5s_ease-in-out_infinite] md:h-[72px] md:w-[72px]">
+                    <Image
+                      src="/koanimationlogo.png"
+                      alt="KOANimation logo"
+                      fill
+                      priority
+                      className="object-contain drop-shadow-[0_0_24px_rgba(168,85,247,0.58)]"
                     />
                   </div>
-                </div>
-              </div>
+                </button>
 
-              <a
-                className="rounded-full px-2 py-1 transition duration-300 hover:bg-white/5 hover:text-white"
-                href="#showcase"
-              >
-                Showcase
-              </a>
-
-              <Link
-                className="rounded-full px-2 py-1 transition duration-300 hover:bg-white/5 hover:text-white"
-                href="/pricing"
-              >
-                Pricing
-              </Link>
-
-              <a
-                className="rounded-full px-2 py-1 transition duration-300 hover:bg-white/5 hover:text-white"
-                href="#resources"
-              >
-                Resources
-              </a>
-            </nav>
-
-            <div className="flex items-center gap-3">
-              <AuthCTAButton
-                href="/tools"
-                className="shadow-[0_0_30px_rgba(96,165,250,0.16)] hover:shadow-[0_0_40px_rgba(96,165,250,0.22)]"
-              >
-                Try KOANimation
-              </AuthCTAButton>
-            </div>
-          </motion.div>
-        </div>
-      </header>
-
-      <section ref={heroRef} className="relative min-h-screen overflow-hidden">
-        {!isMobile && <FloatingMediaWall />}
-
-        <div className="absolute inset-0 z-[1] bg-black/58" />
-        <div className="absolute inset-0 z-[3] bg-[radial-gradient(circle_at_50%_45%,rgba(0,0,0,0.12)_0%,rgba(0,0,0,0.70)_70%,rgba(0,0,0,0.92)_100%)]" />
-        <div className="absolute inset-0 z-[4] bg-[radial-gradient(circle_at_25%_25%,rgba(168,85,247,0.10),transparent_58%),radial-gradient(circle_at_75%_40%,rgba(59,130,246,0.06),transparent_65%)]" />
-        <div className="absolute inset-0 z-[5] bg-[linear-gradient(to_right,rgba(0,0,0,0.74)_0%,rgba(0,0,0,0.52)_32%,rgba(0,0,0,0.34)_55%,rgba(0,0,0,0.48)_100%)]" />
-        <div className="absolute left-0 top-0 z-[6] h-full w-[52%] bg-[radial-gradient(circle_at_25%_35%,rgba(0,0,0,0.10),rgba(0,0,0,0.58)_55%,rgba(0,0,0,0.85)_100%)]" />
-
-        <div className="relative z-[1000] mx-auto flex min-h-screen w-full max-w-7xl items-center px-6 pt-28">
-          <div className="grid w-full gap-12 lg:grid-cols-[1.08fr_0.92fr] lg:items-center">
-            <div className="max-w-3xl">
-              <div ref={heroBadgeRef}>
-                <SectionEyebrow
-                  label="Luxury anime motion studio"
-                  icon={<Sparkles className="h-3.5 w-3.5 text-violet-300" />}
-                />
-              </div>
-
-              <h1
-                ref={heroTitleRef}
-                className="mt-6 text-5xl font-semibold tracking-[-0.05em] text-white drop-shadow-[0_8px_24px_rgba(0,0,0,0.65)] sm:text-6xl md:text-7xl"
-              >
-                <Balancer>
-                  Old Soul.
-                  <span className="block">New Motion.</span>
-                  <span className="block bg-[linear-gradient(to_right,#ffffff,#ddd6fe,#7dd3fc)] bg-clip-text text-transparent">
-                    KOANimation.
+                <button
+                  type="button"
+                  onClick={() => go("/")}
+                  className="flex cursor-pointer flex-col leading-none text-left"
+                  aria-label="Go to homepage"
+                >
+                  <span className="text-[1.05rem] font-semibold tracking-tight text-white md:text-[1.1rem]">
+                    KOANimation
                   </span>
-                </Balancer>
-              </h1>
-
-              <p
-                ref={heroTextRef}
-                className="mt-7 max-w-2xl text-base leading-relaxed text-white/68 md:text-lg"
-              >
-                Create stylized anime motion with reference-aware workflows,
-                cinematic camera movement, and a premium studio interface built
-                for creators who care about atmosphere, identity, and control.
-              </p>
-
-              <div
-                ref={heroButtonsRef}
-                className="mt-8 flex flex-wrap items-center gap-3"
-              >
-                <AuthCTAButton
-                  href="/tools"
-                  className="border-0 bg-white text-black hover:bg-white/90"
-                >
-                  Launch Studio
-                </AuthCTAButton>
-
-                <AuthCTAButton
-                  href={TOOL_ROUTES.referenceToVideo}
-                  className="bg-white/8 hover:bg-white/18"
-                  requireAuth
-                >
-                  Explore Workflows
-                </AuthCTAButton>
+                  <span className="mt-1 text-[11px] uppercase tracking-[0.24em] text-violet-200/55">
+                    Studio
+                  </span>
+                </button>
               </div>
 
-              <div
-                ref={heroChipsRef}
-                className="mt-8 grid max-w-2xl gap-3 sm:grid-cols-3"
-              >
-                {[
-                  {
-                    text: "Reference-consistent motion",
-                    hover: "hover:bg-violet-500/[0.12]",
-                  },
-                  {
-                    text: "Image-to-video atmosphere",
-                    hover: "hover:bg-cyan-500/[0.10]",
-                  },
-                  {
-                    text: "Cinematic anime presentation",
-                    hover: "hover:bg-blue-500/[0.10]",
-                  },
-                ].map((item) => (
-                  <div
-                    key={item.text}
-                    className={cn(
-                      "rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white/72 backdrop-blur transition duration-300",
-                      "hover:-translate-y-1 hover:border-white/20 hover:text-white",
-                      item.hover
-                    )}
+              <nav className="hidden items-center gap-7 text-[13px] font-medium tracking-wide text-white/65 md:flex">
+                <div className="group relative">
+                  <a
+                    className="rounded-full px-2 py-1 transition duration-300 hover:bg-white/5 hover:text-white"
+                    href="#features"
                   >
-                    {item.text}
-                  </div>
-                ))}
-              </div>
-            </div>
+                    <span className="inline-flex items-center gap-2">
+                      Features
+                      <ChevronDown className="h-3.5 w-3.5 text-white/35" />
+                    </span>
+                  </a>
 
-            <div ref={heroPreviewRef} className="relative">
-              <div className="absolute -inset-8 rounded-[40px] bg-[radial-gradient(circle_at_center,rgba(168,85,247,0.14),transparent_55%)] blur-3xl" />
-              <motion.div
-                animate={prefersReducedMotion ? {} : { y: [0, -6, 0] }}
-                transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-              >
-                <Tilt
-                  tiltMaxAngleX={isMobile ? 0 : 3}
-                  tiltMaxAngleY={isMobile ? 0 : 3}
-                  glareEnable={!isMobile}
-                  glareMaxOpacity={0.06}
-                  scale={1.01}
-                  transitionSpeed={1800}
-                  className="rounded-[30px]"
-                >
-                  <GlassCard className="overflow-hidden p-4 shadow-[0_36px_120px_rgba(0,0,0,0.45)]">
-                    <div className="mb-4 flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 transition duration-300 group-hover:bg-white/[0.06]">
-                      <div>
-                        <div className="text-sm font-semibold text-white">
-                          KOANimation Studio
-                        </div>
-                        <div className="mt-1 text-xs text-white/50">
-                          Reference-driven anime motion workflows
-                        </div>
-                      </div>
-                      <div className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs text-emerald-200">
-                        Live
-                      </div>
-                    </div>
+                  <div className="absolute left-0 top-full h-4 w-full" />
 
-                    <div className="overflow-hidden rounded-[24px] border border-white/10">
-                      <video
-                        className="h-[240px] w-full object-cover transition duration-700 group-hover:scale-105 sm:h-[320px]"
-                        src="/backgrounds/15.mp4"
-                        autoPlay
-                        loop
-                        muted
-                        playsInline
-                        preload="metadata"
+                  <div className="pointer-events-none absolute left-0 top-full z-[3000] mt-2 w-64 translate-y-2 rounded-2xl border border-white/10 bg-black/70 opacity-0 shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur transition duration-200 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100">
+                    <div className="p-2">
+                      <AuthMenuItem
+                        href={TOOL_ROUTES.referenceToVideo}
+                        label="Reference to Video"
+                        requireAuth
+                      />
+                      <AuthMenuItem
+                        href={TOOL_ROUTES.imageToVideo}
+                        label="Image to Video"
+                        requireAuth
+                      />
+                      <AuthMenuItem
+                        href={TOOL_ROUTES.textToVideo}
+                        label="Text to Video"
+                        requireAuth
+                      />
+                      <div className="my-2 h-px bg-white/10" />
+                      <AuthMenuItem
+                        href={TOOL_ROUTES.referenceToImage}
+                        label="Reference to Image"
+                        requireAuth
+                      />
+                      <AuthMenuItem
+                        href={TOOL_ROUTES.textToImage}
+                        label="Text to Image"
+                        requireAuth
                       />
                     </div>
-
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                      <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition duration-300 hover:bg-violet-500/[0.10]">
-                        <div className="text-xs uppercase tracking-[0.18em] text-white/40">
-                          Workflow
-                        </div>
-                        <div className="mt-2 text-sm font-medium text-white/85">
-                          Reference to Video
-                        </div>
-                      </div>
-                      <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition duration-300 hover:bg-cyan-500/[0.10]">
-                        <div className="text-xs uppercase tracking-[0.18em] text-white/40">
-                          Output
-                        </div>
-                        <div className="mt-2 text-sm font-medium text-white/85">
-                          Stylized cinematic clips
-                        </div>
-                      </div>
-                    </div>
-                  </GlassCard>
-                </Tilt>
-              </motion.div>
-            </div>
-          </div>
-        </div>
-
-        <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-[10] h-28 bg-gradient-to-b from-transparent to-black/80" />
-      </section>
-
-      <section className="relative -mt-4 pb-10">
-        <div className="mx-auto w-full max-w-7xl px-6">
-          <div className="grid gap-4 md:grid-cols-3">
-            {[
-              {
-                title: "Aesthetic Control",
-                desc: "Design motion with a more intentional visual identity, not random generations.",
-                hover: "hover:bg-violet-500/[0.10]",
-                icon: <Stars className="h-5 w-5" />,
-              },
-              {
-                title: "Studio Workflows",
-                desc: "Jump into focused tools for reference-to-video, image-to-video, and text generation.",
-                hover: "hover:bg-blue-500/[0.10]",
-                icon: <PanelTop className="h-5 w-5" />,
-              },
-              {
-                title: "Creator Presentation",
-                desc: "Premium outputs and a polished interface that feels closer to a real studio.",
-                hover: "hover:bg-cyan-500/[0.10]",
-                icon: <BadgeCheck className="h-5 w-5" />,
-              },
-            ].map((item, i) => (
-              <Reveal key={item.title} delay={i * 0.06}>
-                <GlassCard className={cn("p-5", item.hover)}>
-                  <div className="relative z-10">
-                    <div className="mb-4 inline-flex rounded-2xl border border-white/10 bg-black/25 p-2 text-white/80">
-                      {item.icon}
-                    </div>
-                    <div className="text-base font-semibold text-white">
-                      {item.title}
-                    </div>
-                    <p className="mt-2 text-sm leading-relaxed text-white/65">
-                      {item.desc}
-                    </p>
                   </div>
-                </GlassCard>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <Reveal className="relative pb-10 pt-8">
-        <div className="mx-auto w-full max-w-7xl px-6">
-          <MarqueeRow
-            items={[
-              "Reference to Video",
-              "Image to Video",
-              "Text to Video",
-              "Reference to Image",
-              "Text to Image",
-              "Anime Motion",
-              "Character Consistency",
-              "Cinematic Camera",
-              "Atmospheric Rendering",
-              "Creator-first Studio",
-            ]}
-          />
-        </div>
-      </Reveal>
-
-      <section className="relative pb-20 pt-12">
-        <div className="mx-auto w-full max-w-7xl px-6">
-          <Reveal className="mb-8">
-            <SectionEyebrow
-              label="Core modes"
-              icon={<Layers3 className="h-3.5 w-3.5 text-cyan-300" />}
-            />
-            <h2 className="mt-4 text-4xl font-semibold tracking-[-0.03em] text-white md:text-5xl">
-              <Balancer>Choose your workflow</Balancer>
-            </h2>
-            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/65">
-              Start from references, stills, or text prompts depending on how
-              much control you want over the final motion.
-            </p>
-          </Reveal>
-
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-            <Reveal delay={0.02}>
-              <ToolModeCard
-                title="Reference to Video"
-                desc="Match a subject or style and animate with stronger consistency."
-                href={TOOL_ROUTES.referenceToVideo}
-                accentClass="hover:bg-violet-500/[0.12]"
-                icon={<Film className="h-5 w-5" />}
-                requireAuth
-              />
-            </Reveal>
-            <Reveal delay={0.08}>
-              <ToolModeCard
-                title="Image to Video"
-                desc="Bring still artwork to life with motion, camera, and atmosphere."
-                href={TOOL_ROUTES.imageToVideo}
-                accentClass="hover:bg-blue-500/[0.12]"
-                icon={<Clapperboard className="h-5 w-5" />}
-                requireAuth
-              />
-            </Reveal>
-            <Reveal delay={0.14}>
-              <ToolModeCard
-                title="Text to Video"
-                desc="Generate clips from prompt-first cinematic direction."
-                href={TOOL_ROUTES.textToVideo}
-                accentClass="hover:bg-fuchsia-500/[0.12]"
-                icon={<Wand2 className="h-5 w-5" />}
-                requireAuth
-              />
-            </Reveal>
-            <Reveal delay={0.2}>
-              <ToolModeCard
-                title="Reference to Image"
-                desc="Create style-aware images with more controlled visual identity."
-                href={TOOL_ROUTES.referenceToImage}
-                accentClass="hover:bg-amber-400/[0.12]"
-                icon={<ImageIcon className="h-5 w-5" />}
-                requireAuth
-              />
-            </Reveal>
-            <Reveal delay={0.26}>
-              <ToolModeCard
-                title="Text to Image"
-                desc="Generate polished stills ready for concepting or animation input."
-                href={TOOL_ROUTES.textToImage}
-                accentClass="hover:bg-white/[0.10]"
-                icon={<Sparkles className="h-5 w-5" />}
-                requireAuth
-              />
-            </Reveal>
-          </div>
-        </div>
-      </section>
-
-      <section className="relative pb-12">
-        <div className="mx-auto w-full max-w-7xl px-6">
-          <Reveal className="mb-8">
-            <SectionEyebrow
-              label="Why it feels premium"
-              icon={<Zap className="h-3.5 w-3.5 text-blue-300" />}
-            />
-            <h2 className="mt-4 text-4xl font-semibold tracking-[-0.03em] text-white md:text-5xl">
-              <Balancer>Built like a real studio</Balancer>
-            </h2>
-          </Reveal>
-
-          <div className="grid gap-4 md:grid-cols-3">
-            <Reveal delay={0.02}>
-              <MetricCard
-                value="5"
-                label="Creative modes on one platform"
-                glow=""
-              />
-            </Reveal>
-            <Reveal delay={0.08}>
-              <MetricCard
-                value="∞"
-                label="Stylized directions you can explore"
-                glow=""
-              />
-            </Reveal>
-            <Reveal delay={0.14}>
-              <MetricCard
-                value="24/7"
-                label="Always-available creation workflow"
-                glow=""
-              />
-            </Reveal>
-          </div>
-        </div>
-      </section>
-
-      <section id="showcase" className="relative pb-20 pt-10">
-        <div className="mx-auto w-full max-w-7xl px-6">
-          <Reveal className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-            <div>
-              <SectionEyebrow label="Showcase" />
-              <h2 className="mt-4 text-4xl font-semibold tracking-[-0.03em] text-white md:text-5xl">
-                <Balancer>Reference to Video</Balancer>
-              </h2>
-              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/65">
-                Create videos that align with reference subjects, such as
-                characters, objects, and scenes.
-              </p>
-            </div>
-
-            <div className="mt-2 flex items-center gap-3 md:mt-0">
-              <AuthCTAButton href={TOOL_ROUTES.referenceToVideo} requireAuth>
-                Open Studio
-              </AuthCTAButton>
-            </div>
-          </Reveal>
-
-          <Reveal className="mt-10" delay={0.08}>
-            <EmblaVideoCarousel
-              items={showcase}
-              title="Reference-to-Video Showcase"
-            />
-          </Reveal>
-        </div>
-      </section>
-
-      <section id="features" className="relative py-16">
-        <div className="mx-auto w-full max-w-7xl px-6">
-          <Reveal className="mb-8">
-            <SectionEyebrow label="Highlights" />
-            <h2 className="mt-4 text-4xl font-semibold tracking-[-0.03em] text-white md:text-5xl">
-              <Balancer>Built for stylish motion creation</Balancer>
-            </h2>
-          </Reveal>
-
-          <div className="grid gap-6 md:grid-cols-2">
-            <Reveal delay={0.03}>
-              <FeatureCard
-                title="First & Last Frames Control"
-                desc="Upload the first and last frame images, and KOANimation creates smooth transitions in between."
-                mediaSrc="/backgrounds/16.mp4"
-                ctaHref="/tools"
-                ctaLabel="Get Started"
-                glowClass=""
-                badge="Frame Control"
-              />
-            </Reveal>
-            <Reveal delay={0.1}>
-              <FeatureCard
-                title="Anime Art to Video"
-                desc="Transform anime art into fluid animations with lifelike character motion and cinematic camera."
-                mediaSrc="/backgrounds/7.mp4"
-                ctaHref="/tools"
-                ctaLabel="Get Started"
-                glowClass=""
-                badge="Animation"
-              />
-            </Reveal>
-          </div>
-        </div>
-      </section>
-
-      <section className="relative py-10">
-        <div className="mx-auto w-full max-w-7xl px-6">
-          <HoverSpotlightSection>
-            <div className="relative overflow-hidden rounded-[36px] border border-white/10 bg-white/[0.04] p-6 backdrop-blur-xl md:p-8">
-              <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.04),rgba(255,255,255,0.01)_20%,rgba(0,0,0,0.08)_100%)]" />
-              <div className="relative z-10">
-                <SectionEyebrow
-                  label="Visual playground"
-                  icon={<Sparkles className="h-3.5 w-3.5 text-fuchsia-300" />}
-                />
-
-                <div className="mt-6 grid gap-4 md:grid-cols-3">
-                  <Reveal delay={0.02}>
-                    <BentoCard
-                      title="Noir Mood"
-                      desc="Dark cinematic frames with contrast, rain, glow, and pressure."
-                      mediaSrc="/backgrounds/12.mp4"
-                      badge="Atmosphere"
-                      glowClass=""
-                      tall
-                    />
-                  </Reveal>
-                  <Reveal delay={0.08}>
-                    <BentoCard
-                      title="Painterly Motion"
-                      desc="Bring static illustrations into elegant motion without losing style."
-                      mediaSrc="/backgrounds/14.mp4"
-                      badge="Motion"
-                      glowClass=""
-                    />
-                  </Reveal>
-                  <Reveal delay={0.14}>
-                    <BentoCard
-                      title="Scene Reveal"
-                      desc="Use subtle camera drift and staged composition for drama."
-                      mediaSrc="/backgrounds/17.mp4"
-                      badge="Camera"
-                      glowClass=""
-                    />
-                  </Reveal>
-                  <Reveal delay={0.2}>
-                    <BentoCard
-                      title="Character Presence"
-                      desc="Maintain stronger subject identity while pushing cinematic framing."
-                      mediaSrc="/backgrounds/6.mp4"
-                      badge="Character"
-                      glowClass=""
-                    />
-                  </Reveal>
-                  <Reveal delay={0.26}>
-                    <BentoCard
-                      title="Fantasy Energy"
-                      desc="Use color, movement, and spatial depth for high-impact scenes."
-                      mediaSrc="/backgrounds/2.mp4"
-                      badge="Style"
-                      glowClass=""
-                    />
-                  </Reveal>
                 </div>
+
+                <a
+                  className="rounded-full px-2 py-1 transition duration-300 hover:bg-white/5 hover:text-white"
+                  href="#showcase"
+                >
+                  Showcase
+                </a>
+
+                <button
+                  type="button"
+                  onClick={() => go("/pricing")}
+                  className="cursor-pointer rounded-full px-2 py-1 transition duration-300 hover:bg-white/5 hover:text-white"
+                >
+                  Pricing
+                </button>
+
+                <a
+                  className="rounded-full px-2 py-1 transition duration-300 hover:bg-white/5 hover:text-white"
+                  href="#resources"
+                >
+                  Resources
+                </a>
+              </nav>
+
+              <div className="flex items-center gap-3">
+                <AuthCTAButton
+                  href="/tools"
+                  className="shadow-[0_0_30px_rgba(96,165,250,0.16)] hover:shadow-[0_0_40px_rgba(96,165,250,0.22)]"
+                >
+                  Try KOANimation
+                </AuthCTAButton>
               </div>
-            </div>
-          </HoverSpotlightSection>
-        </div>
-      </section>
-
-      <section id="templates" className="relative pb-20 pt-10">
-        <div className="mx-auto w-full max-w-7xl px-6">
-          <Reveal className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-            <div className="flex flex-col gap-3 md:flex-row md:items-baseline md:gap-6">
-              <div>
-                <SectionEyebrow
-                  label="Stills into motion"
-                  icon={<ImageIcon className="h-3.5 w-3.5 text-cyan-300" />}
-                />
-                <h2 className="mt-4 text-[42px] font-semibold tracking-[-0.03em] text-white md:text-5xl">
-                  <Balancer>Image to Video</Balancer>
-                </h2>
-              </div>
-
-              <div className="hidden h-10 w-px self-center bg-white/10 md:block" />
-
-              <p className="max-w-2xl text-[13px] leading-[1.7] text-white/65 md:self-end md:text-sm md:leading-relaxed">
-                Bring still images to life with dynamic motion that aligns with
-                your vision.
-              </p>
-            </div>
-
-            <div className="mt-1 flex items-center gap-3 md:mt-0">
-              <AuthCTAButton href={TOOL_ROUTES.imageToVideo} requireAuth>
-                Open Studio
-              </AuthCTAButton>
-            </div>
-          </Reveal>
-
-          <Reveal className="mt-10" delay={0.08}>
-            <EmblaVideoCarousel
-              items={imageToVideo}
-              title="Image-to-Video Showcase"
-              large
-            />
-          </Reveal>
-        </div>
-      </section>
-
-      <section className="relative py-14">
-        <div className="mx-auto w-full max-w-7xl px-6">
-          <Reveal className="mb-8">
-            <SectionEyebrow
-              label="Workflow"
-              icon={<Layers3 className="h-3.5 w-3.5 text-emerald-300" />}
-            />
-            <h2 className="mt-4 text-4xl font-semibold tracking-[-0.03em] text-white md:text-5xl">
-              <Balancer>From idea to final motion</Balancer>
-            </h2>
-            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/65">
-              A simple creative loop that still feels powerful enough for a real
-              studio pipeline.
-            </p>
-          </Reveal>
-
-          <StudioTimeline
-            items={[
-              {
-                step: "01",
-                title: "Choose a mode",
-                desc: "Start from reference, image, or text depending on how much direction you already have.",
-                glow: "",
-              },
-              {
-                step: "02",
-                title: "Shape the look",
-                desc: "Define mood, framing, motion type, and aesthetic intent for stronger results.",
-                glow: "",
-              },
-              {
-                step: "03",
-                title: "Generate iterations",
-                desc: "Explore multiple passes until the pacing, energy, and atmosphere feel right.",
-                glow: "",
-              },
-              {
-                step: "04",
-                title: "Present your clip",
-                desc: "Export work that feels polished, cinematic, and ready to show on your platform.",
-                glow: "",
-              },
-            ]}
-          />
-        </div>
-      </section>
-
-      <section className="relative py-14">
-        <div className="mx-auto w-full max-w-7xl px-6">
-          <Reveal className="mb-8">
-            <SectionEyebrow
-              label="Creator sentiment"
-              icon={<Sparkles className="h-3.5 w-3.5 text-fuchsia-300" />}
-            />
-            <h2 className="mt-4 text-4xl font-semibold tracking-[-0.03em] text-white md:text-5xl">
-              <Balancer>Why creators stay</Balancer>
-            </h2>
-          </Reveal>
-
-          <div className="grid gap-4 lg:grid-cols-3">
-            <Reveal delay={0.02}>
-              <QuoteCard
-                quote="It feels less like a random AI tool and more like a real place to shape aesthetic direction."
-                name="Visual Story Creator"
-                role="Atmospheric anime clips"
-                glow=""
-              />
-            </Reveal>
-            <Reveal delay={0.08}>
-              <QuoteCard
-                quote="The interface already makes the output feel more premium. It pushes you into a stronger presentation mindset."
-                name="Motion-first Artist"
-                role="Stylized concept animation"
-                glow=""
-              />
-            </Reveal>
-            <Reveal delay={0.14}>
-              <QuoteCard
-                quote="The best part is being able to explore cinematic tone while keeping the subject identity much more intentional."
-                name="Anime Editor"
-                role="Reference-driven workflow"
-                glow=""
-              />
-            </Reveal>
+            </motion.div>
           </div>
-        </div>
-      </section>
+        </header>
 
-      <section className="relative py-14">
-        <div className="mx-auto w-full max-w-7xl px-6">
-          <Reveal>
-            <GlassCard className="p-8 md:p-10" hover={false}>
-              <div className="relative z-10 grid gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-start">
-                <div>
+        <section ref={heroRef} className="relative min-h-screen overflow-hidden">
+          {!isMobile && <FloatingMediaWall />}
+
+          <div className="absolute inset-0 z-[1] bg-black/58" />
+          <div className="absolute inset-0 z-[3] bg-[radial-gradient(circle_at_50%_45%,rgba(0,0,0,0.12)_0%,rgba(0,0,0,0.70)_70%,rgba(0,0,0,0.92)_100%)]" />
+          <div className="absolute inset-0 z-[4] bg-[radial-gradient(circle_at_25%_25%,rgba(168,85,247,0.10),transparent_58%),radial-gradient(circle_at_75%_40%,rgba(59,130,246,0.06),transparent_65%)]" />
+          <div className="absolute inset-0 z-[5] bg-[linear-gradient(to_right,rgba(0,0,0,0.74)_0%,rgba(0,0,0,0.52)_32%,rgba(0,0,0,0.34)_55%,rgba(0,0,0,0.48)_100%)]" />
+          <div className="absolute left-0 top-0 z-[6] h-full w-[52%] bg-[radial-gradient(circle_at_25%_35%,rgba(0,0,0,0.10),rgba(0,0,0,0.58)_55%,rgba(0,0,0,0.85)_100%)]" />
+
+          <div className="relative z-[1000] mx-auto flex min-h-screen w-full max-w-7xl items-center px-6 pt-28">
+            <div className="grid w-full gap-12 lg:grid-cols-[1.08fr_0.92fr] lg:items-center">
+              <div className="max-w-3xl">
+                <div ref={heroBadgeRef}>
                   <SectionEyebrow
-                    label="Why it lands"
-                    icon={<Wand2 className="h-3.5 w-3.5 text-amber-300" />}
-                  />
-                  <h2 className="mt-4 text-4xl font-semibold tracking-[-0.03em] text-white md:text-5xl">
-                    <Balancer>Beauty with structure</Balancer>
-                  </h2>
-                  <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/68 md:text-base">
-                    The goal is not to drown the screen in effects. It is to
-                    make every interaction feel purposeful, cinematic, and
-                    elegant — like a premium studio environment rather than a
-                    noisy AI tool.
-                  </p>
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <BenefitRow
-                    title="Sharper hierarchy"
-                    desc="Cleaner spacing and stronger composition make the page easier to read while still feeling high-end."
-                    accent="bg-[linear-gradient(to_right,rgba(168,85,247,0.95),rgba(59,130,246,0.85))]"
-                  />
-                  <BenefitRow
-                    title="Luxury glass layers"
-                    desc="Refined borders, inner highlights, and subtle sheen make surfaces feel expensive instead of flat."
-                    accent="bg-[linear-gradient(to_right,rgba(59,130,246,0.95),rgba(34,211,238,0.85))]"
-                  />
-                  <BenefitRow
-                    title="Controlled motion"
-                    desc="Slow floating light and premium hover transitions add life without making the interface feel chaotic."
-                    accent="bg-[linear-gradient(to_right,rgba(217,70,239,0.95),rgba(168,85,247,0.85))]"
-                  />
-                  <BenefitRow
-                    title="Better mood"
-                    desc="Darker hero focus zones and softer background handling let your visuals breathe more beautifully."
-                    accent="bg-[linear-gradient(to_right,rgba(250,204,21,0.95),rgba(59,130,246,0.85))]"
+                    label="Luxury anime motion studio"
+                    icon={<Sparkles className="h-3.5 w-3.5 text-violet-300" />}
                   />
                 </div>
-              </div>
-            </GlassCard>
-          </Reveal>
-        </div>
-      </section>
 
-      <section id="resources" className="relative py-16">
-        <div className="mx-auto w-full max-w-7xl px-6">
-          <div className="grid gap-10 md:grid-cols-2 md:items-start">
-            <Reveal>
-              <div>
-                <SectionEyebrow label="Resources" />
-                <h2 className="mt-4 text-5xl font-semibold leading-[0.95] tracking-[-0.04em] text-white">
+                <h1
+                  ref={heroTitleRef}
+                  className="mt-6 text-5xl font-semibold tracking-[-0.05em] text-white drop-shadow-[0_8px_24px_rgba(0,0,0,0.65)] sm:text-6xl md:text-7xl"
+                >
                   <Balancer>
-                    Frequently
-                    <br />
-                    Asked
-                    <br />
-                    Questions
+                    Old Soul.
+                    <span className="block">New Motion.</span>
+                    <span className="block bg-[linear-gradient(to_right,#ffffff,#ddd6fe,#7dd3fc)] bg-clip-text text-transparent">
+                      KOANimation.
+                    </span>
                   </Balancer>
-                </h2>
-                <p className="mt-4 max-w-sm text-sm leading-relaxed text-white/65">
-                  Find answers about features, usage, workflow, and how to get
-                  the best results.
-                </p>
-              </div>
-            </Reveal>
+                </h1>
 
-            <div className="space-y-4">
+                <p
+                  ref={heroTextRef}
+                  className="mt-7 max-w-2xl text-base leading-relaxed text-white/68 md:text-lg"
+                >
+                  Create stylized anime motion with reference-aware workflows,
+                  cinematic camera movement, and a premium studio interface built
+                  for creators who care about atmosphere, identity, and control.
+                </p>
+
+                <div
+                  ref={heroButtonsRef}
+                  className="mt-8 flex flex-wrap items-center gap-3"
+                >
+                  <AuthCTAButton
+                    href="/tools"
+                    className="border-0 bg-white text-black hover:bg-white/90"
+                  >
+                    Launch Studio
+                  </AuthCTAButton>
+
+                  <AuthCTAButton
+                    href={TOOL_ROUTES.referenceToVideo}
+                    className="bg-white/8 hover:bg-white/18"
+                    requireAuth
+                  >
+                    Explore Workflows
+                  </AuthCTAButton>
+                </div>
+
+                <div
+                  ref={heroChipsRef}
+                  className="mt-8 grid max-w-2xl gap-3 sm:grid-cols-3"
+                >
+                  {[
+                    {
+                      text: "Reference-consistent motion",
+                      hover: "hover:bg-violet-500/[0.12]",
+                    },
+                    {
+                      text: "Image-to-video atmosphere",
+                      hover: "hover:bg-cyan-500/[0.10]",
+                    },
+                    {
+                      text: "Cinematic anime presentation",
+                      hover: "hover:bg-blue-500/[0.10]",
+                    },
+                  ].map((item) => (
+                    <div
+                      key={item.text}
+                      className={cn(
+                        "rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white/72 backdrop-blur transition duration-300",
+                        "hover:-translate-y-1 hover:border-white/20 hover:text-white",
+                        item.hover
+                      )}
+                    >
+                      {item.text}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div ref={heroPreviewRef} className="relative">
+                <div className="absolute -inset-8 rounded-[40px] bg-[radial-gradient(circle_at_center,rgba(168,85,247,0.14),transparent_55%)] blur-3xl" />
+                <motion.div
+                  animate={prefersReducedMotion ? {} : { y: [0, -6, 0] }}
+                  transition={{
+                    duration: 8,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
+                >
+                  <Tilt
+                    tiltMaxAngleX={isMobile ? 0 : 3}
+                    tiltMaxAngleY={isMobile ? 0 : 3}
+                    glareEnable={!isMobile}
+                    glareMaxOpacity={0.06}
+                    scale={1.01}
+                    transitionSpeed={1800}
+                    className="rounded-[30px]"
+                  >
+                    <GlassCard className="overflow-hidden p-4 shadow-[0_36px_120px_rgba(0,0,0,0.45)]">
+                      <div className="mb-4 flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 transition duration-300 group-hover:bg-white/[0.06]">
+                        <div>
+                          <div className="text-sm font-semibold text-white">
+                            KOANimation Studio
+                          </div>
+                          <div className="mt-1 text-xs text-white/50">
+                            Reference-driven anime motion workflows
+                          </div>
+                        </div>
+                        <div className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs text-emerald-200">
+                          Live
+                        </div>
+                      </div>
+
+                      <div className="overflow-hidden rounded-[24px] border border-white/10">
+                        <video
+                          className="h-[240px] w-full object-cover transition duration-700 group-hover:scale-105 sm:h-[320px]"
+                          src="/backgrounds/15.mp4"
+                          autoPlay
+                          loop
+                          muted
+                          playsInline
+                          preload="metadata"
+                        />
+                      </div>
+
+                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition duration-300 hover:bg-violet-500/[0.10]">
+                          <div className="text-xs uppercase tracking-[0.18em] text-white/40">
+                            Workflow
+                          </div>
+                          <div className="mt-2 text-sm font-medium text-white/85">
+                            Reference to Video
+                          </div>
+                        </div>
+                        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition duration-300 hover:bg-cyan-500/[0.10]">
+                          <div className="text-xs uppercase tracking-[0.18em] text-white/40">
+                            Output
+                          </div>
+                          <div className="mt-2 text-sm font-medium text-white/85">
+                            Stylized cinematic clips
+                          </div>
+                        </div>
+                      </div>
+                    </GlassCard>
+                  </Tilt>
+                </motion.div>
+              </div>
+            </div>
+          </div>
+
+          <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-[10] h-28 bg-gradient-to-b from-transparent to-black/80" />
+        </section>
+
+        <section className="relative -mt-4 pb-10">
+          <div className="mx-auto w-full max-w-7xl px-6">
+            <div className="grid gap-4 md:grid-cols-3">
               {[
                 {
-                  q: "What is KOANimation?",
-                  a: "KOANimation is a creator-focused studio for generating anime-style motion clips from references and prompts.",
+                  title: "Aesthetic Control",
+                  desc: "Design motion with a more intentional visual identity, not random generations.",
+                  hover: "hover:bg-violet-500/[0.10]",
+                  icon: <Stars className="h-5 w-5" />,
                 },
                 {
-                  q: "What’s the use of KOANimation?",
-                  a: "Use it to prototype scenes, iterate on style-consistent motion, and build a repeatable pipeline for your clips.",
+                  title: "Studio Workflows",
+                  desc: "Jump into focused tools for reference-to-video, image-to-video, and text generation.",
+                  hover: "hover:bg-blue-500/[0.10]",
+                  icon: <PanelTop className="h-5 w-5" />,
                 },
                 {
-                  q: "What’s the difference between Reference-to-Video and Image-to-Video?",
-                  a: "Reference-to-Video emphasizes matching a subject/style across generations. Image-to-Video focuses on animating a specific still image into motion.",
+                  title: "Creator Presentation",
+                  desc: "Premium outputs and a polished interface that feels closer to a real studio.",
+                  hover: "hover:bg-cyan-500/[0.10]",
+                  icon: <BadgeCheck className="h-5 w-5" />,
                 },
               ].map((item, i) => (
-                <Reveal key={item.q} delay={i * 0.06}>
-                  <FAQItem
-                    q={item.q}
-                    a={item.a}
-                    open={faqOpen === i}
-                    onToggle={() => setFaqOpen((cur) => (cur === i ? null : i))}
-                  />
+                <Reveal key={item.title} delay={i * 0.06}>
+                  <GlassCard className={cn("p-5", item.hover)}>
+                    <div className="relative z-10">
+                      <div className="mb-4 inline-flex rounded-2xl border border-white/10 bg-black/25 p-2 text-white/80">
+                        {item.icon}
+                      </div>
+                      <div className="text-base font-semibold text-white">
+                        {item.title}
+                      </div>
+                      <p className="mt-2 text-sm leading-relaxed text-white/65">
+                        {item.desc}
+                      </p>
+                    </div>
+                  </GlassCard>
                 </Reveal>
               ))}
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section className="relative pb-24 pt-8">
-        <div className="mx-auto w-full max-w-7xl px-6">
-          <Reveal>
-            <GlassCard className="overflow-hidden shadow-[0_40px_140px_rgba(0,0,0,0.45)] hover:shadow-[0_50px_160px_rgba(0,0,0,0.55)]">
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.14),transparent_32%),radial-gradient(circle_at_left,rgba(168,85,247,0.12),transparent_30%)]" />
-              <video
-                className="h-[300px] w-full object-cover transition duration-700 group-hover:scale-[1.02] md:h-[360px]"
-                src="/backgrounds/15.mp4"
-                autoPlay
-                loop
-                muted
-                playsInline
-                preload="metadata"
+        <Reveal className="relative pb-10 pt-8">
+          <div className="mx-auto w-full max-w-7xl px-6">
+            <MarqueeRow
+              items={[
+                "Reference to Video",
+                "Image to Video",
+                "Text to Video",
+                "Reference to Image",
+                "Text to Image",
+                "Anime Motion",
+                "Character Consistency",
+                "Cinematic Camera",
+                "Atmospheric Rendering",
+                "Creator-first Studio",
+              ]}
+            />
+          </div>
+        </Reveal>
+
+        <section className="relative pb-20 pt-12">
+          <div className="mx-auto w-full max-w-7xl px-6">
+            <Reveal className="mb-8">
+              <SectionEyebrow
+                label="Core modes"
+                icon={<Layers3 className="h-3.5 w-3.5 text-cyan-300" />}
               />
-              <div className="absolute inset-0 bg-black/62" />
-              <div className="absolute inset-0 flex items-center justify-center px-6 text-center">
+              <h2 className="mt-4 text-4xl font-semibold tracking-[-0.03em] text-white md:text-5xl">
+                <Balancer>Choose your workflow</Balancer>
+              </h2>
+              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/65">
+                Start from references, stills, or text prompts depending on how
+                much control you want over the final motion.
+              </p>
+            </Reveal>
+
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+              <Reveal delay={0.02}>
+                <ToolModeCard
+                  title="Reference to Video"
+                  desc="Match a subject or style and animate with stronger consistency."
+                  href={TOOL_ROUTES.referenceToVideo}
+                  accentClass="hover:bg-violet-500/[0.12]"
+                  icon={<Film className="h-5 w-5" />}
+                  requireAuth
+                />
+              </Reveal>
+              <Reveal delay={0.08}>
+                <ToolModeCard
+                  title="Image to Video"
+                  desc="Bring still artwork to life with motion, camera, and atmosphere."
+                  href={TOOL_ROUTES.imageToVideo}
+                  accentClass="hover:bg-blue-500/[0.12]"
+                  icon={<Clapperboard className="h-5 w-5" />}
+                  requireAuth
+                />
+              </Reveal>
+              <Reveal delay={0.14}>
+                <ToolModeCard
+                  title="Text to Video"
+                  desc="Generate clips from prompt-first cinematic direction."
+                  href={TOOL_ROUTES.textToVideo}
+                  accentClass="hover:bg-fuchsia-500/[0.12]"
+                  icon={<Wand2 className="h-5 w-5" />}
+                  requireAuth
+                />
+              </Reveal>
+              <Reveal delay={0.2}>
+                <ToolModeCard
+                  title="Reference to Image"
+                  desc="Create style-aware images with more controlled visual identity."
+                  href={TOOL_ROUTES.referenceToImage}
+                  accentClass="hover:bg-amber-400/[0.12]"
+                  icon={<ImageIcon className="h-5 w-5" />}
+                  requireAuth
+                />
+              </Reveal>
+              <Reveal delay={0.26}>
+                <ToolModeCard
+                  title="Text to Image"
+                  desc="Generate polished stills ready for concepting or animation input."
+                  href={TOOL_ROUTES.textToImage}
+                  accentClass="hover:bg-white/[0.10]"
+                  icon={<Sparkles className="h-5 w-5" />}
+                  requireAuth
+                />
+              </Reveal>
+            </div>
+          </div>
+        </section>
+
+        <section className="relative pb-12">
+          <div className="mx-auto w-full max-w-7xl px-6">
+            <Reveal className="mb-8">
+              <SectionEyebrow
+                label="Why it feels premium"
+                icon={<Zap className="h-3.5 w-3.5 text-blue-300" />}
+              />
+              <h2 className="mt-4 text-4xl font-semibold tracking-[-0.03em] text-white md:text-5xl">
+                <Balancer>Built like a real studio</Balancer>
+              </h2>
+            </Reveal>
+
+            <div className="grid gap-4 md:grid-cols-3">
+              <Reveal delay={0.02}>
+                <MetricCard
+                  value="5"
+                  label="Creative modes on one platform"
+                  glow=""
+                />
+              </Reveal>
+              <Reveal delay={0.08}>
+                <MetricCard
+                  value="∞"
+                  label="Stylized directions you can explore"
+                  glow=""
+                />
+              </Reveal>
+              <Reveal delay={0.14}>
+                <MetricCard
+                  value="24/7"
+                  label="Always-available creation workflow"
+                  glow=""
+                />
+              </Reveal>
+            </div>
+          </div>
+        </section>
+
+        <section id="showcase" className="relative pb-20 pt-10">
+          <div className="mx-auto w-full max-w-7xl px-6">
+            <Reveal className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+              <div>
+                <SectionEyebrow label="Showcase" />
+                <h2 className="mt-4 text-4xl font-semibold tracking-[-0.03em] text-white md:text-5xl">
+                  <Balancer>Reference to Video</Balancer>
+                </h2>
+                <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/65">
+                  Create videos that align with reference subjects, such as
+                  characters, objects, and scenes.
+                </p>
+              </div>
+
+              <div className="mt-2 flex items-center gap-3 md:mt-0">
+                <AuthCTAButton href={TOOL_ROUTES.referenceToVideo} requireAuth>
+                  Open Studio
+                </AuthCTAButton>
+              </div>
+            </Reveal>
+
+            <Reveal className="mt-10" delay={0.08}>
+              <EmblaVideoCarousel
+                items={showcase}
+                title="Reference-to-Video Showcase"
+              />
+            </Reveal>
+          </div>
+        </section>
+
+        <section id="features" className="relative py-16">
+          <div className="mx-auto w-full max-w-7xl px-6">
+            <Reveal className="mb-8">
+              <SectionEyebrow label="Highlights" />
+              <h2 className="mt-4 text-4xl font-semibold tracking-[-0.03em] text-white md:text-5xl">
+                <Balancer>Built for stylish motion creation</Balancer>
+              </h2>
+            </Reveal>
+
+            <div className="grid gap-6 md:grid-cols-2">
+              <Reveal delay={0.03}>
+                <FeatureCard
+                  title="First & Last Frames Control"
+                  desc="Upload the first and last frame images, and KOANimation creates smooth transitions in between."
+                  mediaSrc="/backgrounds/16.mp4"
+                  ctaHref="/tools"
+                  ctaLabel="Get Started"
+                  glowClass=""
+                  badge="Frame Control"
+                />
+              </Reveal>
+              <Reveal delay={0.1}>
+                <FeatureCard
+                  title="Anime Art to Video"
+                  desc="Transform anime art into fluid animations with lifelike character motion and cinematic camera."
+                  mediaSrc="/backgrounds/7.mp4"
+                  ctaHref="/tools"
+                  ctaLabel="Get Started"
+                  glowClass=""
+                  badge="Animation"
+                />
+              </Reveal>
+            </div>
+          </div>
+        </section>
+
+        <section className="relative py-10">
+          <div className="mx-auto w-full max-w-7xl px-6">
+            <HoverSpotlightSection>
+              <div className="relative overflow-hidden rounded-[36px] border border-white/10 bg-white/[0.04] p-6 backdrop-blur-xl md:p-8">
+                <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.04),rgba(255,255,255,0.01)_20%,rgba(0,0,0,0.08)_100%)]" />
+                <div className="relative z-10">
+                  <SectionEyebrow
+                    label="Visual playground"
+                    icon={<Sparkles className="h-3.5 w-3.5 text-fuchsia-300" />}
+                  />
+
+                  <div className="mt-6 grid gap-4 md:grid-cols-3">
+                    <Reveal delay={0.02}>
+                      <BentoCard
+                        title="Noir Mood"
+                        desc="Dark cinematic frames with contrast, rain, glow, and pressure."
+                        mediaSrc="/backgrounds/12.mp4"
+                        badge="Atmosphere"
+                        glowClass=""
+                        tall
+                      />
+                    </Reveal>
+                    <Reveal delay={0.08}>
+                      <BentoCard
+                        title="Painterly Motion"
+                        desc="Bring static illustrations into elegant motion without losing style."
+                        mediaSrc="/backgrounds/14.mp4"
+                        badge="Motion"
+                        glowClass=""
+                      />
+                    </Reveal>
+                    <Reveal delay={0.14}>
+                      <BentoCard
+                        title="Scene Reveal"
+                        desc="Use subtle camera drift and staged composition for drama."
+                        mediaSrc="/backgrounds/17.mp4"
+                        badge="Camera"
+                        glowClass=""
+                      />
+                    </Reveal>
+                    <Reveal delay={0.2}>
+                      <BentoCard
+                        title="Character Presence"
+                        desc="Maintain stronger subject identity while pushing cinematic framing."
+                        mediaSrc="/backgrounds/6.mp4"
+                        badge="Character"
+                        glowClass=""
+                      />
+                    </Reveal>
+                    <Reveal delay={0.26}>
+                      <BentoCard
+                        title="Fantasy Energy"
+                        desc="Use color, movement, and spatial depth for high-impact scenes."
+                        mediaSrc="/backgrounds/2.mp4"
+                        badge="Style"
+                        glowClass=""
+                      />
+                    </Reveal>
+                  </div>
+                </div>
+              </div>
+            </HoverSpotlightSection>
+          </div>
+        </section>
+
+        <section id="templates" className="relative pb-20 pt-10">
+          <div className="mx-auto w-full max-w-7xl px-6">
+            <Reveal className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+              <div className="flex flex-col gap-3 md:flex-row md:items-baseline md:gap-6">
                 <div>
                   <SectionEyebrow
-                    label="Start creating"
-                    icon={<Play className="h-3.5 w-3.5 text-cyan-300" />}
+                    label="Stills into motion"
+                    icon={<ImageIcon className="h-3.5 w-3.5 text-cyan-300" />}
                   />
-                  <h3 className="mt-4 text-4xl font-semibold tracking-[-0.03em] text-white md:text-5xl">
-                    <Balancer>Embrace Your Creativity</Balancer>
-                  </h3>
-                  <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-white/68 md:text-base">
-                    Step into a more cinematic creation flow and build motion
-                    that feels intentional, atmospheric, and uniquely yours.
-                  </p>
-                  <AuthCTAButton
-                    href={TOOL_ROUTES.referenceToVideo}
-                    className="mt-6 border-0 bg-blue-600 shadow-[0_0_34px_rgba(37,99,235,0.26)] hover:bg-blue-500 hover:shadow-[0_0_50px_rgba(37,99,235,0.35)]"
-                    requireAuth
-                  >
-                    Try it now
-                  </AuthCTAButton>
+                  <h2 className="mt-4 text-[42px] font-semibold tracking-[-0.03em] text-white md:text-5xl">
+                    <Balancer>Image to Video</Balancer>
+                  </h2>
                 </div>
-              </div>
-            </GlassCard>
-          </Reveal>
 
-          <div className="mt-10">
-            <GlowDivider />
+                <div className="hidden h-10 w-px self-center bg-white/10 md:block" />
+
+                <p className="max-w-2xl text-[13px] leading-[1.7] text-white/65 md:self-end md:text-sm md:leading-relaxed">
+                  Bring still images to life with dynamic motion that aligns with
+                  your vision.
+                </p>
+              </div>
+
+              <div className="mt-1 flex items-center gap-3 md:mt-0">
+                <AuthCTAButton href={TOOL_ROUTES.imageToVideo} requireAuth>
+                  Open Studio
+                </AuthCTAButton>
+              </div>
+            </Reveal>
+
+            <Reveal className="mt-10" delay={0.08}>
+              <EmblaVideoCarousel
+                items={imageToVideo}
+                title="Image-to-Video Showcase"
+                large
+              />
+            </Reveal>
           </div>
+        </section>
 
-          <Reveal className="mt-10 grid gap-6 md:grid-cols-[1.1fr_0.9fr]">
-            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur">
-              <div className="text-sm font-semibold text-white">
-                KOANimation
-              </div>
-              <p className="mt-3 max-w-md text-sm leading-relaxed text-white/58">
-                A creator-first studio for aesthetic anime motion, cinematic
-                presentation, and reference-aware workflows.
+        <section className="relative py-14">
+          <div className="mx-auto w-full max-w-7xl px-6">
+            <Reveal className="mb-8">
+              <SectionEyebrow
+                label="Workflow"
+                icon={<Layers3 className="h-3.5 w-3.5 text-emerald-300" />}
+              />
+              <h2 className="mt-4 text-4xl font-semibold tracking-[-0.03em] text-white md:text-5xl">
+                <Balancer>From idea to final motion</Balancer>
+              </h2>
+              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/65">
+                A simple creative loop that still feels powerful enough for a real
+                studio pipeline.
               </p>
-            </div>
+            </Reveal>
 
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur">
-                <div className="text-sm font-semibold text-white">Explore</div>
-                <div className="mt-3 flex flex-col gap-2 text-sm text-white/58">
-                  <a className="transition hover:text-white/85" href="#features">
-                    Features
-                  </a>
-                  <a className="transition hover:text-white/85" href="#showcase">
-                    Showcase
-                  </a>
-                  <a
-                    className="transition hover:text-white/85"
-                    href="#resources"
-                  >
-                    FAQ
-                  </a>
-                </div>
-              </div>
-
-              <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur">
-                <div className="text-sm font-semibold text-white">Product</div>
-                <div className="mt-3 flex flex-col gap-2 text-sm text-white/58">
-                  <Link
-                    className="transition hover:text-white/85"
-                    href="/pricing"
-                  >
-                    Pricing
-                  </Link>
-                  <Link
-                    className="transition hover:text-white/85"
-                    href="/roadmap"
-                  >
-                    Roadmap
-                  </Link>
-                  <Link className="transition hover:text-white/85" href="/tools">
-                    Tools
-                  </Link>
-                </div>
-              </div>
-
-              <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur">
-                <div className="text-sm font-semibold text-white">Studio</div>
-                <div className="mt-3 flex flex-col gap-2 text-sm text-white/58">
-                  <span>Reference workflows</span>
-                  <span>Anime motion</span>
-                  <span>Cinematic output</span>
-                </div>
-              </div>
-            </div>
-          </Reveal>
-
-          <div className="mt-8 text-sm text-white/45">
-            © {new Date().getFullYear()} KOANimation
+            <StudioTimeline
+              items={[
+                {
+                  step: "01",
+                  title: "Choose a mode",
+                  desc: "Start from reference, image, or text depending on how much direction you already have.",
+                  glow: "",
+                },
+                {
+                  step: "02",
+                  title: "Shape the look",
+                  desc: "Define mood, framing, motion type, and aesthetic intent for stronger results.",
+                  glow: "",
+                },
+                {
+                  step: "03",
+                  title: "Generate iterations",
+                  desc: "Explore multiple passes until the pacing, energy, and atmosphere feel right.",
+                  glow: "",
+                },
+                {
+                  step: "04",
+                  title: "Present your clip",
+                  desc: "Export work that feels polished, cinematic, and ready to show on your platform.",
+                  glow: "",
+                },
+              ]}
+            />
           </div>
-        </div>
-      </section>
-    </main>
+        </section>
+
+        <section className="relative py-14">
+          <div className="mx-auto w-full max-w-7xl px-6">
+            <Reveal className="mb-8">
+              <SectionEyebrow
+                label="Creator sentiment"
+                icon={<Sparkles className="h-3.5 w-3.5 text-fuchsia-300" />}
+              />
+              <h2 className="mt-4 text-4xl font-semibold tracking-[-0.03em] text-white md:text-5xl">
+                <Balancer>Why creators stay</Balancer>
+              </h2>
+            </Reveal>
+
+            <div className="grid gap-4 lg:grid-cols-3">
+              <Reveal delay={0.02}>
+                <QuoteCard
+                  quote="It feels less like a random AI tool and more like a real place to shape aesthetic direction."
+                  name="Visual Story Creator"
+                  role="Atmospheric anime clips"
+                  glow=""
+                />
+              </Reveal>
+              <Reveal delay={0.08}>
+                <QuoteCard
+                  quote="The interface already makes the output feel more premium. It pushes you into a stronger presentation mindset."
+                  name="Motion-first Artist"
+                  role="Stylized concept animation"
+                  glow=""
+                />
+              </Reveal>
+              <Reveal delay={0.14}>
+                <QuoteCard
+                  quote="The best part is being able to explore cinematic tone while keeping the subject identity much more intentional."
+                  name="Anime Editor"
+                  role="Reference-driven workflow"
+                  glow=""
+                />
+              </Reveal>
+            </div>
+          </div>
+        </section>
+
+        <section className="relative py-14">
+          <div className="mx-auto w-full max-w-7xl px-6">
+            <Reveal>
+              <GlassCard className="p-8 md:p-10" hover={false}>
+                <div className="relative z-10 grid gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-start">
+                  <div>
+                    <SectionEyebrow
+                      label="Why it lands"
+                      icon={<Wand2 className="h-3.5 w-3.5 text-amber-300" />}
+                    />
+                    <h2 className="mt-4 text-4xl font-semibold tracking-[-0.03em] text-white md:text-5xl">
+                      <Balancer>Beauty with structure</Balancer>
+                    </h2>
+                    <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/68 md:text-base">
+                      The goal is not to drown the screen in effects. It is to
+                      make every interaction feel purposeful, cinematic, and
+                      elegant — like a premium studio environment rather than a
+                      noisy AI tool.
+                    </p>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <BenefitRow
+                      title="Sharper hierarchy"
+                      desc="Cleaner spacing and stronger composition make the page easier to read while still feeling high-end."
+                      accent="bg-[linear-gradient(to_right,rgba(168,85,247,0.95),rgba(59,130,246,0.85))]"
+                    />
+                    <BenefitRow
+                      title="Luxury glass layers"
+                      desc="Refined borders, inner highlights, and subtle sheen make surfaces feel expensive instead of flat."
+                      accent="bg-[linear-gradient(to_right,rgba(59,130,246,0.95),rgba(34,211,238,0.85))]"
+                    />
+                    <BenefitRow
+                      title="Controlled motion"
+                      desc="Slow floating light and premium hover transitions add life without making the interface feel chaotic."
+                      accent="bg-[linear-gradient(to_right,rgba(217,70,239,0.95),rgba(168,85,247,0.85))]"
+                    />
+                    <BenefitRow
+                      title="Better mood"
+                      desc="Darker hero focus zones and softer background handling let your visuals breathe more beautifully."
+                      accent="bg-[linear-gradient(to_right,rgba(250,204,21,0.95),rgba(59,130,246,0.85))]"
+                    />
+                  </div>
+                </div>
+              </GlassCard>
+            </Reveal>
+          </div>
+        </section>
+
+        <section id="resources" className="relative py-16">
+          <div className="mx-auto w-full max-w-7xl px-6">
+            <div className="grid gap-10 md:grid-cols-2 md:items-start">
+              <Reveal>
+                <div>
+                  <SectionEyebrow label="Resources" />
+                  <h2 className="mt-4 text-5xl font-semibold leading-[0.95] tracking-[-0.04em] text-white">
+                    <Balancer>
+                      Frequently
+                      <br />
+                      Asked
+                      <br />
+                      Questions
+                    </Balancer>
+                  </h2>
+                  <p className="mt-4 max-w-sm text-sm leading-relaxed text-white/65">
+                    Find answers about features, usage, workflow, and how to get
+                    the best results.
+                  </p>
+                </div>
+              </Reveal>
+
+              <div className="space-y-4">
+                {[
+                  {
+                    q: "What is KOANimation?",
+                    a: "KOANimation is a creator-focused studio for generating anime-style motion clips from references and prompts.",
+                  },
+                  {
+                    q: "What’s the use of KOANimation?",
+                    a: "Use it to prototype scenes, iterate on style-consistent motion, and build a repeatable pipeline for your clips.",
+                  },
+                  {
+                    q: "What’s the difference between Reference-to-Video and Image-to-Video?",
+                    a: "Reference-to-Video emphasizes matching a subject/style across generations. Image-to-Video focuses on animating a specific still image into motion.",
+                  },
+                ].map((item, i) => (
+                  <Reveal key={item.q} delay={i * 0.06}>
+                    <FAQItem
+                      q={item.q}
+                      a={item.a}
+                      open={faqOpen === i}
+                      onToggle={() =>
+                        setFaqOpen((cur) => (cur === i ? null : i))
+                      }
+                    />
+                  </Reveal>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="relative pb-24 pt-8">
+          <div className="mx-auto w-full max-w-7xl px-6">
+            <Reveal>
+              <GlassCard className="overflow-hidden shadow-[0_40px_140px_rgba(0,0,0,0.45)] hover:shadow-[0_50px_160px_rgba(0,0,0,0.55)]">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.14),transparent_32%),radial-gradient(circle_at_left,rgba(168,85,247,0.12),transparent_30%)]" />
+                <video
+                  className="h-[300px] w-full object-cover transition duration-700 group-hover:scale-[1.02] md:h-[360px]"
+                  src="/backgrounds/15.mp4"
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  preload="metadata"
+                />
+                <div className="absolute inset-0 bg-black/62" />
+                <div className="absolute inset-0 flex items-center justify-center px-6 text-center">
+                  <div>
+                    <SectionEyebrow
+                      label="Start creating"
+                      icon={<Play className="h-3.5 w-3.5 text-cyan-300" />}
+                    />
+                    <h3 className="mt-4 text-4xl font-semibold tracking-[-0.03em] text-white md:text-5xl">
+                      <Balancer>Embrace Your Creativity</Balancer>
+                    </h3>
+                    <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-white/68 md:text-base">
+                      Step into a more cinematic creation flow and build motion
+                      that feels intentional, atmospheric, and uniquely yours.
+                    </p>
+                    <AuthCTAButton
+                      href={TOOL_ROUTES.referenceToVideo}
+                      className="mt-6 border-0 bg-blue-600 shadow-[0_0_34px_rgba(37,99,235,0.26)] hover:bg-blue-500 hover:shadow-[0_0_50px_rgba(37,99,235,0.35)]"
+                      requireAuth
+                    >
+                      Try it now
+                    </AuthCTAButton>
+                  </div>
+                </div>
+              </GlassCard>
+            </Reveal>
+
+            <div className="mt-10">
+              <GlowDivider />
+            </div>
+
+            <Reveal className="mt-10 grid gap-6 md:grid-cols-[1.1fr_0.9fr]">
+              <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur">
+                <div className="text-sm font-semibold text-white">
+                  KOANimation
+                </div>
+                <p className="mt-3 max-w-md text-sm leading-relaxed text-white/58">
+                  A creator-first studio for aesthetic anime motion, cinematic
+                  presentation, and reference-aware workflows.
+                </p>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur">
+                  <div className="text-sm font-semibold text-white">Explore</div>
+                  <div className="mt-3 flex flex-col gap-2 text-sm text-white/58">
+                    <a className="transition hover:text-white/85" href="#features">
+                      Features
+                    </a>
+                    <a className="transition hover:text-white/85" href="#showcase">
+                      Showcase
+                    </a>
+                    <a
+                      className="transition hover:text-white/85"
+                      href="#resources"
+                    >
+                      FAQ
+                    </a>
+                  </div>
+                </div>
+
+                <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur">
+                  <div className="text-sm font-semibold text-white">Product</div>
+                  <div className="mt-3 flex flex-col gap-2 text-sm text-white/58">
+                    <button
+                      type="button"
+                      onClick={() => go("/pricing")}
+                      className="cursor-pointer text-left transition hover:text-white/85"
+                    >
+                      Pricing
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => go("/roadmap")}
+                      className="cursor-pointer text-left transition hover:text-white/85"
+                    >
+                      Roadmap
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => go("/tools")}
+                      className="cursor-pointer text-left transition hover:text-white/85"
+                    >
+                      Tools
+                    </button>
+                  </div>
+                </div>
+
+                <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur">
+                  <div className="text-sm font-semibold text-white">Studio</div>
+                  <div className="mt-3 flex flex-col gap-2 text-sm text-white/58">
+                    <span>Reference workflows</span>
+                    <span>Anime motion</span>
+                    <span>Cinematic output</span>
+                  </div>
+                </div>
+              </div>
+            </Reveal>
+
+            <div className="mt-8 text-sm text-white/45">
+              © {new Date().getFullYear()} KOANimation
+            </div>
+          </div>
+        </section>
+      </main>
+    </AuthNavContext.Provider>
   );
 }

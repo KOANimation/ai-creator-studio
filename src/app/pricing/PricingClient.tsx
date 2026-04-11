@@ -26,8 +26,8 @@ import {
   Crown,
   Star,
 } from "lucide-react";
-import { createClient } from "@/app/lib/supabase/client";
 import TopupButtons from "@/app/components/TopupButtons";
+import { useAuth } from "@/app/components/providers/AuthProvider";
 
 type PlanKey = "essential" | "advanced" | "infinite" | "wonder";
 
@@ -320,17 +320,12 @@ function getPlanActionLabel(
 export default function PricingClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const supabase = useMemo(() => createClient(), []);
+  const { user, loading, refreshCredits } = useAuth();
 
   useLenisScroll(true);
 
   const [selectedPlan, setSelectedPlan] = useState<PlanKey>("advanced");
   const [faqOpen, setFaqOpen] = useState<number | null>(null);
-
-  const [mounted, setMounted] = useState(false);
-  const [authLoaded, setAuthLoaded] = useState(false);
-  const [isAuthed, setIsAuthed] = useState(false);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
 
   const [activeCheckoutPlan, setActiveCheckoutPlan] = useState<PlanKey | null>(
     null
@@ -349,6 +344,16 @@ export default function PricingClient() {
   const canceled = searchParams.get("canceled") === "1";
 
   const loadCurrentSubscription = useCallback(async () => {
+    if (!user) {
+      setCurrentSubscription({
+        currentPlan: null,
+        status: null,
+        currentPeriodEnd: null,
+        cancelAtPeriodEnd: false,
+      });
+      return null;
+    }
+
     try {
       const res = await fetch("/api/billing/current-subscription", {
         method: "GET",
@@ -382,7 +387,7 @@ export default function PricingClient() {
       });
       return null;
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     const planParam = normalizePlanKey(searchParams.get("plan"));
@@ -392,101 +397,37 @@ export default function PricingClient() {
   }, [searchParams]);
 
   useEffect(() => {
-    let active = true;
+    if (loading) return;
 
-    const applyAuthState = async (
-      user: { id: string; email?: string | null } | null
-    ) => {
-      if (!active) return;
+    if (!user) {
+      setCurrentSubscription({
+        currentPlan: null,
+        status: null,
+        currentPeriodEnd: null,
+        cancelAtPeriodEnd: false,
+      });
+      return;
+    }
 
-      const authed = !!user;
-      setIsAuthed(authed);
-      setUserEmail(user?.email ?? null);
-
-      if (!authed) {
-        setCurrentSubscription({
-          currentPlan: null,
-          status: null,
-          currentPeriodEnd: null,
-          cancelAtPeriodEnd: false,
-        });
-        return;
-      }
-
-      const currentPlan = await loadCurrentSubscription();
-      if (!active) return;
-
+    void loadCurrentSubscription().then((currentPlan) => {
       const planParam = normalizePlanKey(searchParams.get("plan"));
       if (!planParam && currentPlan) {
         setSelectedPlan(currentPlan);
       }
-    };
-
-    const syncAuth = async () => {
-      setMounted(true);
-
-      try {
-        const {
-          data: { session },
-          error: sessionError,
-        } = await supabase.auth.getSession();
-
-        if (sessionError) {
-          console.error("[PricingClient] getSession error:", sessionError);
-        }
-
-        if (!active) return;
-
-        const sessionUser = session?.user ?? null;
-        await applyAuthState(sessionUser);
-
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser();
-
-        if (userError) {
-          console.error("[PricingClient] getUser error:", userError);
-        }
-
-        if (!active) return;
-
-        await applyAuthState(user ?? sessionUser);
-      } finally {
-        if (active) setAuthLoaded(true);
-      }
-    };
-
-    void syncAuth();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (!active) return;
-
-      await applyAuthState(session?.user ?? null);
-      if (active) {
-        setMounted(true);
-        setAuthLoaded(true);
-      }
     });
-
-    return () => {
-      active = false;
-      subscription.unsubscribe();
-    };
-  }, [supabase, searchParams, loadCurrentSubscription]);
+  }, [loading, user, loadCurrentSubscription, searchParams]);
 
   useEffect(() => {
-    if (success && isAuthed) {
-      void loadCurrentSubscription().then((currentPlan) => {
+    if (success && user) {
+      void loadCurrentSubscription().then(async (currentPlan) => {
         const planParam = normalizePlanKey(searchParams.get("plan"));
         if (!planParam && currentPlan) {
           setSelectedPlan(currentPlan);
         }
+        await refreshCredits();
       });
     }
-  }, [success, isAuthed, searchParams, loadCurrentSubscription]);
+  }, [success, user, searchParams, loadCurrentSubscription, refreshCredits]);
 
   const updatePricingUrl = (plan: PlanKey) => {
     router.replace(getPricingPath(plan), { scroll: false });
@@ -515,9 +456,9 @@ export default function PricingClient() {
   );
 
   const handleTryKoa = () => {
-    if (!authLoaded) return;
+    if (loading) return;
 
-    if (!isAuthed) {
+    if (!user) {
       goToLogin("/tools");
       return;
     }
@@ -527,9 +468,9 @@ export default function PricingClient() {
 
   const handleManageSubscription = async () => {
     try {
-      if (!authLoaded) return;
+      if (loading) return;
 
-      if (!isAuthed) {
+      if (!user) {
         goToLogin("/pricing");
         return;
       }
@@ -563,12 +504,12 @@ export default function PricingClient() {
   };
 
   const handlePlanAction = async (planKey: PlanKey) => {
-    if (!authLoaded) return;
+    if (loading) return;
     if (currentSubscription.currentPlan === planKey) return;
 
     handleSelectPlan(planKey);
 
-    if (!isAuthed) {
+    if (!user) {
       goToLogin(getPricingPath(planKey));
       return;
     }
@@ -597,10 +538,13 @@ export default function PricingClient() {
 
       if (data?.updated) {
         const currentPlan = await loadCurrentSubscription();
+        await refreshCredits();
+
         if (currentPlan) {
           setSelectedPlan(currentPlan);
           updatePricingUrl(currentPlan);
         }
+
         alert(
           data?.message ||
             "Plan updated successfully. Stripe will handle any prorated difference automatically."
@@ -610,6 +554,8 @@ export default function PricingClient() {
 
       if (data?.alreadySubscribed) {
         const currentPlan = await loadCurrentSubscription();
+        await refreshCredits();
+
         if (currentPlan) {
           setSelectedPlan(currentPlan);
           updatePricingUrl(currentPlan);
@@ -856,7 +802,7 @@ export default function PricingClient() {
             </div>
 
             <div className="flex items-center gap-3 text-sm">
-              {authLoaded && isAuthed && currentSubscription.currentPlan ? (
+              {!loading && user && currentSubscription.currentPlan ? (
                 <button
                   type="button"
                   onClick={() => void handleManageSubscription()}
@@ -906,6 +852,51 @@ export default function PricingClient() {
             </p>
           </div>
 
+          {!loading && (
+            <div className="mt-7 text-center text-sm text-white/45">
+              {user
+                ? currentPlanName
+                  ? `You are logged in as ${user.email ?? "your account"}. Current plan: ${currentPlanName}.`
+                  : `You are logged in as ${user.email ?? "your account"}. You can subscribe or switch plans.`
+                : "You can view pricing freely. Log in when you want to subscribe."}
+            </div>
+          )}
+
+          {currentPlanName && (
+            <div className="mx-auto mt-5 inline-flex flex-wrap items-center justify-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/85 backdrop-blur-xl">
+              <span>Current plan: {currentPlanName}</span>
+              {currentSubscription.cancelAtPeriodEnd &&
+                currentSubscription.currentPeriodEnd && (
+                  <span className="text-white/55">
+                    · ends{" "}
+                    {new Date(
+                      currentSubscription.currentPeriodEnd
+                    ).toLocaleDateString()}
+                  </span>
+                )}
+              <button
+                type="button"
+                onClick={() => void handleManageSubscription()}
+                className="ml-1 cursor-pointer rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={isManagingBilling}
+              >
+                {isManagingBilling ? "Opening..." : "Manage"}
+              </button>
+            </div>
+          )}
+
+          {success && (
+            <div className="mx-auto mt-6 max-w-2xl rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-center text-sm text-emerald-200 backdrop-blur-xl">
+              Payment completed. Your subscription is being processed.
+            </div>
+          )}
+
+          {canceled && (
+            <div className="mx-auto mt-6 max-w-2xl rounded-2xl border border-yellow-500/20 bg-yellow-500/10 px-4 py-3 text-center text-sm text-yellow-200 backdrop-blur-xl">
+              Checkout was canceled. You can still choose another plan anytime.
+            </div>
+          )}
+
           <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {[
               {
@@ -949,51 +940,6 @@ export default function PricingClient() {
               );
             })}
           </div>
-
-          {mounted && authLoaded && (
-            <div className="mt-7 text-center text-sm text-white/45">
-              {isAuthed
-                ? currentPlanName
-                  ? `You are logged in as ${userEmail ?? "your account"}. Current plan: ${currentPlanName}.`
-                  : `You are logged in as ${userEmail ?? "your account"}. You can subscribe or switch plans.`
-                : "You can view pricing freely. Log in when you want to subscribe."}
-            </div>
-          )}
-
-          {currentPlanName && (
-            <div className="mx-auto mt-5 inline-flex flex-wrap items-center justify-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/85 backdrop-blur-xl">
-              <span>Current plan: {currentPlanName}</span>
-              {currentSubscription.cancelAtPeriodEnd &&
-                currentSubscription.currentPeriodEnd && (
-                  <span className="text-white/55">
-                    · ends{" "}
-                    {new Date(
-                      currentSubscription.currentPeriodEnd
-                    ).toLocaleDateString()}
-                  </span>
-                )}
-              <button
-                type="button"
-                onClick={() => void handleManageSubscription()}
-                className="ml-1 cursor-pointer rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={isManagingBilling}
-              >
-                {isManagingBilling ? "Opening..." : "Manage"}
-              </button>
-            </div>
-          )}
-
-          {success && (
-            <div className="mx-auto mt-6 max-w-2xl rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-center text-sm text-emerald-200 backdrop-blur-xl">
-              Payment completed. Your subscription is being processed.
-            </div>
-          )}
-
-          {canceled && (
-            <div className="mx-auto mt-6 max-w-2xl rounded-2xl border border-yellow-500/20 bg-yellow-500/10 px-4 py-3 text-center text-sm text-yellow-200 backdrop-blur-xl">
-              Checkout was canceled. You can still choose another plan anytime.
-            </div>
-          )}
         </div>
       </section>
 
@@ -1094,7 +1040,7 @@ export default function PricingClient() {
                       e.stopPropagation();
                       void handlePlanAction(p.key);
                     }}
-                    disabled={isLoading || isCurrent || !authLoaded}
+                    disabled={isLoading || isCurrent || loading}
                     className={cn(
                       "relative z-10 mt-6 w-full rounded-xl px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60",
                       isCurrent
@@ -1208,7 +1154,7 @@ export default function PricingClient() {
                   </div>
                 </div>
 
-                {mounted && authLoaded && isAuthed ? (
+                {!loading && user ? (
                   <TopupButtons />
                 ) : (
                   <div className="space-y-3">
@@ -1371,7 +1317,7 @@ export default function PricingClient() {
                         <button
                           type="button"
                           onClick={() => void handlePlanAction(plan.key)}
-                          disabled={isCurrent || isLoading || !authLoaded}
+                          disabled={isCurrent || isLoading || loading}
                           className={cn(
                             "w-full rounded-xl px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60",
                             isCurrent

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { ArrowRight, Gem, Sparkles, Wallet, Zap } from "lucide-react";
 
 type TopupKey = "1000" | "5000" | "15000" | "50000";
@@ -45,6 +45,8 @@ const PACKS: Array<{
 
 export default function TopupButtons() {
   const router = useRouter();
+  const pathname = usePathname();
+
   const [loadingKey, setLoadingKey] = useState<TopupKey | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,7 +66,9 @@ export default function TopupButtons() {
       const data = await res.json().catch(() => null);
 
       if (res.status === 401) {
-        router.push(`/login?redirect=${encodeURIComponent("/pricing")}`);
+        router.push(
+          `/login?redirect=${encodeURIComponent(pathname || "/pricing")}`
+        );
         return;
       }
 
@@ -80,9 +84,7 @@ export default function TopupButtons() {
 
       window.location.href = data.url;
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Something went wrong."
-      );
+      setError(err instanceof Error ? err.message : "Something went wrong.");
       setLoadingKey(null);
     }
   };

@@ -41,8 +41,8 @@ import {
   Wand2,
   Workflow,
 } from "lucide-react";
-import { createClient } from "@/app/lib/supabase/client";
 import TopupButtons from "@/app/components/TopupButtons";
+import { useAuth } from "@/app/components/providers/AuthProvider";
 
 type VideoToolKey = "reference-to-video" | "image-to-video" | "text-to-video";
 type ImageToolKey = "reference-to-image" | "text-to-image";
@@ -484,205 +484,76 @@ function SidebarSectionTitle({ children }: { children: ReactNode }) {
 
 export default function ToolsPage() {
   const router = useRouter();
-  const supabase = useMemo(() => createClient(), []);
+  const { user, loading, credits, refreshCredits, signOut } = useAuth();
 
   useLenisScroll(true);
 
-  const [mounted, setMounted] = useState(false);
-  const [authLoaded, setAuthLoaded] = useState(false);
-  const [isAuthed, setIsAuthed] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [credits, setCredits] = useState<number | null>(null);
-  const [walletLoading, setWalletLoading] = useState(false);
-  const [walletRefreshTick, setWalletRefreshTick] = useState(0);
-
-  const refreshWallet = useCallback(
-    async (nextUserId?: string | null) => {
-      const activeUserId = nextUserId ?? userId;
-
-      if (!activeUserId) {
-        setCredits(null);
-        return;
-      }
-
-      try {
-        setWalletLoading(true);
-
-        const { data, error } = await supabase
-          .from("credit_wallets")
-          .select("balance")
-          .eq("user_id", activeUserId)
-          .maybeSingle();
-
-        if (error) {
-          console.error("[ToolsPage] Failed to load wallet:", error);
-          setCredits(0);
-          return;
-        }
-
-        if (!data) {
-          console.warn("[ToolsPage] No wallet row found for user:", activeUserId);
-          setCredits(0);
-          return;
-        }
-
-        setCredits(typeof data.balance === "number" ? data.balance : 0);
-      } catch (err) {
-        console.error("[ToolsPage] Wallet refresh crashed:", err);
-        setCredits(0);
-      } finally {
-        setWalletLoading(false);
-      }
-    },
-    [supabase, userId]
-  );
-
-  useEffect(() => {
-    let active = true;
-
-    const applyUserState = async (
-      user: { id: string; email?: string | null } | null
-    ) => {
-      if (!active) return;
-
-      setIsAuthed(!!user);
-
-      if (!user) {
-        setUserId(null);
-        setUserEmail(null);
-        setCredits(null);
-        return;
-      }
-
-      setUserId(user.id);
-      setUserEmail(user.email ?? null);
-      await refreshWallet(user.id);
-    };
-
-    async function bootstrapAuth() {
-      setMounted(true);
-
-      try {
-        const {
-          data: { session },
-          error: sessionError,
-        } = await supabase.auth.getSession();
-
-        if (sessionError) {
-          console.error("[ToolsPage] getSession error:", sessionError);
-        }
-
-        if (!active) return;
-
-        const sessionUser = session?.user ?? null;
-        await applyUserState(sessionUser);
-
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser();
-
-        if (userError) {
-          console.error("[ToolsPage] getUser error:", userError);
-        }
-
-        if (!active) return;
-
-        await applyUserState(user ?? sessionUser);
-      } finally {
-        if (active) setAuthLoaded(true);
-      }
-    }
-
-    void bootstrapAuth();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (!active) return;
-
-      await applyUserState(session?.user ?? null);
-      if (active) {
-        setAuthLoaded(true);
-      }
-    });
-
-    return () => {
-      active = false;
-      subscription.unsubscribe();
-    };
-  }, [supabase, refreshWallet]);
-
-  useEffect(() => {
-    if (!authLoaded || !isAuthed || !userId) return;
-    void refreshWallet(userId);
-  }, [walletRefreshTick, authLoaded, isAuthed, userId, refreshWallet]);
-
-  useEffect(() => {
-    const onFocus = () => {
-      if (userId) {
-        setWalletRefreshTick((v) => v + 1);
-      }
-    };
-
-    const onVisibility = () => {
-      if (document.visibilityState === "visible" && userId) {
-        setWalletRefreshTick((v) => v + 1);
-      }
-    };
-
-    window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", onVisibility);
-
-    return () => {
-      window.removeEventListener("focus", onFocus);
-      document.removeEventListener("visibilitychange", onVisibility);
-    };
-  }, [userId]);
+  const [walletRefreshing, setWalletRefreshing] = useState(false);
 
   const pushProtected = useCallback(
     (targetHref: string) => {
-      if (!authLoaded) return;
+      if (loading) return;
 
-      if (!isAuthed) {
+      if (!user) {
         router.push(`/login?redirect=${encodeURIComponent(targetHref)}`);
         return;
       }
 
       router.push(targetHref);
     },
-    [authLoaded, isAuthed, router]
+    [loading, router, user]
   );
 
-  const logout = async () => {
-    await supabase.auth.signOut();
-    setIsAuthed(false);
-    setUserId(null);
-    setUserEmail(null);
-    setCredits(null);
-    router.replace("/tools");
-  };
+  const logout = useCallback(async () => {
+    try {
+      await signOut();
+    } catch (err) {
+      console.error("[ToolsPage] signOut failed:", err);
+    } finally {
+      router.replace("/tools");
+      router.refresh();
+    }
+  }, [router, signOut]);
 
-  const goVideo = (tool: VideoToolKey) => {
-    pushProtected(`/create/video?tab=${tool}`);
-  };
+  const handleRefreshCredits = useCallback(async () => {
+    if (!user) return;
 
-  const goImage = (tool: ImageToolKey) => {
-    pushProtected(`/create/image?tab=${tool}`);
-  };
+    try {
+      setWalletRefreshing(true);
+      await refreshCredits();
+      router.refresh();
+    } catch (err) {
+      console.error("[ToolsPage] refreshCredits failed:", err);
+    } finally {
+      setWalletRefreshing(false);
+    }
+  }, [refreshCredits, router, user]);
 
-  const goSiteHome = () => {
+  const goVideo = useCallback(
+    (tool: VideoToolKey) => {
+      pushProtected(`/create/video?tab=${tool}`);
+    },
+    [pushProtected]
+  );
+
+  const goImage = useCallback(
+    (tool: ImageToolKey) => {
+      pushProtected(`/create/image?tab=${tool}`);
+    },
+    [pushProtected]
+  );
+
+  const goSiteHome = useCallback(() => {
     router.push("/");
-  };
+  }, [router]);
 
-  const goPricing = () => {
+  const goPricing = useCallback(() => {
     router.push("/pricing");
-  };
+  }, [router]);
 
-  const goLogin = () => {
+  const goLogin = useCallback(() => {
     router.push(`/login?redirect=${encodeURIComponent("/tools")}`);
-  };
+  }, [router]);
 
   const heroVideos = useMemo(
     () => ["/backgrounds/12.mp4", "/backgrounds/14.mp4", "/backgrounds/6.mp4"],
@@ -698,14 +569,14 @@ export default function ToolsPage() {
     return () => window.clearInterval(t);
   }, [heroVideos.length]);
 
-  const statusLabel = !authLoaded ? "Checking..." : isAuthed ? "Logged in" : "Guest";
-  const accountLabel = !authLoaded
+  const statusLabel = loading ? "Checking..." : user ? "Logged in" : "Guest";
+  const accountLabel = loading
     ? "Checking session..."
-    : userEmail ?? "Not logged in";
+    : user?.email ?? "Not logged in";
 
-  const creditsLabel = !authLoaded
+  const creditsLabel = loading
     ? "..."
-    : !isAuthed
+    : !user
       ? "—"
       : credits === null
         ? "..."
@@ -897,7 +768,7 @@ export default function ToolsPage() {
                     Pricing & credits
                   </button>
 
-                  {authLoaded && !isAuthed && (
+                  {!loading && !user && (
                     <button
                       type="button"
                       onClick={goLogin}
@@ -908,7 +779,7 @@ export default function ToolsPage() {
                     </button>
                   )}
 
-                  {authLoaded && isAuthed && (
+                  {!loading && user && (
                     <button
                       type="button"
                       onClick={() => void logout()}
@@ -1026,7 +897,7 @@ export default function ToolsPage() {
               />
               <QuickStat
                 label="Session"
-                value={authLoaded ? "Ready" : "Loading"}
+                value={loading ? "Loading" : "Ready"}
                 icon={<Stars className="h-5 w-5" />}
               />
             </div>
@@ -1067,12 +938,17 @@ export default function ToolsPage() {
                       </div>
                       <button
                         type="button"
-                        onClick={() => setWalletRefreshTick((v) => v + 1)}
-                        disabled={!isAuthed || walletLoading}
+                        onClick={() => void handleRefreshCredits()}
+                        disabled={!user || walletRefreshing}
                         className="mt-3 inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        <RefreshCw className={cn("h-4 w-4", walletLoading && "animate-spin")} />
-                        {walletLoading ? "Refreshing..." : "Refresh credits"}
+                        <RefreshCw
+                          className={cn(
+                            "h-4 w-4",
+                            walletRefreshing && "animate-spin"
+                          )}
+                        />
+                        {walletRefreshing ? "Refreshing..." : "Refresh credits"}
                       </button>
                       <div className="mt-2 text-xs text-white/55">
                         Use this after a purchase if the balance did not update yet
@@ -1113,12 +989,12 @@ export default function ToolsPage() {
                     </div>
                   </div>
 
-                  {mounted && authLoaded && isAuthed ? (
+                  {!loading && user ? (
                     <div className="space-y-4">
                       <TopupButtons />
                       <button
                         type="button"
-                        onClick={() => setWalletRefreshTick((v) => v + 1)}
+                        onClick={() => void handleRefreshCredits()}
                         className="w-full cursor-pointer rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/15"
                       >
                         Refresh wallet after top-up
@@ -1127,8 +1003,8 @@ export default function ToolsPage() {
                   ) : (
                     <div className="space-y-3">
                       <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4 text-sm leading-relaxed text-white/65">
-                        Log in first to view your wallet balance and purchase one-time
-                        credit packs.
+                        Log in first to view your wallet balance and purchase
+                        one-time credit packs.
                       </div>
 
                       <button

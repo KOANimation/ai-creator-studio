@@ -10,6 +10,7 @@ import {
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/app/lib/supabase/client";
+import { useAuth } from "@/app/components/providers/AuthProvider";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Bell,
@@ -468,7 +469,13 @@ function TopbarButton({
   );
 }
 
-function CreditsPill({ credits }: { credits: number | null }) {
+function CreditsPill({
+  credits,
+  loading,
+}: {
+  credits: number | null;
+  loading: boolean;
+}) {
   return (
     <motion.div
       whileHover={{ y: -1, scale: 1.01 }}
@@ -485,7 +492,7 @@ function CreditsPill({ credits }: { credits: number | null }) {
             Credits
           </div>
           <div className="mt-0.5 text-sm font-semibold text-amber-50">
-            {credits == null ? "Loading..." : credits.toLocaleString()}
+            {loading ? "Loading..." : credits == null ? "—" : credits.toLocaleString()}
           </div>
         </div>
       </div>
@@ -979,14 +986,18 @@ export default function CreateImageClient({
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = useMemo(() => createClient(), []);
+  const {
+    user,
+    loading: authLoading,
+    credits: sharedCredits,
+    refreshCredits,
+    signOut,
+  } = useAuth();
 
   const tabParam = (searchParams.get("tab") || "") as ImageToolKey | "";
   const [active, setActive] = useState<ImageToolKey>("reference-to-image");
 
   const [mounted, setMounted] = useState(false);
-  const [isAuthed, setIsAuthed] = useState(false);
-  const [authChecked, setAuthChecked] = useState(false);
-  const [credits, setCredits] = useState<number | null>(initialCredits);
   const [showTopupPanel, setShowTopupPanel] = useState(false);
 
   const [refImages, setRefImages] = useState<File[]>([]);
@@ -1015,42 +1026,12 @@ export default function CreateImageClient({
   >("all");
   const [historySearch, setHistorySearch] = useState("");
 
-  const refreshCredits = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
-    if (!user) {
-      setCredits(null);
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from("credit_wallets")
-      .select("balance")
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    console.log("[CreateImageClient] wallet result:", {
-      userId: user.id,
-      data,
-      error,
-    });
-
-    if (error) {
-      console.error("[CreateImageClient] Failed to load wallet:", error);
-      setCredits(0);
-      return;
-    }
-
-    if (!data) {
-      console.warn("[CreateImageClient] No wallet row found for user:", user.id);
-      setCredits(0);
-      return;
-    }
-
-    setCredits(typeof data.balance === "number" ? data.balance : 0);
-  };
+  const effectiveCredits =
+    sharedCredits ?? (authLoading ? initialCredits : user ? 0 : null);
 
   const imageCreditCost = useMemo(() => {
     return getImageGenerationCost({
@@ -1064,25 +1045,22 @@ export default function CreateImageClient({
   }, [provider, active, model, byteplusModel, amount, refImages.length]);
 
   const remainingCreditsAfterCreate =
-    credits != null ? credits - imageCreditCost : null;
+    effectiveCredits != null ? effectiveCredits - imageCreditCost : null;
 
-  const hasEnoughCredits = credits != null && credits >= imageCreditCost;
+  const hasEnoughCredits =
+    effectiveCredits != null && effectiveCredits >= imageCreditCost;
 
   useEffect(() => {
-    if (credits != null && !hasEnoughCredits) {
+    if (effectiveCredits != null && !hasEnoughCredits) {
       setShowTopupPanel(true);
     }
-  }, [credits, hasEnoughCredits]);
+  }, [effectiveCredits, hasEnoughCredits]);
 
   const deductCredits = async (
     amountToDeduct: number,
     description: string,
     metadata: Record<string, unknown>
   ) => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
     if (!user) {
       throw new Error("You must be logged in.");
     }
@@ -1108,10 +1086,6 @@ export default function CreateImageClient({
     referenceKey: string,
     metadata: Record<string, unknown>
   ) => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
     if (!user) {
       throw new Error("You must be logged in.");
     }
@@ -1131,87 +1105,6 @@ export default function CreateImageClient({
     await refreshCredits();
     return data;
   };
-
-  useEffect(() => {
-    let isActive = true;
-
-    const loadAuthAndCredits = async () => {
-      setMounted(true);
-
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!isActive) return;
-
-      const sessionUser = session?.user ?? null;
-      setIsAuthed(!!sessionUser);
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!isActive) return;
-
-      const resolvedUser = user ?? sessionUser;
-      setIsAuthed(!!resolvedUser);
-      setAuthChecked(true);
-
-      if (!resolvedUser) {
-        setCredits(null);
-        return;
-      }
-
-      await refreshCredits();
-      if (!isActive) return;
-    };
-
-    void loadAuthAndCredits();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (!isActive) return;
-
-      setIsAuthed(!!session?.user);
-      setAuthChecked(true);
-
-      if (!session?.user) {
-        setCredits(null);
-        return;
-      }
-
-      await refreshCredits();
-      if (!isActive) return;
-    });
-
-    return () => {
-      isActive = false;
-      subscription.unsubscribe();
-    };
-  }, [supabase]);
-
-  useEffect(() => {
-    const onFocus = () => {
-      if (isAuthed) {
-        void refreshCredits();
-      }
-    };
-
-    const onVisibility = () => {
-      if (document.visibilityState === "visible" && isAuthed) {
-        void refreshCredits();
-      }
-    };
-
-    window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", onVisibility);
-
-    return () => {
-      window.removeEventListener("focus", onFocus);
-      document.removeEventListener("visibilitychange", onVisibility);
-    };
-  }, [isAuthed]);
 
   useEffect(() => {
     if (provider === "openai") {
@@ -1314,12 +1207,12 @@ export default function CreateImageClient({
 
     if (!isOnTool) return;
     if (!mounted) return;
-    if (!authChecked) return;
-    if (isAuthed) return;
+    if (authLoading) return;
+    if (user) return;
 
     const redirect = `/create/image?tab=${tabParam}`;
     router.replace(`/login?redirect=${encodeURIComponent(redirect)}`);
-  }, [tabParam, isAuthed, router, mounted, authChecked]);
+  }, [tabParam, user, router, mounted, authLoading]);
 
   useEffect(() => {
     if (tabParam === "reference-to-image" || tabParam === "text-to-image") {
@@ -1378,10 +1271,9 @@ export default function CreateImageClient({
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
-    setIsAuthed(false);
-    setCredits(null);
+    await signOut();
     router.replace("/tools");
+    router.refresh();
   };
 
   const goToolsHome = () => {
@@ -1408,9 +1300,13 @@ export default function CreateImageClient({
       setError(null);
       setIsCreating(true);
 
-      if (credits != null && credits < imageCreditCost) {
+      if (!user) {
+        throw new Error("You must be logged in.");
+      }
+
+      if (effectiveCredits != null && effectiveCredits < imageCreditCost) {
         throw new Error(
-          `You need ${imageCreditCost} credits, but only have ${credits}.`
+          `You need ${imageCreditCost} credits, but only have ${effectiveCredits}.`
         );
       }
 
@@ -1706,7 +1602,7 @@ export default function CreateImageClient({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <CreditsPill credits={credits} />
+            <CreditsPill credits={effectiveCredits} loading={authLoading} />
 
             <TopbarButton
               onClick={() => setShowTopupPanel((prev) => !prev)}
@@ -1931,7 +1827,7 @@ export default function CreateImageClient({
                   />
                 </div>
 
-                {!hasEnoughCredits && credits != null && (
+                {!hasEnoughCredits && effectiveCredits != null && (
                   <div className="mt-3 rounded-2xl border border-red-500/20 bg-red-500/10 px-3 py-2.5 text-xs text-red-200">
                     You do not have enough credits for this image generation.
                   </div>
@@ -1979,14 +1875,14 @@ export default function CreateImageClient({
                   type="button"
                   onClick={() => void createImages()}
                   whileTap={{ scale: 0.99 }}
-                  disabled={isCreating || credits == null || !hasEnoughCredits}
+                  disabled={isCreating || effectiveCredits == null || !hasEnoughCredits || authLoading}
                   className="mt-4 flex w-full cursor-pointer items-center justify-center gap-2 rounded-[20px] bg-white px-4 py-3.5 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <Sparkles size={16} />
                   <span>
                     {isCreating
                       ? `Generating ${amount} image${amount > 1 ? "s" : ""}...`
-                      : !hasEnoughCredits && credits != null
+                      : !hasEnoughCredits && effectiveCredits != null
                         ? `Insufficient credits • Need ${imageCreditCost}`
                         : `Create • ${imageCreditCost} credits`}
                   </span>
