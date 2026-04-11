@@ -151,7 +151,7 @@ export default function LoginClient() {
             <button
               type="button"
               onClick={goHome}
-              className="rounded-full border border-white/15 bg-black/30 px-4 py-2 text-sm font-semibold text-white/85 transition hover:bg-black/45"
+              className="cursor-pointer rounded-full border border-white/15 bg-black/30 px-4 py-2 text-sm font-semibold text-white/85 transition hover:bg-black/45"
               title="Home"
             >
               Home
@@ -160,7 +160,7 @@ export default function LoginClient() {
             <button
               type="button"
               onClick={goHome}
-              className="group relative flex items-center gap-3 rounded-2xl text-left transition hover:bg-white/[0.04] focus:outline-none"
+              className="group relative flex cursor-pointer items-center gap-3 rounded-2xl text-left transition hover:bg-white/[0.04] focus:outline-none"
               aria-label="Go to homepage"
             >
               <div className="relative h-9 w-9 overflow-hidden rounded-xl border border-white/10 bg-black/30">
@@ -181,7 +181,7 @@ export default function LoginClient() {
           <button
             type="button"
             onClick={goBack}
-            className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white/90 transition hover:bg-white/15"
+            className="cursor-pointer rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white/90 transition hover:bg-white/15"
           >
             Back
           </button>
@@ -192,7 +192,7 @@ export default function LoginClient() {
             <button
               type="button"
               onClick={goHome}
-              className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-black/25 transition hover:bg-black/35"
+              className="mx-auto mb-6 flex h-14 w-14 cursor-pointer items-center justify-center rounded-2xl border border-white/10 bg-black/25 transition hover:bg-black/35"
               aria-label="Go to homepage"
             >
               <div className="text-xl font-bold">K</div>
@@ -209,7 +209,9 @@ export default function LoginClient() {
               <button
                 type="button"
                 onClick={handleGooglePlaceholder}
-                className="w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
+                className={`w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-white/90 ${
+                  isBusy ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+                }`}
                 disabled={isBusy}
               >
                 Continue with Google
@@ -218,7 +220,9 @@ export default function LoginClient() {
               <button
                 type="button"
                 onClick={handleApplePlaceholder}
-                className="w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
+                className={`w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-white/90 ${
+                  isBusy ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+                }`}
                 disabled={isBusy}
               >
                 Continue with Apple
@@ -227,7 +231,9 @@ export default function LoginClient() {
               <button
                 type="button"
                 onClick={() => setShowEmailForm((prev) => !prev)}
-                className="w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
+                className={`w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-white/90 ${
+                  isBusy ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+                }`}
                 disabled={isBusy}
               >
                 Continue with Email
@@ -300,7 +306,9 @@ export default function LoginClient() {
                   type="button"
                   onClick={() => void handleEmailAuth()}
                   disabled={isBusy}
-                  className="w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
+                  className={`w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-white/90 ${
+                    isBusy ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+                  }`}
                 >
                   {isBusy
                     ? "Please wait..."
@@ -313,7 +321,9 @@ export default function LoginClient() {
                   type="button"
                   onClick={() => setIsSignup((prev) => !prev)}
                   disabled={isBusy}
-                  className="w-full text-sm text-white/70 underline underline-offset-2 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                  className={`w-full text-sm text-white/70 underline underline-offset-2 transition hover:text-white ${
+                    isBusy ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+                  }`}
                 >
                   {isSignup
                     ? "Already have an account? Log in"
