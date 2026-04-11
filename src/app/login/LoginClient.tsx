@@ -3,13 +3,15 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/app/lib/supabase/client";
+import { useAuth } from "@/app/components/providers/AuthProvider";
 
 export default function LoginClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = useMemo(() => createClient(), []);
+  const { user, loading: authLoading, refreshAuth } = useAuth();
 
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [isSignup, setIsSignup] = useState(false);
@@ -23,12 +25,20 @@ export default function LoginClient() {
     return r && r.startsWith("/") ? r : "/tools";
   }, [searchParams]);
 
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) return;
+
+    router.replace(redirect);
+    router.refresh();
+  }, [authLoading, redirect, router, user]);
+
   const goHome = () => {
-    window.location.href = "/";
+    router.push("/");
   };
 
   const goBack = () => {
-    window.location.href = redirect || "/tools";
+    router.push("/");
   };
 
   const handleEmailAuth = async () => {
@@ -64,24 +74,23 @@ export default function LoginClient() {
         } else {
           alert("Account created. Check your email to confirm your signup.");
         }
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email: cleanEmail,
-          password,
-        });
 
-        if (error) {
-          alert(error.message);
-          setLoading(false);
-          return;
-        }
-
-        await supabase.auth.getSession();
-        await supabase.auth.getUser();
-
-        window.location.href = redirect;
         return;
       }
+
+      const { error } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password,
+      });
+
+      if (error) {
+        alert(error.message);
+        return;
+      }
+
+      await refreshAuth();
+      router.replace(redirect);
+      router.refresh();
     } catch (err) {
       console.error("Login/signup failed:", err);
       alert("Something went wrong. Please try again.");
@@ -296,6 +305,12 @@ export default function LoginClient() {
               Redirect after login:{" "}
               <span className="text-white/70">{redirect}</span>
             </div>
+
+            {authLoading && (
+              <div className="mt-4 text-center text-xs text-white/45">
+                Checking session...
+              </div>
+            )}
           </div>
         </div>
       </div>

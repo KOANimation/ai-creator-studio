@@ -27,6 +27,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const supabase = useMemo(() => createClient(), []);
   const mountedRef = useRef(false);
+  const refreshInFlightRef = useRef<Promise<void> | null>(null);
 
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -39,7 +40,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loadCredits = useCallback(
     async (userId?: string | null) => {
-      const targetUserId = userId ?? user?.id ?? null;
+      const targetUserId = userId ?? null;
 
       if (!targetUserId) {
         safelySetState(() => setCredits(null));
@@ -62,56 +63,62 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setCredits(typeof data?.balance === "number" ? data.balance : 0);
     },
-    [supabase, user?.id, safelySetState]
+    [safelySetState, supabase]
   );
 
   const refreshAuth = useCallback(async () => {
-    safelySetState(() => setLoading(true));
+    if (refreshInFlightRef.current) {
+      await refreshInFlightRef.current;
+      return;
+    }
 
-    try {
-      const [
-        {
+    const run = (async () => {
+      safelySetState(() => setLoading(true));
+
+      try {
+        const {
           data: { session: sessionResult },
           error: sessionError,
-        },
-        {
-          data: { user: userResult },
-          error: userError,
-        },
-      ] = await Promise.all([supabase.auth.getSession(), supabase.auth.getUser()]);
+        } = await supabase.auth.getSession();
 
-      if (!mountedRef.current) return;
+        if (sessionError) {
+          console.error("[AuthProvider] getSession error:", sessionError);
+        }
 
-      if (sessionError) {
-        console.error("[AuthProvider] getSession error:", sessionError);
-      }
+        const resolvedSession = sessionResult ?? null;
+        const resolvedUser = resolvedSession?.user ?? null;
 
-      if (userError) {
-        console.error("[AuthProvider] getUser error:", userError);
-      }
+        if (!mountedRef.current) return;
 
-      const resolvedUser = userResult ?? sessionResult?.user ?? null;
+        setSession(resolvedSession);
+        setUser(resolvedUser);
 
-      setSession(sessionResult ?? null);
-      setUser(resolvedUser);
+        if (resolvedUser) {
+          await loadCredits(resolvedUser.id);
+        } else {
+          setCredits(null);
+        }
+      } catch (err) {
+        console.error("[AuthProvider] refreshAuth failed:", err);
 
-      if (resolvedUser) {
-        await loadCredits(resolvedUser.id);
-      } else {
+        if (!mountedRef.current) return;
+
+        setSession(null);
+        setUser(null);
         setCredits(null);
+      } finally {
+        safelySetState(() => setLoading(false));
       }
-    } catch (err) {
-      console.error("[AuthProvider] refreshAuth failed:", err);
+    })();
 
-      if (!mountedRef.current) return;
+    refreshInFlightRef.current = run;
 
-      setSession(null);
-      setUser(null);
-      setCredits(null);
+    try {
+      await run;
     } finally {
-      safelySetState(() => setLoading(false));
+      refreshInFlightRef.current = null;
     }
-  }, [supabase, loadCredits, safelySetState]);
+  }, [loadCredits, safelySetState, supabase]);
 
   const refreshCredits = useCallback(async () => {
     const targetUserId = user?.id ?? session?.user?.id ?? null;
@@ -122,7 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     await loadCredits(targetUserId);
-  }, [user?.id, session?.user?.id, loadCredits, safelySetState]);
+  }, [loadCredits, safelySetState, session?.user?.id, user?.id]);
 
   const signOut = useCallback(async () => {
     try {
@@ -148,7 +155,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (!mountedRef.current) return;
 
       const nextUser = nextSession?.user ?? null;
@@ -157,14 +164,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(nextUser);
 
       if (nextUser) {
-        await loadCredits(nextUser.id);
+        void loadCredits(nextUser.id);
       } else {
         setCredits(null);
       }
 
-      if (mountedRef.current) {
-        setLoading(false);
-      }
+      setLoading(false);
     });
 
     const handlePageShow = () => {
@@ -192,7 +197,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [supabase, refreshAuth, loadCredits]);
+  }, [loadCredits, refreshAuth, supabase]);
 
   const value = useMemo<AuthContextType>(
     () => ({
@@ -204,7 +209,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       refreshCredits,
       signOut,
     }),
-    [user, session, loading, credits, refreshAuth, refreshCredits, signOut]
+    [credits, loading, refreshAuth, refreshCredits, session, signOut, user]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

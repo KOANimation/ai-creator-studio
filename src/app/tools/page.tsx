@@ -514,27 +514,17 @@ export default function ToolsPage() {
   }, [refreshAuth, refreshCredits, router]);
 
   const pushProtected = useCallback(
-    async (targetHref: string) => {
-      try {
-        let activeUser = user;
+    (targetHref: string) => {
+      if (loading) return;
 
-        if (loading) {
-          await refreshAuth();
-          activeUser = user;
-        }
-
-        if (!activeUser) {
-          router.push(`/login?redirect=${encodeURIComponent(targetHref)}`);
-          return;
-        }
-
-        router.push(targetHref);
-      } catch (err) {
-        console.error("[ToolsPage] pushProtected failed:", err);
+      if (!user) {
         router.push(`/login?redirect=${encodeURIComponent(targetHref)}`);
+        return;
       }
+
+      router.push(targetHref);
     },
-    [loading, refreshAuth, router, user]
+    [loading, router, user]
   );
 
   const logout = useCallback(async () => {
@@ -564,14 +554,14 @@ export default function ToolsPage() {
 
   const goVideo = useCallback(
     (tool: VideoToolKey) => {
-      void pushProtected(`/create/video?tab=${tool}`);
+      pushProtected(`/create/video?tab=${tool}`);
     },
     [pushProtected]
   );
 
   const goImage = useCallback(
     (tool: ImageToolKey) => {
-      void pushProtected(`/create/image?tab=${tool}`);
+      pushProtected(`/create/image?tab=${tool}`);
     },
     [pushProtected]
   );

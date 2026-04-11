@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-
-// ✅ ADD THIS
 import { AuthProvider } from "@/app/components/providers/AuthProvider";
 
 const geistSans = Geist({
@@ -16,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "KOANimation Studios", // (optional improvement)
+  title: "KOANimation Studios",
   description: "Create cinematic AI animations",
 };
 
@@ -28,10 +26,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
+        suppressHydrationWarning
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {/* ✅ THIS IS THE IMPORTANT PART */}
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <div key="app-root">{children}</div>
+        </AuthProvider>
       </body>
     </html>
   );

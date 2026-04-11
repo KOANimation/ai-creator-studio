@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Gem, Sparkles, Wallet, Zap } from "lucide-react";
 
@@ -51,11 +51,11 @@ export default function TopupButtons() {
   const [loadingKey, setLoadingKey] = useState<TopupKey | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const currentPathWithQuery = (() => {
+  const currentPathWithQuery = useMemo(() => {
     const query = searchParams?.toString();
     if (!pathname) return "/pricing";
     return query ? `${pathname}?${query}` : pathname;
-  })();
+  }, [pathname, searchParams]);
 
   const handleBuy = async (topupKey: TopupKey) => {
     try {
@@ -94,8 +94,10 @@ export default function TopupButtons() {
       }
 
       window.location.href = data.url;
+      return;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
       setLoadingKey(null);
     }
   };
@@ -112,7 +114,7 @@ export default function TopupButtons() {
             type="button"
             onClick={() => void handleBuy(pack.key)}
             disabled={loadingKey !== null}
-            className="group relative w-full overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-left transition hover:bg-white/[0.07] disabled:cursor-not-allowed disabled:opacity-60"
+            className="group relative w-full cursor-pointer overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-left transition hover:bg-white/[0.07] disabled:cursor-not-allowed disabled:opacity-60"
           >
             <div
               className={`pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r ${pack.accent} opacity-80`}
