@@ -2287,13 +2287,7 @@ export default function CreateVideoClient({
           <div className="flex flex-wrap items-center gap-2">
             <CreditsPill credits={effectiveCredits} loading={authLoading} />
 
-            <TopbarButton
-              onClick={() => setShowTopupPanel((prev) => !prev)}
-              icon={<Coins size={16} className="opacity-80" />}
-              highlighted
-            >
-              Buy credits
-            </TopbarButton>
+
 
 
             <TopbarButton
@@ -2301,7 +2295,7 @@ export default function CreateVideoClient({
               highlighted
               icon={<Gift size={16} className="opacity-80" />}
             >
-              Earn Credits
+              Buy Credits
             </TopbarButton>
 
             <TopbarButton
