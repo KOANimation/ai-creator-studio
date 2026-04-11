@@ -139,7 +139,11 @@ async function syncSubscriptionRecord(
   }
 }
 
-async function ensureStripeCustomerMapping(
+/**
+ * Only create/update the stripe_customers mapping when BOTH are present.
+ * For one-time top-up sessions, Stripe may not create a customer at all.
+ */
+async function ensureStripeCustomerMappingIfPresent(
   session: Stripe.Checkout.Session
 ): Promise<void> {
   const customerId =
@@ -150,14 +154,12 @@ async function ensureStripeCustomerMapping(
   const userId = session.metadata?.supabase_user_id ?? null;
 
   if (!customerId || !userId) {
-    console.error("Missing customerId or userId in checkout.session.completed", {
+    console.log("Skipping stripe customer mapping for checkout session:", {
       sessionId: session.id,
       customerId,
       userId,
     });
-    throw new Error(
-      `Missing customerId or userId in checkout.session.completed for session ${session.id}`
-    );
+    return;
   }
 
   const payload = {
@@ -363,7 +365,9 @@ async function applyTopupCreditsFromSession(
     throw new Error(`Missing user id in top-up checkout session: ${session.id}`);
   }
 
-  const lineItems = await stripe.checkout.sessions.listLineItems(session.id);
+  const lineItems = await stripe.checkout.sessions.listLineItems(session.id, {
+    limit: 10,
+  });
 
   const priceId = lineItems.data[0]?.price?.id ?? null;
 
@@ -471,7 +475,7 @@ export async function POST(req: Request) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
 
-        await ensureStripeCustomerMapping(session);
+        await ensureStripeCustomerMappingIfPresent(session);
 
         if (session.mode === "payment") {
           const purchaseType = session.metadata?.purchase_type ?? null;
