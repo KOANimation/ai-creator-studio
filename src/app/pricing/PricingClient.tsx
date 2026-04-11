@@ -7,6 +7,7 @@ import {
   useMemo,
   useState,
   useCallback,
+  useRef,
   type ReactNode,
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -326,9 +327,11 @@ function getPlanActionLabel(
 export default function PricingClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, loading, refreshCredits, refreshAuth } = useAuth();
+  const { user, loading, refreshCredits } = useAuth();
 
   useLenisScroll(true);
+
+  const hasBootedRef = useRef(false);
 
   const [selectedPlan, setSelectedPlan] = useState<PlanKey>("advanced");
   const [faqOpen, setFaqOpen] = useState<number | null>(null);
@@ -408,18 +411,11 @@ export default function PricingClient() {
   }, [searchParams]);
 
   useEffect(() => {
+    if (loading) return;
+
     let cancelled = false;
 
-    const boot = async () => {
-      try {
-        await refreshAuth();
-        await refreshCredits();
-      } catch (err) {
-        console.error("[PricingClient] initial auth refresh failed:", err);
-      }
-
-      if (cancelled) return;
-
+    const run = async () => {
       if (!user) {
         setCurrentSubscription({
           currentPlan: null,
@@ -440,29 +436,21 @@ export default function PricingClient() {
       }
     };
 
-    if (!loading) {
-      void boot();
+    if (!hasBootedRef.current || success) {
+      hasBootedRef.current = true;
+      void run();
     }
 
     return () => {
       cancelled = true;
     };
-  }, [
-    loading,
-    user,
-    loadCurrentSubscription,
-    searchParams,
-    refreshAuth,
-    refreshCredits,
-  ]);
+  }, [loading, user, loadCurrentSubscription, searchParams, success]);
 
   useEffect(() => {
     const handlePageShow = async () => {
       try {
-        await refreshAuth();
         await refreshCredits();
         await loadCurrentSubscription();
-        router.refresh();
       } catch (err) {
         console.error("[PricingClient] pageshow refresh failed:", err);
       }
@@ -470,7 +458,7 @@ export default function PricingClient() {
 
     window.addEventListener("pageshow", handlePageShow);
     return () => window.removeEventListener("pageshow", handlePageShow);
-  }, [loadCurrentSubscription, refreshAuth, refreshCredits, router]);
+  }, [loadCurrentSubscription, refreshCredits]);
 
   useEffect(() => {
     if (success && user) {
@@ -1265,7 +1253,8 @@ export default function PricingClient() {
                     const isSelected =
                       selectedPlan === plan.key &&
                       currentSubscription.currentPlan !== plan.key;
-                    const isCurrent = currentSubscription.currentPlan === plan.key;
+                    const isCurrent =
+                      currentSubscription.currentPlan === plan.key;
 
                     return (
                       <div
@@ -1336,7 +1325,8 @@ export default function PricingClient() {
                       const isSelected =
                         selectedPlan === plan.key &&
                         currentSubscription.currentPlan !== plan.key;
-                      const isCurrent = currentSubscription.currentPlan === plan.key;
+                      const isCurrent =
+                        currentSubscription.currentPlan === plan.key;
 
                       return (
                         <div
@@ -1362,7 +1352,8 @@ export default function PricingClient() {
                   </div>
 
                   {plans.map((plan) => {
-                    const isCurrent = currentSubscription.currentPlan === plan.key;
+                    const isCurrent =
+                      currentSubscription.currentPlan === plan.key;
                     const isLoading = activeCheckoutPlan === plan.key;
                     const buttonLabel = getPlanActionLabel(
                       plan.key,
@@ -1375,7 +1366,10 @@ export default function PricingClient() {
                           type="button"
                           onClick={() => void handlePlanAction(plan.key)}
                           disabled={
-                            isCurrent || isLoading || loading || subscriptionLoading
+                            isCurrent ||
+                            isLoading ||
+                            loading ||
+                            subscriptionLoading
                           }
                           className={cn(
                             "w-full rounded-xl px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60",

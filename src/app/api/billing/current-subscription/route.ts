@@ -3,36 +3,93 @@ import { createClient } from "@/app/lib/supabase/server";
 
 type PlanKey = "essential" | "advanced" | "infinite" | "wonder" | null;
 
-// 🔥 MORE ROBUST
-function resolvePlan(subscription: any): PlanKey {
-  // 1. Try price_id
-  switch (subscription?.price_id) {
-    case process.env.NEXT_PUBLIC_STRIPE_PRICE_ESSENTIAL_MONTHLY:
+type SubscriptionRow = {
+  id?: string | null;
+  user_id?: string | null;
+  status?: string | null;
+  price_id?: string | null;
+  plan?: string | null;
+  plan_key?: string | null;
+  current_period_end?: string | null;
+  cancel_at_period_end?: boolean | null;
+  created_at?: string | null;
+};
+
+function normalizeValue(value: string | null | undefined) {
+  return (value ?? "").trim().toLowerCase();
+}
+
+function getConfiguredPriceMap() {
+  return {
+    essential:
+      process.env.STRIPE_PRICE_ESSENTIAL_MONTHLY ||
+      process.env.NEXT_PUBLIC_STRIPE_PRICE_ESSENTIAL_MONTHLY ||
+      "",
+    advanced:
+      process.env.STRIPE_PRICE_ADVANCED_MONTHLY ||
+      process.env.NEXT_PUBLIC_STRIPE_PRICE_ADVANCED_MONTHLY ||
+      "",
+    infinite:
+      process.env.STRIPE_PRICE_INFINITE_MONTHLY ||
+      process.env.NEXT_PUBLIC_STRIPE_PRICE_INFINITE_MONTHLY ||
+      "",
+    wonder:
+      process.env.STRIPE_PRICE_STUDIO_MONTHLY ||
+      process.env.NEXT_PUBLIC_STRIPE_PRICE_STUDIO_MONTHLY ||
+      "",
+  };
+}
+
+function resolvePlan(subscription: SubscriptionRow): PlanKey {
+  const priceId = normalizeValue(subscription.price_id);
+  const plan = normalizeValue(subscription.plan);
+  const planKey = normalizeValue(subscription.plan_key);
+
+  const priceMap = getConfiguredPriceMap();
+
+  if (priceId) {
+    if (priceId === normalizeValue(priceMap.essential)) return "essential";
+    if (priceId === normalizeValue(priceMap.advanced)) return "advanced";
+    if (priceId === normalizeValue(priceMap.infinite)) return "infinite";
+    if (priceId === normalizeValue(priceMap.wonder)) return "wonder";
+  }
+
+  if (plan) {
+    if (plan.includes("essential") || plan.includes("standard")) {
       return "essential";
-    case process.env.NEXT_PUBLIC_STRIPE_PRICE_ADVANCED_MONTHLY:
+    }
+    if (plan.includes("advanced") || plan.includes("premium")) {
       return "advanced";
-    case process.env.NEXT_PUBLIC_STRIPE_PRICE_INFINITE_MONTHLY:
+    }
+    if (plan.includes("infinite") || plan.includes("ultimate")) {
       return "infinite";
-    case process.env.NEXT_PUBLIC_STRIPE_PRICE_STUDIO_MONTHLY:
+    }
+    if (
+      plan.includes("wonder") ||
+      plan.includes("studio") ||
+      plan.includes("enterprise")
+    ) {
       return "wonder";
+    }
   }
 
-  // 2. Fallback: plan column
-  if (subscription?.plan) {
-    const p = subscription.plan.toLowerCase();
-    if (p.includes("essential")) return "essential";
-    if (p.includes("advanced")) return "advanced";
-    if (p.includes("infinite")) return "infinite";
-    if (p.includes("wonder") || p.includes("studio")) return "wonder";
-  }
-
-  // 3. Fallback: plan_key column
-  if (subscription?.plan_key) {
-    const p = subscription.plan_key.toLowerCase();
-    if (p === "essential") return "essential";
-    if (p === "advanced") return "advanced";
-    if (p === "infinite") return "infinite";
-    if (p === "wonder" || p === "studio") return "wonder";
+  if (planKey) {
+    if (planKey === "essential" || planKey === "standard") {
+      return "essential";
+    }
+    if (planKey === "advanced" || planKey === "premium") {
+      return "advanced";
+    }
+    if (planKey === "infinite" || planKey === "ultimate") {
+      return "infinite";
+    }
+    if (
+      planKey === "wonder" ||
+      planKey === "studio" ||
+      planKey === "enterprise"
+    ) {
+      return "wonder";
+    }
   }
 
   return null;
@@ -44,7 +101,15 @@ export async function GET() {
 
     const {
       data: { user },
+      error: userError,
     } = await supabase.auth.getUser();
+
+    if (userError) {
+      return NextResponse.json(
+        { error: userError.message || "Failed to get user." },
+        { status: 401 }
+      );
+    }
 
     if (!user) {
       return NextResponse.json({
@@ -64,10 +129,13 @@ export async function GET() {
       .limit(1);
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json(
+        { error: error.message || "Failed to fetch subscription." },
+        { status: 500 }
+      );
     }
 
-    const subscription = subscriptions?.[0];
+    const subscription = (subscriptions?.[0] ?? null) as SubscriptionRow | null;
 
     if (!subscription) {
       return NextResponse.json({
@@ -78,10 +146,16 @@ export async function GET() {
       });
     }
 
-    // 🔥 DEBUG (remove later)
-    console.log("SUB:", subscription);
-
     const plan = resolvePlan(subscription);
+
+    console.log("[billing/current-subscription]", {
+      userId: user.id,
+      subscriptionId: subscription.id ?? null,
+      priceId: subscription.price_id ?? null,
+      planColumn: subscription.plan ?? null,
+      planKeyColumn: subscription.plan_key ?? null,
+      resolvedPlan: plan,
+    });
 
     return NextResponse.json({
       currentPlan: plan,
@@ -90,6 +164,8 @@ export async function GET() {
       cancelAtPeriodEnd: Boolean(subscription.cancel_at_period_end),
     });
   } catch (err) {
+    console.error("[billing/current-subscription] unexpected error:", err);
+
     return NextResponse.json(
       { error: "Failed to fetch subscription" },
       { status: 500 }
