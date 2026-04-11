@@ -1612,12 +1612,6 @@ export default function CreateImageClient({
               Buy credits
             </TopbarButton>
 
-            <TopbarButton
-              onClick={goPricing}
-              icon={<WalletCards size={16} className="opacity-80" />}
-            >
-              API Platform
-            </TopbarButton>
 
             <TopbarButton
               onClick={goPricing}
