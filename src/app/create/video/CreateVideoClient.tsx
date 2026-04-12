@@ -27,7 +27,6 @@ import {
   Trash2,
   Upload,
   Video,
-  WalletCards,
   Wand2,
   X,
 } from "lucide-react";
@@ -89,6 +88,41 @@ const PROMPT_PRESETS = [
 
 function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
+}
+
+function formatViduModelName(model: string) {
+  switch (model) {
+    case "viduq3-turbo":
+      return "Vidu Q3 Turbo";
+    case "viduq3-pro":
+      return "Vidu Q3 Pro";
+    case "viduq2-pro-fast":
+      return "Vidu Q2 Pro Fast";
+    case "viduq2-pro":
+      return "Vidu Q2 Pro";
+    case "viduq2-turbo":
+      return "Vidu Q2 Turbo";
+    case "viduq2":
+      return "Vidu Q2";
+    case "viduq1":
+      return "Vidu Q1";
+    case "viduq1-classic":
+      return "Vidu Q1 Classic";
+    case "vidu2.0":
+      return "Vidu 2.0";
+    default:
+      return model;
+  }
+}
+
+function getModelMeta(model: string, kind: GenerationKind) {
+  if (model === "viduq3-pro") return "highest quality";
+  if (model === "viduq3-turbo") return "fast + premium";
+  if (model === "viduq2-pro-fast") return "faster pro";
+  if (model === "viduq2-pro") return "balanced pro";
+  if (model === "viduq2-turbo") return "fastest";
+  if (model === "viduq2") return "balanced";
+  return kind.replaceAll("-", " ");
 }
 
 function getVideoGenerationCost({
@@ -509,19 +543,6 @@ function ModelCardSelector({
   onChange: (next: string) => void;
   kind: GenerationKind;
 }) {
-  function getMeta(model: string) {
-    if (model.includes("q3-pro")) return "highest quality";
-    if (model.includes("q3-turbo")) return "fast + premium";
-    if (model.includes("pro-fast")) return "faster pro";
-    if (model.includes("q2-pro")) return "balanced pro";
-    if (model.includes("q2-turbo")) return "fastest";
-    if (model.includes("q2")) return "balanced";
-    if (model.includes("classic")) return "legacy classic";
-    if (model.includes("q1")) return "legacy";
-    if (model.includes("2.0")) return "older model";
-    return kind.replaceAll("-", " ");
-  }
-
   return (
     <div className="grid gap-2 sm:grid-cols-2">
       {options.map((option) => {
@@ -540,14 +561,18 @@ function ModelCardSelector({
             )}
           >
             <div className="flex items-center justify-between gap-3">
-              <div className="text-sm font-semibold text-white/92">{option}</div>
+              <div className="text-sm font-semibold text-white/92">
+                {formatViduModelName(option)}
+              </div>
               {active ? (
                 <div className="rounded-full border border-violet-300/20 bg-violet-400/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-violet-100">
                   Selected
                 </div>
               ) : null}
             </div>
-            <div className="mt-1 text-xs text-white/48">{getMeta(option)}</div>
+            <div className="mt-1 text-xs text-white/48">
+              {getModelMeta(option, kind)}
+            </div>
           </motion.button>
         );
       })}
@@ -561,6 +586,7 @@ function UploadRow({
   accept,
   multiple,
   files,
+  maxFiles,
   onAddFiles,
 }: {
   title: string;
@@ -568,6 +594,7 @@ function UploadRow({
   accept: string;
   multiple: boolean;
   files: File[];
+  maxFiles: number;
   onAddFiles: (newFiles: File[]) => void;
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -590,7 +617,9 @@ function UploadRow({
         onChange={(e) => {
           const list = Array.from(e.target.files ?? []);
           if (!list.length) return;
-          onAddFiles(multiple ? [...files, ...list] : [list[0]]);
+
+          const next = multiple ? [...files, ...list].slice(0, maxFiles) : [list[0]];
+          onAddFiles(next);
           e.currentTarget.value = "";
         }}
       />
@@ -604,7 +633,8 @@ function UploadRow({
         <button
           type="button"
           onClick={pick}
-          className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white/80 transition hover:border-white/20 hover:bg-white/[0.08]"
+          disabled={files.length >= maxFiles}
+          className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white/80 transition hover:border-white/20 hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-40"
           title="Add"
         >
           <Plus size={16} />
@@ -617,7 +647,7 @@ function UploadRow({
             No files added yet.
           </div>
         ) : (
-          files.slice(0, 8).map((f, i) => {
+          files.slice(0, maxFiles).map((f, i) => {
             const url = URL.createObjectURL(f);
             const isVideo = f.type.startsWith("video/");
             const isImage = f.type.startsWith("image/");
@@ -662,6 +692,12 @@ function UploadRow({
             );
           })
         )}
+      </div>
+
+      <div className="mt-3 flex items-center justify-between text-[11px] text-white/38">
+        <span>
+          {files.length}/{maxFiles} files
+        </span>
       </div>
     </div>
   );
@@ -850,7 +886,7 @@ function getCurrentKind(
 function getModelOptions(kind: GenerationKind): string[] {
   switch (kind) {
     case "reference-to-video":
-      return ["viduq2-pro", "viduq2", "viduq1", "vidu2.0"];
+      return ["viduq2-pro", "viduq2"];
     case "image-to-video":
       return [
         "viduq3-turbo",
@@ -858,9 +894,6 @@ function getModelOptions(kind: GenerationKind): string[] {
         "viduq2-pro-fast",
         "viduq2-pro",
         "viduq2-turbo",
-        "viduq1",
-        "viduq1-classic",
-        "vidu2.0",
       ];
     case "start-end-to-video":
       return [
@@ -869,12 +902,9 @@ function getModelOptions(kind: GenerationKind): string[] {
         "viduq2-pro-fast",
         "viduq2-pro",
         "viduq2-turbo",
-        "viduq1",
-        "viduq1-classic",
-        "vidu2.0",
       ];
     case "text-to-video":
-      return ["viduq3-turbo", "viduq3-pro", "viduq2", "viduq1"];
+      return ["viduq3-turbo", "viduq3-pro", "viduq2"];
     default:
       return ["viduq2-pro"];
   }
@@ -882,10 +912,8 @@ function getModelOptions(kind: GenerationKind): string[] {
 
 function getAllowedDurations(kind: GenerationKind, model: string): number[] {
   if (kind === "reference-to-video") {
-    if (model === "viduq2-pro") return [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    if (model === "viduq2-pro") return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
     if (model === "viduq2") return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-    if (model === "viduq1") return [5];
-    if (model === "vidu2.0") return [4];
     return [5];
   }
 
@@ -900,8 +928,6 @@ function getAllowedDurations(kind: GenerationKind, model: string): number[] {
     ) {
       return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
     }
-    if (model === "viduq1" || model === "viduq1-classic") return [5];
-    if (model === "vidu2.0") return [4, 8];
     return [5];
   }
 
@@ -916,8 +942,6 @@ function getAllowedDurations(kind: GenerationKind, model: string): number[] {
     ) {
       return [1, 2, 3, 4, 5, 6, 7, 8];
     }
-    if (model === "viduq1" || model === "viduq1-classic") return [5];
-    if (model === "vidu2.0") return [4, 8];
     return [5];
   }
 
@@ -926,7 +950,6 @@ function getAllowedDurations(kind: GenerationKind, model: string): number[] {
       return ALL_DURATION_OPTIONS;
     }
     if (model === "viduq2") return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-    if (model === "viduq1") return [5];
     return [5];
   }
 
@@ -942,8 +965,6 @@ function getAllowedResolutions(
     if (model === "viduq2-pro" || model === "viduq2") {
       return ["540p", "720p", "1080p"];
     }
-    if (model === "viduq1") return ["1080p"];
-    if (model === "vidu2.0") return ["360p", "720p"];
     return ["720p"];
   }
 
@@ -957,10 +978,6 @@ function getAllowedResolutions(
       model === "viduq2-turbo"
     ) {
       return ["720p", "1080p"];
-    }
-    if (model === "viduq1" || model === "viduq1-classic") return ["1080p"];
-    if (model === "vidu2.0") {
-      return duration === 4 ? ["360p", "720p", "1080p"] : ["720p"];
     }
     return ["720p"];
   }
@@ -976,10 +993,6 @@ function getAllowedResolutions(
     ) {
       return ["540p", "720p", "1080p"];
     }
-    if (model === "viduq1" || model === "viduq1-classic") return ["1080p"];
-    if (model === "vidu2.0") {
-      return duration === 4 ? ["360p", "720p", "1080p"] : ["720p"];
-    }
     return ["720p"];
   }
 
@@ -988,7 +1001,6 @@ function getAllowedResolutions(
       return ["540p", "720p", "1080p"];
     }
     if (model === "viduq2") return ["540p", "720p", "1080p"];
-    if (model === "viduq1") return ["1080p"];
     return ["720p"];
   }
 
@@ -1159,7 +1171,7 @@ function VideoHistoryCard({
 
           <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-white/65">
             <div className="rounded-full border border-white/10 bg-black/35 px-2.5 py-1">
-              {item.model}
+              {formatViduModelName(item.model)}
             </div>
             <div className="rounded-full border border-white/10 bg-black/35 px-2.5 py-1">
               {item.duration}s
@@ -1229,8 +1241,16 @@ export default function CreateVideoClient({
     setMounted(true);
   }, []);
 
-  const effectiveCredits =
-    sharedCredits ?? (authLoading ? initialCredits : user ? 0 : null);
+  const effectiveCredits = useMemo(() => {
+    if (typeof sharedCredits === "number") return sharedCredits;
+    if (authLoading) return initialCredits;
+    return null;
+  }, [sharedCredits, authLoading, initialCredits]);
+
+  const creditsAreResolved = typeof effectiveCredits === "number";
+
+  const referenceImageMax = refClips.length > 0 ? 4 : 7;
+  const referenceClipMax = 2;
 
   const setStartFile = (f: File | null) => {
     setStartFrame(f);
@@ -1247,6 +1267,18 @@ export default function CreateVideoClient({
       return f ? URL.createObjectURL(f) : null;
     });
   };
+
+  useEffect(() => {
+    if (refClips.length > referenceClipMax) {
+      setRefClips((prev) => prev.slice(0, referenceClipMax));
+    }
+  }, [refClips.length, referenceClipMax]);
+
+  useEffect(() => {
+    if (refImages.length > referenceImageMax) {
+      setRefImages((prev) => prev.slice(0, referenceImageMax));
+    }
+  }, [refImages.length, referenceImageMax]);
 
   useEffect(() => {
     return () => {
@@ -1380,10 +1412,10 @@ export default function CreateVideoClient({
     effectiveCredits != null && effectiveCredits >= videoCreditCost;
 
   useEffect(() => {
-    if (effectiveCredits != null && !hasEnoughCredits) {
+    if (creditsAreResolved && !hasEnoughCredits) {
       setShowTopupPanel(true);
     }
-  }, [effectiveCredits, hasEnoughCredits]);
+  }, [creditsAreResolved, hasEnoughCredits]);
 
   const deductCredits = async (
     amountValue: number,
@@ -2285,10 +2317,7 @@ export default function CreateVideoClient({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <CreditsPill credits={effectiveCredits} loading={authLoading} />
-
-
-
+            <CreditsPill credits={effectiveCredits} loading={!creditsAreResolved && authLoading} />
 
             <TopbarButton
               onClick={goPricing}
@@ -2358,15 +2387,21 @@ export default function CreateVideoClient({
                         accept="video/*"
                         multiple={true}
                         files={refClips}
+                        maxFiles={referenceClipMax}
                         onAddFiles={setRefClips}
                       />
 
                       <UploadRow
                         title="Reference Images"
-                        subtitle="Upload 1 to 7 images"
+                        subtitle={
+                          refClips.length > 0
+                            ? "Reference clips detected: max 4 images"
+                            : "Upload 1 to 7 images"
+                        }
                         accept="image/*"
                         multiple={true}
                         files={refImages}
+                        maxFiles={referenceImageMax}
                         onAddFiles={setRefImages}
                       />
                     </>
@@ -2485,7 +2520,7 @@ export default function CreateVideoClient({
                   <div>
                     <div className="mb-2 text-sm text-white/70">Duration</div>
                     <div className="grid grid-cols-6 gap-2">
-                      {[0, ...ALL_DURATION_OPTIONS].map((d) => {
+                      {ALL_DURATION_OPTIONS.map((d) => {
                         const enabled = allowedDurations.includes(d);
 
                         return (
@@ -2583,7 +2618,7 @@ export default function CreateVideoClient({
                   />
                 </div>
 
-                {!hasEnoughCredits && effectiveCredits != null && (
+                {!hasEnoughCredits && creditsAreResolved && (
                   <div className="mt-3 rounded-2xl border border-red-500/20 bg-red-500/10 px-3 py-2.5 text-xs text-red-200">
                     You do not have enough credits for this video generation.
                   </div>
@@ -2645,16 +2680,18 @@ export default function CreateVideoClient({
                       void createTextToVideo();
                     }
                   }}
-                  disabled={isCreating || effectiveCredits == null || !hasEnoughCredits || authLoading}
+                  disabled={isCreating || !creditsAreResolved || !hasEnoughCredits || authLoading}
                   className="mt-4 flex w-full cursor-pointer items-center justify-center gap-2 rounded-[20px] bg-white px-4 py-3.5 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <Sparkles size={16} />
                   <span>
                     {isCreating
                       ? `Generating ${amount} video${amount > 1 ? "s" : ""}...`
-                      : !hasEnoughCredits && effectiveCredits != null
-                        ? `Insufficient credits • Need ${videoCreditCost}`
-                        : `Create • ${videoCreditCost} credits`}
+                      : !creditsAreResolved
+                        ? "Loading credits..."
+                        : !hasEnoughCredits
+                          ? `Insufficient credits • Need ${videoCreditCost}`
+                          : `Create • ${videoCreditCost} credits`}
                   </span>
                 </motion.button>
               </div>
@@ -2703,7 +2740,7 @@ export default function CreateVideoClient({
                     </div>
                   </div>
                   <div className="rounded-full border border-violet-400/20 bg-violet-400/10 px-3 py-1 text-xs text-violet-100">
-                    {currentTask.model} • {currentTask.resolution} • {currentTask.duration}s
+                    {formatViduModelName(currentTask.model)} • {currentTask.resolution} • {currentTask.duration}s
                   </div>
                 </div>
 
@@ -2822,7 +2859,7 @@ export default function CreateVideoClient({
 
                         <div className="mt-4 flex flex-wrap gap-2 text-xs text-white/50">
                           <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
-                            {selectedGeneration.model}
+                            {formatViduModelName(selectedGeneration.model)}
                           </div>
                           <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
                             {selectedGeneration.duration}s
