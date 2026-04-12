@@ -33,7 +33,6 @@ import {
   Trash2,
   Upload,
   Wand2,
-  WalletCards,
   X,
 } from "lucide-react";
 import TopupButtons from "@/app/components/TopupButtons";
@@ -69,6 +68,26 @@ type SavedImageGeneration = {
   chargedCredits: number;
   refundStatus: RefundStatus;
   requestKey: string;
+};
+
+type ProviderModelOption = {
+  value: string;
+  label: string;
+  meta: string;
+  refCapable?: boolean;
+};
+
+type ProviderConfig = {
+  label: string;
+  meta: string;
+  getDefaultModel: (ctx: { activeTool: ImageToolKey }) => string;
+  getModels: (ctx: { activeTool: ImageToolKey }) => ProviderModelOption[];
+  getCost: (ctx: {
+    active: ImageToolKey;
+    amount: number;
+    refCount: number;
+    model: string;
+  }) => number;
 };
 
 const IMAGE_TOOLS: { key: ImageToolKey; label: string }[] = [
@@ -112,54 +131,98 @@ function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
-function getImageGenerationCost({
-  provider,
-  active,
-  model,
-  byteplusModel,
-  amount,
-  refCount,
-}: {
-  provider: ImageProvider;
-  active: ImageToolKey;
-  model: string;
-  byteplusModel: BytePlusModel;
-  amount: number;
-  refCount: number;
-}) {
-  let perImageCost = 0;
+const IMAGE_PROVIDERS: Record<ImageProvider, ProviderConfig> = {
+  google: {
+    label: "Google",
+    meta: "balanced",
+    getDefaultModel: () => "Nano Banana Pro",
+    getModels: () => [
+      {
+        value: "Nano Banana Pro",
+        label: "Nano Banana Pro",
+        meta: "reliable general-purpose",
+      },
+    ],
+    getCost: ({ active, amount, refCount }) => {
+      const base = active === "reference-to-image" ? 14 : 10;
+      const extraRefs =
+        active === "reference-to-image" ? Math.max(0, refCount - 1) * 2 : 0;
+      return (base + extraRefs) * amount;
+    },
+  },
 
-  if (provider === "google") {
-    perImageCost = active === "reference-to-image" ? 14 : 10;
-  } else if (provider === "openai") {
-    perImageCost = active === "reference-to-image" ? 18 : 12;
-  } else if (provider === "byteplus") {
-    switch (byteplusModel) {
-      case "seedream-5-0-260128":
-        perImageCost = active === "reference-to-image" ? 22 : 16;
-        break;
-      case "seedream-4-5-251128":
-        perImageCost = active === "reference-to-image" ? 18 : 14;
-        break;
-      case "seedream-4-0-250828":
-        perImageCost = active === "reference-to-image" ? 15 : 12;
-        break;
-      case "seedream-3-0-t2i-250415":
-        perImageCost = 9;
-        break;
-      default:
-        perImageCost = active === "reference-to-image" ? 15 : 12;
-        break;
-    }
-  }
+  openai: {
+    label: "OpenAI",
+    meta: "premium render",
+    getDefaultModel: () => "GPT Image 1.5",
+    getModels: () => [
+      {
+        value: "GPT Image 1.5",
+        label: "GPT Image 1.5",
+        meta: "strong prompt fidelity",
+      },
+    ],
+    getCost: ({ active, amount, refCount }) => {
+      const base = active === "reference-to-image" ? 18 : 12;
+      const extraRefs =
+        active === "reference-to-image" ? Math.max(0, refCount - 1) * 2 : 0;
+      return (base + extraRefs) * amount;
+    },
+  },
 
-  let extraRefCost = 0;
-  if (active === "reference-to-image") {
-    extraRefCost = Math.max(0, refCount - 1) * 2;
-  }
+  byteplus: {
+    label: "BytePlus",
+    meta: "seedream family",
+    getDefaultModel: ({ activeTool }) => {
+      if (activeTool === "reference-to-image") {
+        return "seedream-5-0-260128";
+      }
+      return "seedream-5-0-260128";
+    },
+    getModels: ({ activeTool }) =>
+      BYTEPLUS_MODELS.filter(
+        (item) => activeTool !== "reference-to-image" || item.refCapable
+      ).map((item) => ({
+        value: item.value,
+        label: item.label,
+        meta:
+          item.value === "seedream-5-0-260128"
+            ? "highest quality"
+            : item.value === "seedream-4-5-251128"
+              ? "balanced premium"
+              : item.value === "seedream-4-0-250828"
+                ? "fast + capable"
+                : "text-only",
+        refCapable: item.refCapable,
+      })),
+    getCost: ({ active, amount, refCount, model }) => {
+      let base = 12;
 
-  return (perImageCost + extraRefCost) * amount;
-}
+      switch (model as BytePlusModel) {
+        case "seedream-5-0-260128":
+          base = active === "reference-to-image" ? 22 : 16;
+          break;
+        case "seedream-4-5-251128":
+          base = active === "reference-to-image" ? 18 : 14;
+          break;
+        case "seedream-4-0-250828":
+          base = active === "reference-to-image" ? 15 : 12;
+          break;
+        case "seedream-3-0-t2i-250415":
+          base = 9;
+          break;
+        default:
+          base = active === "reference-to-image" ? 15 : 12;
+          break;
+      }
+
+      const extraRefs =
+        active === "reference-to-image" ? Math.max(0, refCount - 1) * 2 : 0;
+
+      return (base + extraRefs) * amount;
+    },
+  },
+};
 
 function openImageDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -492,7 +555,11 @@ function CreditsPill({
             Credits
           </div>
           <div className="mt-0.5 text-sm font-semibold text-amber-50">
-            {loading ? "Loading..." : credits == null ? "—" : credits.toLocaleString()}
+            {loading
+              ? "Loading..."
+              : credits == null
+                ? "—"
+                : credits.toLocaleString()}
           </div>
         </div>
       </div>
@@ -556,9 +623,13 @@ function ChipSelector({
                 : "border-white/10 bg-black/20 text-white/70 hover:border-white/20 hover:bg-black/10"
             )}
           >
-            <div className="text-sm font-medium">{option.label ?? option.value}</div>
+            <div className="text-sm font-medium">
+              {option.label ?? option.value}
+            </div>
             {option.meta ? (
-              <div className="mt-1 text-[11px] text-white/45">{option.meta}</div>
+              <div className="mt-1 text-[11px] text-white/45">
+                {option.meta}
+              </div>
             ) : null}
           </motion.button>
         );
@@ -574,26 +645,69 @@ function ProviderCardSelector({
   value: ImageProvider;
   onChange: (next: ImageProvider) => void;
 }) {
-  const options: Array<{
-    value: ImageProvider;
-    label: string;
-    meta: string;
-  }> = [
-    { value: "google", label: "Google", meta: "balanced" },
-    { value: "openai", label: "OpenAI", meta: "premium render" },
-    { value: "byteplus", label: "BytePlus", meta: "seedream family" },
-  ];
+  const providerEntries = Object.entries(IMAGE_PROVIDERS) as Array<
+    [ImageProvider, ProviderConfig]
+  >;
 
   return (
     <div className="grid gap-2 sm:grid-cols-3">
-      {options.map((option) => {
-        const active = option.value === value;
+      {providerEntries.map(([providerKey, config]) => {
+        const active = providerKey === value;
+        return (
+          <motion.button
+            key={providerKey}
+            type="button"
+            whileTap={{ scale: 0.985 }}
+            onClick={() => onChange(providerKey)}
+            className={cn(
+              "cursor-pointer rounded-2xl border p-3 text-left transition",
+              active
+                ? "border-violet-300/25 bg-violet-400/12 shadow-[0_10px_24px_rgba(139,92,246,0.12)]"
+                : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-black/10"
+            )}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm font-semibold text-white/92">
+                {config.label}
+              </div>
+              {active ? (
+                <div className="rounded-full border border-violet-300/20 bg-violet-400/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-violet-100">
+                  Selected
+                </div>
+              ) : null}
+            </div>
+            <div className="mt-1 text-xs text-white/48">{config.meta}</div>
+          </motion.button>
+        );
+      })}
+    </div>
+  );
+}
+
+function ModelCardSelector({
+  provider,
+  activeTool,
+  selectedModel,
+  onSelectModel,
+}: {
+  provider: ImageProvider;
+  activeTool: ImageToolKey;
+  selectedModel: string;
+  onSelectModel: (next: string) => void;
+}) {
+  const models = IMAGE_PROVIDERS[provider].getModels({ activeTool });
+
+  return (
+    <div className="grid gap-2 sm:grid-cols-2">
+      {models.map((option) => {
+        const active = option.value === selectedModel;
+
         return (
           <motion.button
             key={option.value}
             type="button"
             whileTap={{ scale: 0.985 }}
-            onClick={() => onChange(option.value)}
+            onClick={() => onSelectModel(option.value)}
             className={cn(
               "cursor-pointer rounded-2xl border p-3 text-left transition",
               active
@@ -612,142 +726,6 @@ function ProviderCardSelector({
               ) : null}
             </div>
             <div className="mt-1 text-xs text-white/48">{option.meta}</div>
-          </motion.button>
-        );
-      })}
-    </div>
-  );
-}
-
-function ModelCardSelector({
-  provider,
-  activeTool,
-  model,
-  byteplusModel,
-  visibleByteplusModels,
-  onSetModel,
-  onSetByteplusModel,
-}: {
-  provider: ImageProvider;
-  activeTool: ImageToolKey;
-  model: string;
-  byteplusModel: BytePlusModel;
-  visibleByteplusModels: {
-    value: BytePlusModel;
-    label: string;
-    refCapable: boolean;
-  }[];
-  onSetModel: (next: string) => void;
-  onSetByteplusModel: (next: BytePlusModel) => void;
-}) {
-  if (provider === "google") {
-    const active = model === "Nano Banana Pro";
-    return (
-      <div className="grid gap-2 sm:grid-cols-2">
-        <motion.button
-          type="button"
-          whileTap={{ scale: 0.985 }}
-          onClick={() => onSetModel("Nano Banana Pro")}
-          className={cn(
-            "cursor-pointer rounded-2xl border p-3 text-left transition",
-            active
-              ? "border-violet-300/25 bg-violet-400/12 shadow-[0_10px_24px_rgba(139,92,246,0.12)]"
-              : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-black/10"
-          )}
-        >
-          <div className="flex items-center justify-between gap-3">
-            <div className="text-sm font-semibold text-white/92">
-              Nano Banana Pro
-            </div>
-            {active ? (
-              <div className="rounded-full border border-violet-300/20 bg-violet-400/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-violet-100">
-                Selected
-              </div>
-            ) : null}
-          </div>
-          <div className="mt-1 text-xs text-white/48">
-            Reliable general-purpose image generation
-          </div>
-        </motion.button>
-      </div>
-    );
-  }
-
-  if (provider === "openai") {
-    const active = model === "GPT Image 1.5";
-    return (
-      <div className="grid gap-2 sm:grid-cols-2">
-        <motion.button
-          type="button"
-          whileTap={{ scale: 0.985 }}
-          onClick={() => onSetModel("GPT Image 1.5")}
-          className={cn(
-            "cursor-pointer rounded-2xl border p-3 text-left transition",
-            active
-              ? "border-violet-300/25 bg-violet-400/12 shadow-[0_10px_24px_rgba(139,92,246,0.12)]"
-              : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-black/10"
-          )}
-        >
-          <div className="flex items-center justify-between gap-3">
-            <div className="text-sm font-semibold text-white/92">
-              GPT Image 1.5
-            </div>
-            {active ? (
-              <div className="rounded-full border border-violet-300/20 bg-violet-400/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-violet-100">
-                Selected
-              </div>
-            ) : null}
-          </div>
-          <div className="mt-1 text-xs text-white/48">
-            Strong prompt fidelity and premium output
-          </div>
-        </motion.button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="grid gap-2 sm:grid-cols-2">
-      {visibleByteplusModels.map((option) => {
-        const active = option.value === byteplusModel;
-        const meta =
-          option.value === "seedream-5-0-260128"
-            ? "highest quality"
-            : option.value === "seedream-4-5-251128"
-              ? "balanced premium"
-              : option.value === "seedream-4-0-250828"
-                ? "fast + capable"
-                : "text to image only";
-
-        return (
-          <motion.button
-            key={option.value}
-            type="button"
-            whileTap={{ scale: 0.985 }}
-            onClick={() => onSetByteplusModel(option.value)}
-            className={cn(
-              "cursor-pointer rounded-2xl border p-3 text-left transition",
-              active
-                ? "border-violet-300/25 bg-violet-400/12 shadow-[0_10px_24px_rgba(139,92,246,0.12)]"
-                : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-black/10"
-            )}
-          >
-            <div className="flex items-center justify-between gap-3">
-              <div className="text-sm font-semibold text-white/92">
-                {option.label}
-              </div>
-              {active ? (
-                <div className="rounded-full border border-violet-300/20 bg-violet-400/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-violet-100">
-                  Selected
-                </div>
-              ) : null}
-            </div>
-            <div className="mt-1 text-xs text-white/48">
-              {meta}
-              {activeTool === "reference-to-image" && !option.refCapable
-                ? " • no refs"
-                : ""}
-            </div>
           </motion.button>
         );
       })}
@@ -850,7 +828,9 @@ function UploadImagesCard({
       </div>
 
       <div className="mt-3 flex items-center justify-between text-[11px] text-white/40">
-        <span>{files.length}/{maxFiles} images</span>
+        <span>
+          {files.length}/{maxFiles} images
+        </span>
         <span>PNG, JPG, WEBP</span>
       </div>
     </div>
@@ -1030,19 +1010,27 @@ export default function CreateImageClient({
     setMounted(true);
   }, []);
 
-  const effectiveCredits =
-    sharedCredits ?? (authLoading ? initialCredits : user ? 0 : null);
+  const effectiveCredits = useMemo(() => {
+    if (typeof sharedCredits === "number") return sharedCredits;
+    if (authLoading) return initialCredits;
+    return null;
+  }, [sharedCredits, authLoading, initialCredits]);
+
+  const creditsAreResolved = typeof effectiveCredits === "number";
+
+  const selectedProviderModel =
+    provider === "byteplus" ? byteplusModel : model;
 
   const imageCreditCost = useMemo(() => {
-    return getImageGenerationCost({
-      provider,
+    const config = IMAGE_PROVIDERS[provider];
+
+    return config.getCost({
       active,
-      model,
-      byteplusModel,
       amount,
       refCount: refImages.length,
+      model: selectedProviderModel,
     });
-  }, [provider, active, model, byteplusModel, amount, refImages.length]);
+  }, [provider, active, amount, refImages.length, selectedProviderModel]);
 
   const remainingCreditsAfterCreate =
     effectiveCredits != null ? effectiveCredits - imageCreditCost : null;
@@ -1051,10 +1039,10 @@ export default function CreateImageClient({
     effectiveCredits != null && effectiveCredits >= imageCreditCost;
 
   useEffect(() => {
-    if (effectiveCredits != null && !hasEnoughCredits) {
+    if (creditsAreResolved && !hasEnoughCredits) {
       setShowTopupPanel(true);
     }
-  }, [effectiveCredits, hasEnoughCredits]);
+  }, [creditsAreResolved, hasEnoughCredits]);
 
   const deductCredits = async (
     amountToDeduct: number,
@@ -1107,21 +1095,15 @@ export default function CreateImageClient({
   };
 
   useEffect(() => {
-    if (provider === "openai") {
-      setModel("GPT Image 1.5");
-      return;
-    }
+    const config = IMAGE_PROVIDERS[provider];
+    const defaultModel = config.getDefaultModel({ activeTool: active });
 
     if (provider === "byteplus") {
-      const picked =
-        BYTEPLUS_MODELS.find((item) => item.value === byteplusModel)?.label ??
-        "Seedream 5.0";
-      setModel(picked);
-      return;
+      setByteplusModel(defaultModel as BytePlusModel);
+    } else {
+      setModel(defaultModel);
     }
-
-    setModel("Nano Banana Pro");
-  }, [provider, byteplusModel]);
+  }, [provider, active]);
 
   useEffect(() => {
     if (
@@ -1237,13 +1219,6 @@ export default function CreateImageClient({
   const recentGenerations = generations.slice(0, 6);
   const currentTask = generations.find((item) => item.status === "processing");
 
-  const visibleByteplusModels = useMemo(() => {
-    if (active === "reference-to-image") {
-      return BYTEPLUS_MODELS.filter((item) => item.refCapable);
-    }
-    return BYTEPLUS_MODELS;
-  }, [active]);
-
   const filteredHistory = useMemo(() => {
     return generations.filter((item) => {
       const searchMatch = item.prompt
@@ -1343,7 +1318,7 @@ export default function CreateImageClient({
         {
           kind: active,
           provider,
-          model,
+          model: selectedProviderModel,
           byteplusModel,
           aspect,
           outputFormat,
@@ -1368,7 +1343,11 @@ export default function CreateImageClient({
           kind: active,
           provider,
           prompt: trimmedPrompt,
-          model,
+          model:
+            provider === "byteplus"
+              ? BYTEPLUS_MODELS.find((item) => item.value === byteplusModel)
+                  ?.label || byteplusModel
+              : selectedProviderModel,
           aspect,
           outputFormat,
           amountRequest: amount,
@@ -1498,7 +1477,7 @@ export default function CreateImageClient({
               requestKeys: pendingItems.map((i) => i.requestKey),
               kind: active,
               provider,
-              model,
+              model: selectedProviderModel,
               aspect,
               outputFormat,
               amountRequest: amount,
@@ -1602,9 +1581,10 @@ export default function CreateImageClient({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <CreditsPill credits={effectiveCredits} loading={authLoading} />
-
-
+            <CreditsPill
+              credits={effectiveCredits}
+              loading={!creditsAreResolved && authLoading}
+            />
 
             <TopbarButton
               onClick={goPricing}
@@ -1728,7 +1708,10 @@ export default function CreateImageClient({
                 <div className="mt-4 space-y-5">
                   <div>
                     <div className="mb-2 text-sm text-white/70">Provider</div>
-                    <ProviderCardSelector value={provider} onChange={setProvider} />
+                    <ProviderCardSelector
+                      value={provider}
+                      onChange={setProvider}
+                    />
                   </div>
 
                   <div>
@@ -1736,16 +1719,21 @@ export default function CreateImageClient({
                     <ModelCardSelector
                       provider={provider}
                       activeTool={active}
-                      model={model}
-                      byteplusModel={byteplusModel}
-                      visibleByteplusModels={visibleByteplusModels}
-                      onSetModel={setModel}
-                      onSetByteplusModel={setByteplusModel}
+                      selectedModel={selectedProviderModel}
+                      onSelectModel={(next) => {
+                        if (provider === "byteplus") {
+                          setByteplusModel(next as BytePlusModel);
+                        } else {
+                          setModel(next);
+                        }
+                      }}
                     />
                   </div>
 
                   <div>
-                    <div className="mb-2 text-sm text-white/70">Output Format</div>
+                    <div className="mb-2 text-sm text-white/70">
+                      Output Format
+                    </div>
                     <ChipSelector
                       value={outputFormat}
                       onChange={setOutputFormat}
@@ -1762,7 +1750,9 @@ export default function CreateImageClient({
                   </div>
 
                   <div>
-                    <div className="mb-2 text-sm text-white/70">Aspect Ratio</div>
+                    <div className="mb-2 text-sm text-white/70">
+                      Aspect Ratio
+                    </div>
                     <ChipSelector
                       value={aspect}
                       onChange={setAspect}
@@ -1814,7 +1804,7 @@ export default function CreateImageClient({
                   />
                 </div>
 
-                {!hasEnoughCredits && effectiveCredits != null && (
+                {!hasEnoughCredits && creditsAreResolved && (
                   <div className="mt-3 rounded-2xl border border-red-500/20 bg-red-500/10 px-3 py-2.5 text-xs text-red-200">
                     You do not have enough credits for this image generation.
                   </div>
@@ -1836,8 +1826,8 @@ export default function CreateImageClient({
                           </div>
                           <div className="mt-1 text-xs leading-relaxed text-amber-100/65">
                             Buy one-time credit packs without changing your
-                            subscription. Purchased top-up credits persist through
-                            monthly resets.
+                            subscription. Purchased top-up credits persist
+                            through monthly resets.
                           </div>
                         </div>
 
@@ -1862,16 +1852,23 @@ export default function CreateImageClient({
                   type="button"
                   onClick={() => void createImages()}
                   whileTap={{ scale: 0.99 }}
-                  disabled={isCreating || effectiveCredits == null || !hasEnoughCredits || authLoading}
+                  disabled={
+                    isCreating ||
+                    !creditsAreResolved ||
+                    !hasEnoughCredits ||
+                    authLoading
+                  }
                   className="mt-4 flex w-full cursor-pointer items-center justify-center gap-2 rounded-[20px] bg-white px-4 py-3.5 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <Sparkles size={16} />
                   <span>
                     {isCreating
                       ? `Generating ${amount} image${amount > 1 ? "s" : ""}...`
-                      : !hasEnoughCredits && effectiveCredits != null
-                        ? `Insufficient credits • Need ${imageCreditCost}`
-                        : `Create • ${imageCreditCost} credits`}
+                      : !creditsAreResolved
+                        ? "Loading credits..."
+                        : !hasEnoughCredits
+                          ? `Insufficient credits • Need ${imageCreditCost}`
+                          : `Create • ${imageCreditCost} credits`}
                   </span>
                 </motion.button>
               </div>
@@ -1920,7 +1917,8 @@ export default function CreateImageClient({
                     </div>
                   </div>
                   <div className="rounded-full border border-violet-400/20 bg-violet-400/10 px-3 py-1 text-xs text-violet-100">
-                    {currentTask.model} • {currentTask.aspect} • {currentTask.outputFormat}
+                    {currentTask.model} • {currentTask.aspect} •{" "}
+                    {currentTask.outputFormat}
                   </div>
                 </div>
 
@@ -2020,7 +2018,9 @@ export default function CreateImageClient({
                                 </div>
                                 <div className="text-center">
                                   <div className="text-sm font-medium text-white/90">
-                                    {prettyImageStatus(selectedGeneration.status)}
+                                    {prettyImageStatus(
+                                      selectedGeneration.status
+                                    )}
                                   </div>
                                   <div className="mt-1 text-xs text-white/50">
                                     {selectedGeneration.model || "The model"} is
@@ -2047,11 +2047,7 @@ export default function CreateImageClient({
 
                         <div className="mt-4 flex flex-wrap gap-2 text-xs text-white/50">
                           <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
-                            {selectedGeneration.provider === "openai"
-                              ? "OpenAI"
-                              : selectedGeneration.provider === "byteplus"
-                                ? "BytePlus"
-                                : "Google"}
+                            {IMAGE_PROVIDERS[selectedGeneration.provider].label}
                           </div>
                           <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
                             {selectedGeneration.model}
@@ -2136,21 +2132,23 @@ export default function CreateImageClient({
                             Create premium AI images
                           </div>
                           <div className="mt-1 max-w-xl text-sm text-white/55">
-                            Build polished visuals from text prompts or reference
-                            images. Your latest renders appear here.
+                            Build polished visuals from text prompts or
+                            reference images. Your latest renders appear here.
                           </div>
 
                           <div className="mt-4 flex flex-wrap gap-2">
-                            {["Text to image", "Reference guided", "Premium renders"].map(
-                              (pill) => (
-                                <div
-                                  key={pill}
-                                  className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-white/70"
-                                >
-                                  {pill}
-                                </div>
-                              )
-                            )}
+                            {[
+                              "Text to image",
+                              "Reference guided",
+                              "Premium renders",
+                            ].map((pill) => (
+                              <div
+                                key={pill}
+                                className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-white/70"
+                              >
+                                {pill}
+                              </div>
+                            ))}
                           </div>
 
                           <div className="mt-5 grid gap-3 md:grid-cols-2">
