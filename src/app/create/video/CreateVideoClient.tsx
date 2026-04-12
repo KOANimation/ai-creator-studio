@@ -39,6 +39,9 @@ type GenerationKind =
   | "start-end-to-video"
   | "text-to-video";
 
+type VideoProvider = "vidu";
+type ReferenceInputMode = "images" | "subjects";
+
 type SavedGenerationStatus =
   | "uploading"
   | "created"
@@ -54,6 +57,7 @@ type SavedGeneration = {
   kind: GenerationKind;
   taskId: string;
   prompt: string;
+  provider: VideoProvider;
   model: string;
   duration: number;
   resolution: string;
@@ -67,11 +71,23 @@ type SavedGeneration = {
   refundStatus: RefundStatus;
 };
 
+type SubjectReference = {
+  id: string;
+  name: string;
+  files: File[];
+};
+
 const VIDEO_TOOLS: { key: VideoToolKey; label: string }[] = [
   { key: "reference-to-video", label: "Reference to Video" },
   { key: "image-to-video", label: "Image to Video" },
   { key: "text-to-video", label: "Text to Video" },
 ];
+
+const VIDEO_PROVIDERS: Array<{
+  value: VideoProvider;
+  label: string;
+  meta: string;
+}> = [{ value: "vidu", label: "Vidu AI", meta: "cinematic video generation" }];
 
 const ALL_DURATION_OPTIONS = Array.from({ length: 16 }, (_, i) => i + 1);
 const ALL_ASPECT_OPTIONS = ["16:9", "9:16", "1:1", "3:4", "4:3"];
@@ -106,13 +122,16 @@ function formatViduModelName(model: string) {
       return "Vidu Q2";
     case "viduq1":
       return "Vidu Q1";
-    case "viduq1-classic":
-      return "Vidu Q1 Classic";
     case "vidu2.0":
       return "Vidu 2.0";
     default:
       return model;
   }
+}
+
+function formatProviderName(provider: VideoProvider) {
+  if (provider === "vidu") return "Vidu AI";
+  return provider;
 }
 
 function getModelMeta(model: string, kind: GenerationKind) {
@@ -131,16 +150,16 @@ function getVideoGenerationCost({
   duration,
   resolution,
   amount,
-  refClipCount,
   refImageCount,
+  subjectImageCount,
 }: {
   kind: GenerationKind;
   model: string;
   duration: number;
   resolution: string;
   amount: number;
-  refClipCount: number;
   refImageCount: number;
+  subjectImageCount: number;
 }) {
   let baseCost = 0;
 
@@ -181,13 +200,6 @@ function getVideoGenerationCost({
       case "viduq2-turbo":
         baseCost = 20;
         break;
-      case "viduq1":
-      case "viduq1-classic":
-        baseCost = 18;
-        break;
-      case "vidu2.0":
-        baseCost = 16;
-        break;
       default:
         baseCost = 20;
         break;
@@ -211,13 +223,6 @@ function getVideoGenerationCost({
       case "viduq2-turbo":
         baseCost = 24;
         break;
-      case "viduq1":
-      case "viduq1-classic":
-        baseCost = 22;
-        break;
-      case "vidu2.0":
-        baseCost = 20;
-        break;
       default:
         baseCost = 24;
         break;
@@ -234,9 +239,6 @@ function getVideoGenerationCost({
         break;
       case "viduq2":
         baseCost = 18;
-        break;
-      case "viduq1":
-        baseCost = 15;
         break;
       default:
         baseCost = 18;
@@ -255,13 +257,11 @@ function getVideoGenerationCost({
 
   let referenceExtra = 0;
   if (kind === "reference-to-video") {
-    referenceExtra += refClipCount * 5;
-    referenceExtra += Math.max(0, refImageCount - 1) * 2;
+    const totalRefImages = refImageCount + subjectImageCount;
+    referenceExtra += Math.max(0, totalRefImages - 1) * 2;
   }
 
-  const perVideoCost =
-    baseCost + durationExtra + resolutionExtra + referenceExtra;
-
+  const perVideoCost = baseCost + durationExtra + resolutionExtra + referenceExtra;
   return perVideoCost * amount;
 }
 
@@ -495,6 +495,39 @@ function ToolTab({
   );
 }
 
+function MiniTab({
+  label,
+  active,
+  onClick,
+  disabled = false,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={cn(
+        "relative cursor-pointer rounded-2xl px-4 py-2.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-40",
+        active ? "text-white" : "text-white/68 hover:text-white/88"
+      )}
+    >
+      {active && (
+        <motion.div
+          layoutId={`mini-tab-${label}`}
+          className="absolute inset-0 rounded-2xl border border-white/20 bg-white/[0.09]"
+          transition={{ type: "spring", stiffness: 360, damping: 30 }}
+        />
+      )}
+      <span className="relative z-10">{label}</span>
+    </button>
+  );
+}
+
 function ChipSelector({
   value,
   onChange,
@@ -525,6 +558,48 @@ function ChipSelector({
             {option.meta ? (
               <div className="mt-1 text-[11px] text-white/45">{option.meta}</div>
             ) : null}
+          </motion.button>
+        );
+      })}
+    </div>
+  );
+}
+
+function ProviderCardSelector({
+  value,
+  options,
+  onChange,
+}: {
+  value: VideoProvider;
+  options: Array<{ value: VideoProvider; label: string; meta: string }>;
+  onChange: (next: VideoProvider) => void;
+}) {
+  return (
+    <div className="grid gap-2 sm:grid-cols-2">
+      {options.map((option) => {
+        const active = option.value === value;
+        return (
+          <motion.button
+            key={option.value}
+            type="button"
+            whileTap={{ scale: 0.985 }}
+            onClick={() => onChange(option.value)}
+            className={cn(
+              "cursor-pointer rounded-2xl border p-3 text-left transition",
+              active
+                ? "border-violet-300/25 bg-violet-400/12 shadow-[0_10px_24px_rgba(139,92,246,0.12)]"
+                : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-black/10"
+            )}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm font-semibold text-white/92">{option.label}</div>
+              {active ? (
+                <div className="rounded-full border border-violet-300/20 bg-violet-400/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-violet-100">
+                  Selected
+                </div>
+              ) : null}
+            </div>
+            <div className="mt-1 text-xs text-white/48">{option.meta}</div>
           </motion.button>
         );
       })}
@@ -570,9 +645,7 @@ function ModelCardSelector({
                 </div>
               ) : null}
             </div>
-            <div className="mt-1 text-xs text-white/48">
-              {getModelMeta(option, kind)}
-            </div>
+            <div className="mt-1 text-xs text-white/48">{getModelMeta(option, kind)}</div>
           </motion.button>
         );
       })}
@@ -602,8 +675,7 @@ function UploadRow({
   const pick = () => inputRef.current?.click();
 
   const removeAt = (idx: number) => {
-    const next = files.filter((_, i) => i !== idx);
-    onAddFiles(next);
+    onAddFiles(files.filter((_, i) => i !== idx));
   };
 
   return (
@@ -617,7 +689,6 @@ function UploadRow({
         onChange={(e) => {
           const list = Array.from(e.target.files ?? []);
           if (!list.length) return;
-
           const next = multiple ? [...files, ...list].slice(0, maxFiles) : [list[0]];
           onAddFiles(next);
           e.currentTarget.value = "";
@@ -784,6 +855,120 @@ function FrameSlot({
   );
 }
 
+function SubjectCard({
+  subject,
+  onChangeName,
+  onAddFiles,
+  onRemoveFile,
+  onRemoveSubject,
+}: {
+  subject: SubjectReference;
+  onChangeName: (value: string) => void;
+  onAddFiles: (files: File[]) => void;
+  onRemoveFile: (index: number) => void;
+  onRemoveSubject: () => void;
+}) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  return (
+    <div className="rounded-[24px] border border-white/10 bg-black/22 p-4">
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          const files = Array.from(e.target.files ?? []);
+          if (!files.length) return;
+          onAddFiles(files);
+          e.currentTarget.value = "";
+        }}
+      />
+
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-sm font-semibold text-white/92">Named Subject</div>
+          <div className="mt-1 text-xs text-white/50">
+            Add a short subject name and up to 3 images
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={onRemoveSubject}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white/70 transition hover:border-white/20 hover:bg-white/[0.08]"
+          title="Remove subject"
+        >
+          <Trash2 size={14} />
+        </button>
+      </div>
+
+      <div className="mt-4">
+        <div className="mb-2 text-sm text-white/70">Subject name</div>
+        <input
+          value={subject.name}
+          onChange={(e) => onChangeName(e.target.value)}
+          placeholder="hero, girl, spiderman, arthur..."
+          className="w-full rounded-[18px] border border-white/10 bg-black/30 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none transition focus:border-white/20"
+        />
+        <div className="mt-2 text-[11px] text-white/38">
+          Use this in your prompt like <span className="text-white/60">@{subject.name || "hero"}</span>
+        </div>
+      </div>
+
+      <div className="mt-4 flex items-center justify-between">
+        <div className="text-sm text-white/70">Subject images</div>
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          disabled={subject.files.length >= 3}
+          className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white/80 transition hover:border-white/20 hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <Plus size={16} />
+        </button>
+      </div>
+
+      <div className="mt-3 flex min-h-[64px] flex-wrap gap-2">
+        {subject.files.length === 0 ? (
+          <div className="flex w-full items-center justify-center rounded-2xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-5 text-xs text-white/38">
+            No subject images added yet.
+          </div>
+        ) : (
+          subject.files.map((file, index) => {
+            const url = URL.createObjectURL(file);
+            return (
+              <div
+                key={`${subject.id}-${file.name}-${file.size}-${index}`}
+                className="group relative h-20 w-24 overflow-hidden rounded-2xl border border-white/10 bg-black/30"
+              >
+                <img
+                  src={url}
+                  alt={file.name}
+                  className="h-full w-full object-cover"
+                  onLoad={() => URL.revokeObjectURL(url)}
+                  draggable={false}
+                />
+                <button
+                  type="button"
+                  onClick={() => onRemoveFile(index)}
+                  className="absolute right-1.5 top-1.5 inline-flex h-6 w-6 items-center justify-center rounded-lg border border-white/10 bg-black/70 text-white/80 opacity-0 transition hover:bg-black/85 group-hover:opacity-100"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      <div className="mt-3 text-[11px] text-white/38">
+        {subject.files.length}/3 images
+      </div>
+    </div>
+  );
+}
+
 function StatCard({
   label,
   value,
@@ -883,31 +1068,35 @@ function getCurrentKind(
   return endFrame ? "start-end-to-video" : "image-to-video";
 }
 
-function getModelOptions(kind: GenerationKind): string[] {
-  switch (kind) {
-    case "reference-to-video":
-      return ["viduq2-pro", "viduq2"];
-    case "image-to-video":
-      return [
-        "viduq3-turbo",
-        "viduq3-pro",
-        "viduq2-pro-fast",
-        "viduq2-pro",
-        "viduq2-turbo",
-      ];
-    case "start-end-to-video":
-      return [
-        "viduq3-turbo",
-        "viduq3-pro",
-        "viduq2-pro-fast",
-        "viduq2-pro",
-        "viduq2-turbo",
-      ];
-    case "text-to-video":
-      return ["viduq3-turbo", "viduq3-pro", "viduq2"];
-    default:
-      return ["viduq2-pro"];
+function getModelOptions(provider: VideoProvider, kind: GenerationKind): string[] {
+  if (provider === "vidu") {
+    switch (kind) {
+      case "reference-to-video":
+        return ["viduq2-pro", "viduq2"];
+      case "image-to-video":
+        return [
+          "viduq3-turbo",
+          "viduq3-pro",
+          "viduq2-pro-fast",
+          "viduq2-pro",
+          "viduq2-turbo",
+        ];
+      case "start-end-to-video":
+        return [
+          "viduq3-turbo",
+          "viduq3-pro",
+          "viduq2-pro-fast",
+          "viduq2-pro",
+          "viduq2-turbo",
+        ];
+      case "text-to-video":
+        return ["viduq3-turbo", "viduq3-pro", "viduq2"];
+      default:
+        return ["viduq2-pro"];
+    }
   }
+
+  return ["viduq2-pro"];
 }
 
 function getAllowedDurations(kind: GenerationKind, model: string): number[] {
@@ -918,9 +1107,7 @@ function getAllowedDurations(kind: GenerationKind, model: string): number[] {
   }
 
   if (kind === "image-to-video") {
-    if (model === "viduq3-pro" || model === "viduq3-turbo") {
-      return ALL_DURATION_OPTIONS;
-    }
+    if (model === "viduq3-pro" || model === "viduq3-turbo") return ALL_DURATION_OPTIONS;
     if (
       model === "viduq2-pro" ||
       model === "viduq2-pro-fast" ||
@@ -932,9 +1119,7 @@ function getAllowedDurations(kind: GenerationKind, model: string): number[] {
   }
 
   if (kind === "start-end-to-video") {
-    if (model === "viduq3-pro" || model === "viduq3-turbo") {
-      return ALL_DURATION_OPTIONS;
-    }
+    if (model === "viduq3-pro" || model === "viduq3-turbo") return ALL_DURATION_OPTIONS;
     if (
       model === "viduq2-pro" ||
       model === "viduq2-pro-fast" ||
@@ -946,9 +1131,7 @@ function getAllowedDurations(kind: GenerationKind, model: string): number[] {
   }
 
   if (kind === "text-to-video") {
-    if (model === "viduq3-pro" || model === "viduq3-turbo") {
-      return ALL_DURATION_OPTIONS;
-    }
+    if (model === "viduq3-pro" || model === "viduq3-turbo") return ALL_DURATION_OPTIONS;
     if (model === "viduq2") return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
     return [5];
   }
@@ -1064,6 +1247,7 @@ function normalizeGeneration(item: Partial<SavedGeneration>): SavedGeneration {
     kind: (item.kind as GenerationKind) ?? "text-to-video",
     taskId: item.taskId ?? "",
     prompt: item.prompt ?? "",
+    provider: (item.provider as VideoProvider) ?? "vidu",
     model: item.model ?? "",
     duration: typeof item.duration === "number" ? item.duration : 5,
     resolution: item.resolution ?? "720p",
@@ -1136,9 +1320,7 @@ function VideoHistoryCard({
                   <div className="absolute inset-0 rounded-full border-2 border-white/10" />
                   <div className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-white/80" />
                 </div>
-                <div className="text-sm text-white/70">
-                  {prettyStatus(item.status)}
-                </div>
+                <div className="text-sm text-white/70">{prettyStatus(item.status)}</div>
               </div>
             )}
           </div>
@@ -1208,6 +1390,10 @@ export default function CreateVideoClient({
   const [mounted, setMounted] = useState(false);
   const [showTopupPanel, setShowTopupPanel] = useState(false);
 
+  const [provider, setProvider] = useState<VideoProvider>("vidu");
+  const [referenceInputMode, setReferenceInputMode] =
+    useState<ReferenceInputMode>("images");
+
   const [startFrame, setStartFrame] = useState<File | null>(null);
   const [endFrame, setEndFrame] = useState<File | null>(null);
   const [startPreview, setStartPreview] = useState<string | null>(null);
@@ -1215,8 +1401,8 @@ export default function CreateVideoClient({
   const startInputRef = useRef<HTMLInputElement | null>(null);
   const endInputRef = useRef<HTMLInputElement | null>(null);
 
-  const [refClips, setRefClips] = useState<File[]>([]);
   const [refImages, setRefImages] = useState<File[]>([]);
+  const [subjects, setSubjects] = useState<SubjectReference[]>([]);
 
   const [prompt, setPrompt] = useState("");
   const [model, setModel] = useState("viduq2-pro");
@@ -1249,8 +1435,18 @@ export default function CreateVideoClient({
 
   const creditsAreResolved = typeof effectiveCredits === "number";
 
-  const referenceImageMax = refClips.length > 0 ? 4 : 7;
-  const referenceClipMax = 2;
+  const subjectImageCount = useMemo(
+    () => subjects.reduce((sum, subject) => sum + subject.files.length, 0),
+    [subjects]
+  );
+
+  const canUseSubjectMode = active === "reference-to-video" && model !== "viduq2-pro";
+
+  useEffect(() => {
+    if (!canUseSubjectMode && referenceInputMode === "subjects") {
+      setReferenceInputMode("images");
+    }
+  }, [canUseSubjectMode, referenceInputMode]);
 
   const setStartFile = (f: File | null) => {
     setStartFrame(f);
@@ -1267,18 +1463,6 @@ export default function CreateVideoClient({
       return f ? URL.createObjectURL(f) : null;
     });
   };
-
-  useEffect(() => {
-    if (refClips.length > referenceClipMax) {
-      setRefClips((prev) => prev.slice(0, referenceClipMax));
-    }
-  }, [refClips.length, referenceClipMax]);
-
-  useEffect(() => {
-    if (refImages.length > referenceImageMax) {
-      setRefImages((prev) => prev.slice(0, referenceImageMax));
-    }
-  }, [refImages.length, referenceImageMax]);
 
   useEffect(() => {
     return () => {
@@ -1355,7 +1539,10 @@ export default function CreateVideoClient({
     [active, endFrame]
   );
 
-  const modelOptions = useMemo(() => getModelOptions(currentKind), [currentKind]);
+  const modelOptions = useMemo(
+    () => getModelOptions(provider, currentKind),
+    [provider, currentKind]
+  );
 
   const allowedDurations = useMemo(
     () => getAllowedDurations(currentKind, model),
@@ -1392,8 +1579,8 @@ export default function CreateVideoClient({
       duration,
       resolution,
       amount,
-      refClipCount: refClips.length,
-      refImageCount: refImages.length,
+      refImageCount: referenceInputMode === "images" ? refImages.length : 0,
+      subjectImageCount: referenceInputMode === "subjects" ? subjectImageCount : 0,
     });
   }, [
     currentKind,
@@ -1401,8 +1588,9 @@ export default function CreateVideoClient({
     duration,
     resolution,
     amount,
-    refClips.length,
     refImages.length,
+    subjectImageCount,
+    referenceInputMode,
   ]);
 
   const remainingCreditsAfterCreate =
@@ -1485,8 +1673,30 @@ export default function CreateVideoClient({
     router.push("/create/image?tab=text-to-image");
   };
 
-  const onChangeTool = (k: VideoToolKey) =>
-    router.push(`/create/video?tab=${k}`);
+  const onChangeTool = (k: VideoToolKey) => router.push(`/create/video?tab=${k}`);
+
+  const addSubject = () => {
+    if (subjects.length >= 7) return;
+    const id =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random()}`;
+
+    setSubjects((prev) => [...prev, { id, name: "", files: [] }]);
+  };
+
+  const updateSubject = (
+    subjectId: string,
+    updater: (subject: SubjectReference) => SubjectReference
+  ) => {
+    setSubjects((prev) =>
+      prev.map((subject) => (subject.id === subjectId ? updater(subject) : subject))
+    );
+  };
+
+  const removeSubject = (subjectId: string) => {
+    setSubjects((prev) => prev.filter((subject) => subject.id !== subjectId));
+  };
 
   const createReferenceToVideo = async () => {
     const batchKey =
@@ -1512,39 +1722,71 @@ export default function CreateVideoClient({
         throw new Error("Please enter a prompt.");
       }
 
-      if (refClips.length === 0 && refImages.length === 0) {
-        throw new Error("Upload at least one reference image or clip.");
+      if (referenceInputMode === "images") {
+        if (refImages.length === 0) {
+          throw new Error("Upload at least 1 reference image.");
+        }
+
+        if (refImages.length > 7) {
+          throw new Error("You can upload at most 7 reference images.");
+        }
       }
 
-      if (refClips.length > 0 && model !== "viduq2-pro") {
-        throw new Error("Reference clips are only supported with Vidu Q2 Pro.");
-      }
+      if (referenceInputMode === "subjects") {
+        if (model === "viduq2-pro") {
+          throw new Error("Vidu Q2 Pro currently supports image references only.");
+        }
 
-      if (refClips.length > 2) {
-        throw new Error("You can upload at most 2 reference clips.");
-      }
+        if (subjects.length === 0) {
+          throw new Error("Add at least 1 subject.");
+        }
 
-      if (refImages.length > 7) {
-        throw new Error("You can upload at most 7 reference images.");
-      }
+        if (subjects.length > 7) {
+          throw new Error("You can add at most 7 subjects.");
+        }
 
-      if (refClips.length > 0 && refImages.length > 4) {
-        throw new Error(
-          "With reference clips, upload at most 4 reference images."
+        const totalSubjectImages = subjects.reduce(
+          (sum, subject) => sum + subject.files.length,
+          0
         );
+
+        if (totalSubjectImages === 0) {
+          throw new Error("Add at least 1 subject image.");
+        }
+
+        if (totalSubjectImages > 7) {
+          throw new Error("Subject mode supports at most 7 images total.");
+        }
+
+        for (const subject of subjects) {
+          if (!subject.name.trim()) {
+            throw new Error("Each subject must have a name.");
+          }
+
+          if (subject.files.length === 0) {
+            throw new Error(`Subject "${subject.name || "Unnamed"}" must have at least 1 image.`);
+          }
+
+          if (subject.files.length > 3) {
+            throw new Error(`Subject "${subject.name || "Unnamed"}" can have at most 3 images.`);
+          }
+        }
       }
 
       const perItemCredits = videoCreditCost / amount;
 
       await deductCredits(videoCreditCost, "Reference to video generation", {
         kind: "reference-to-video",
+        provider,
         model,
         duration,
         resolution,
         aspect,
         amount,
-        refClipCount: refClips.length,
+        referenceInputMode,
         refImageCount: refImages.length,
+        subjectCount: subjects.length,
+        subjectImageCount,
         batchKey,
       });
 
@@ -1556,13 +1798,24 @@ export default function CreateVideoClient({
         formData.append("resolution", resolution);
         formData.append("aspectRatio", aspect);
 
-        refImages.forEach((file) => {
-          formData.append("images", file);
-        });
+        if (referenceInputMode === "images") {
+          refImages.forEach((file) => {
+            formData.append("images", file);
+          });
+        } else {
+          const lightweightSubjects = subjects.map((subject) => ({
+            id: subject.id,
+            name: subject.name.trim(),
+          }));
 
-        refClips.forEach((file) => {
-          formData.append("videos", file);
-        });
+          formData.append("subjects", JSON.stringify(lightweightSubjects));
+
+          subjects.forEach((subject) => {
+            subject.files.forEach((file) => {
+              formData.append(`subjectImages:${subject.id}`, file);
+            });
+          });
+        }
 
         const res = await fetch("/api/vidu/reference", {
           method: "POST",
@@ -1570,8 +1823,6 @@ export default function CreateVideoClient({
         });
 
         const raw = await res.text();
-        console.log("Create reference raw response:", raw);
-
         const data = parseJsonSafely(raw);
 
         if (!res.ok) {
@@ -1617,6 +1868,7 @@ export default function CreateVideoClient({
               kind: "reference-to-video",
               failedCount,
               amountRefunded: refundAmount,
+              provider,
               model,
               duration,
               resolution,
@@ -1643,6 +1895,7 @@ export default function CreateVideoClient({
           kind: "reference-to-video",
           taskId: task.taskId,
           prompt,
+          provider,
           model,
           duration,
           resolution,
@@ -1739,6 +1992,7 @@ export default function CreateVideoClient({
         endFrame ? "Start-end video generation" : "Image to video generation",
         {
           kind: mode,
+          provider,
           model,
           duration,
           resolution,
@@ -1767,8 +2021,6 @@ export default function CreateVideoClient({
         });
 
         const raw = await res.text();
-        console.log("Create image/start-end raw response:", raw);
-
         const data = parseJsonSafely(raw);
 
         if (!res.ok) {
@@ -1818,6 +2070,7 @@ export default function CreateVideoClient({
               kind: mode,
               failedCount,
               amountRefunded: refundAmount,
+              provider,
               model,
               duration,
               resolution,
@@ -1844,6 +2097,7 @@ export default function CreateVideoClient({
           kind: task.kind,
           taskId: task.taskId,
           prompt,
+          provider,
           model,
           duration,
           resolution,
@@ -1902,6 +2156,7 @@ export default function CreateVideoClient({
 
       await deductCredits(videoCreditCost, "Text to video generation", {
         kind: "text-to-video",
+        provider,
         model,
         duration,
         resolution,
@@ -1926,8 +2181,6 @@ export default function CreateVideoClient({
         });
 
         const raw = await res.text();
-        console.log("Create text raw response:", raw);
-
         const data = parseJsonSafely(raw);
 
         if (!res.ok) {
@@ -1976,6 +2229,7 @@ export default function CreateVideoClient({
               kind: "text-to-video",
               failedCount,
               amountRefunded: refundAmount,
+              provider,
               model,
               duration,
               resolution,
@@ -2002,6 +2256,7 @@ export default function CreateVideoClient({
           kind: "text-to-video",
           taskId: task.taskId,
           prompt,
+          provider,
           model,
           duration,
           resolution,
@@ -2056,8 +2311,6 @@ export default function CreateVideoClient({
       });
 
       const raw = await res.text();
-      console.log("Task poll raw response:", raw);
-
       const data = parseJsonSafely(raw);
 
       if (!res.ok) {
@@ -2182,6 +2435,7 @@ export default function CreateVideoClient({
             {
               taskId: item.taskId,
               kind: item.kind,
+              provider: item.provider,
               model: item.model,
               duration: item.duration,
               resolution: item.resolution,
@@ -2193,9 +2447,7 @@ export default function CreateVideoClient({
           if (!cancelled) {
             setGenerations((prev) =>
               prev.map((g) =>
-                g.taskId === item.taskId
-                  ? { ...g, refundStatus: "refunded" }
-                  : g
+                g.taskId === item.taskId ? { ...g, refundStatus: "refunded" } : g
               )
             );
           }
@@ -2276,6 +2528,7 @@ export default function CreateVideoClient({
       }
     }
 
+    setProvider(item.provider);
     setModel(item.model);
     setDuration(item.duration);
     setResolution(item.resolution);
@@ -2374,6 +2627,20 @@ export default function CreateVideoClient({
 
             <div className="mt-4 space-y-4">
               <div className="rounded-[24px] border border-white/10 bg-black/22 p-4">
+                <SectionTitle icon={<SlidersHorizontal size={14} />} kicker="Provider">
+                  AI Provider
+                </SectionTitle>
+
+                <div className="mt-4">
+                  <ProviderCardSelector
+                    value={provider}
+                    options={VIDEO_PROVIDERS}
+                    onChange={setProvider}
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-[24px] border border-white/10 bg-black/22 p-4">
                 <SectionTitle icon={<Upload size={14} />} kicker="Inputs">
                   Source Material
                 </SectionTitle>
@@ -2381,29 +2648,100 @@ export default function CreateVideoClient({
                 <div className="mt-4 space-y-4">
                   {active === "reference-to-video" && (
                     <>
-                      <UploadRow
-                        title="Reference Clips"
-                        subtitle="1 clip (8s) or 2 clips (5s each)"
-                        accept="video/*"
-                        multiple={true}
-                        files={refClips}
-                        maxFiles={referenceClipMax}
-                        onAddFiles={setRefClips}
-                      />
+                      <div className="rounded-[24px] border border-white/10 bg-black/18 p-2">
+                        <div className="flex gap-1">
+                          <MiniTab
+                            label="Reference Images"
+                            active={referenceInputMode === "images"}
+                            onClick={() => setReferenceInputMode("images")}
+                          />
+                          <MiniTab
+                            label="Named Subjects"
+                            active={referenceInputMode === "subjects"}
+                            onClick={() => setReferenceInputMode("subjects")}
+                            disabled={!canUseSubjectMode}
+                          />
+                        </div>
+                      </div>
 
-                      <UploadRow
-                        title="Reference Images"
-                        subtitle={
-                          refClips.length > 0
-                            ? "Reference clips detected: max 4 images"
-                            : "Upload 1 to 7 images"
-                        }
-                        accept="image/*"
-                        multiple={true}
-                        files={refImages}
-                        maxFiles={referenceImageMax}
-                        onAddFiles={setRefImages}
-                      />
+                      {!canUseSubjectMode && (
+                        <div className="rounded-2xl border border-amber-300/20 bg-amber-400/10 px-3 py-2.5 text-xs text-amber-100">
+                          Named Subjects are currently available with Vidu Q2. Vidu Q2 Pro uses plain image references only.
+                        </div>
+                      )}
+
+                      {referenceInputMode === "images" ? (
+                        <UploadRow
+                          title="Reference Images"
+                          subtitle="Upload 1 to 7 images"
+                          accept="image/*"
+                          multiple={true}
+                          files={refImages}
+                          maxFiles={7}
+                          onAddFiles={setRefImages}
+                        />
+                      ) : (
+                        <>
+                          <div className="flex items-center justify-between rounded-[24px] border border-white/10 bg-black/18 p-4">
+                            <div>
+                              <div className="text-sm font-semibold text-white/92">
+                                Named Subjects
+                              </div>
+                              <div className="mt-1 text-xs text-white/50">
+                                Add 1 to 7 subjects. Each subject can contain up to 3 images.
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={addSubject}
+                              disabled={subjects.length >= 7}
+                              className="inline-flex h-11 items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 text-sm text-white/80 transition hover:border-white/20 hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              <Plus size={16} />
+                              Add subject
+                            </button>
+                          </div>
+
+                          {subjects.length > 0 ? (
+                            <div className="space-y-3">
+                              {subjects.map((subject) => (
+                                <SubjectCard
+                                  key={subject.id}
+                                  subject={subject}
+                                  onChangeName={(value) =>
+                                    updateSubject(subject.id, (prev) => ({
+                                      ...prev,
+                                      name: value,
+                                    }))
+                                  }
+                                  onAddFiles={(files) =>
+                                    updateSubject(subject.id, (prev) => ({
+                                      ...prev,
+                                      files: [...prev.files, ...files].slice(0, 3),
+                                    }))
+                                  }
+                                  onRemoveFile={(index) =>
+                                    updateSubject(subject.id, (prev) => ({
+                                      ...prev,
+                                      files: prev.files.filter((_, i) => i !== index),
+                                    }))
+                                  }
+                                  onRemoveSubject={() => removeSubject(subject.id)}
+                                />
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-6 text-sm text-white/45">
+                              No subjects added yet.
+                            </div>
+                          )}
+
+                          <div className="text-[11px] text-white/38">
+                            Total subject images: {subjectImageCount}/7
+                          </div>
+                        </>
+                      )}
                     </>
                   )}
 
@@ -2438,8 +2776,7 @@ export default function CreateVideoClient({
                             Upload Frames
                           </div>
                           <div className="mt-1 text-xs text-white/55">
-                            Upload Frame 1 for image-to-video, or both Frame 1 and
-                            Frame 2 for start-end-to-video
+                            Upload Frame 1 for image-to-video, or both Frame 1 and Frame 2 for start-end-to-video
                           </div>
                         </div>
 
@@ -2481,9 +2818,11 @@ export default function CreateVideoClient({
                   onChange={(e) => setPrompt(e.target.value)}
                   className="mt-4 h-36 w-full resize-none rounded-[20px] border border-white/10 bg-black/30 px-4 py-3 text-sm text-white placeholder:text-white/36 outline-none transition focus:border-white/25 focus:bg-black/35"
                   placeholder={
-                    active === "text-to-video"
-                      ? "Write the full scene prompt..."
-                      : "Describe motion, camera, lighting, mood, style..."
+                    active === "reference-to-video" && referenceInputMode === "subjects"
+                      ? "Describe the scene and reference your subjects like @hero or @girl..."
+                      : active === "text-to-video"
+                        ? "Write the full scene prompt..."
+                        : "Describe motion, camera, lighting, mood, style..."
                   }
                 />
 
@@ -2604,10 +2943,7 @@ export default function CreateVideoClient({
                 </SectionTitle>
 
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <StatCard
-                    label="Generation cost"
-                    value={`${videoCreditCost} credits`}
-                  />
+                  <StatCard label="Generation cost" value={`${videoCreditCost} credits`} />
                   <StatCard
                     label="Balance after"
                     value={remainingCreditsAfterCreate ?? "Loading..."}
@@ -2639,9 +2975,8 @@ export default function CreateVideoClient({
                             Top up your credits
                           </div>
                           <div className="mt-1 text-xs leading-relaxed text-amber-100/65">
-                            Buy one-time credit packs without changing your
-                            subscription. Purchased top-up credits persist through
-                            monthly resets.
+                            Buy one-time credit packs without changing your subscription.
+                            Purchased top-up credits persist through monthly resets.
                           </div>
                         </div>
 
@@ -2785,9 +3120,7 @@ export default function CreateVideoClient({
                       </div>
                       <div className="mt-1 text-xs text-white/45">
                         {selectedGeneration
-                          ? new Date(
-                              selectedGeneration.createdAt
-                            ).toLocaleString()
+                          ? new Date(selectedGeneration.createdAt).toLocaleString()
                           : "Your generated videos will appear here."}
                       </div>
                     </div>
@@ -2840,7 +3173,7 @@ export default function CreateVideoClient({
                                     {prettyStatus(selectedGeneration.status)}
                                   </div>
                                   <div className="mt-1 text-xs text-white/50">
-                                    Vidu is working on this generation.
+                                    {formatProviderName(selectedGeneration.provider)} is working on this generation.
                                   </div>
                                 </div>
                               </div>
@@ -2858,6 +3191,9 @@ export default function CreateVideoClient({
                         </div>
 
                         <div className="mt-4 flex flex-wrap gap-2 text-xs text-white/50">
+                          <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
+                            {formatProviderName(selectedGeneration.provider)}
+                          </div>
                           <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
                             {formatViduModelName(selectedGeneration.model)}
                           </div>
@@ -2933,9 +3269,7 @@ export default function CreateVideoClient({
                             Create cinematic AI video
                           </div>
                           <div className="mt-1 max-w-xl text-sm text-white/55">
-                            Build motion-driven clips with text prompts, start/end
-                            frames, or reference material. Everything you render
-                            appears here.
+                            Build motion-driven clips with text prompts, start/end frames, or reference material. Everything you render appears here.
                           </div>
 
                           <div className="mt-4 flex flex-wrap gap-2">
@@ -2985,9 +3319,7 @@ export default function CreateVideoClient({
               <div className="rounded-[28px] border border-white/10 bg-black/18 p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-sm font-semibold text-white/90">
-                      Recent
-                    </div>
+                    <div className="text-sm font-semibold text-white/90">Recent</div>
                     <div className="mt-1 text-xs text-white/45">
                       Click a card to preview it
                     </div>

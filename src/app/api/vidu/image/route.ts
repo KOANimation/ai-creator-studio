@@ -95,8 +95,7 @@ export async function POST(req: NextRequest) {
     if (startFrame.size > MAX_IMAGE_FILE_BYTES) {
       return NextResponse.json(
         {
-          error:
-            "Start frame is too large. Vidu allows images up to 50MB.",
+          error: "Start frame is too large. Vidu allows images up to 50MB.",
         },
         { status: 400 }
       );
@@ -111,6 +110,7 @@ export async function POST(req: NextRequest) {
       prompt,
       duration,
       resolution,
+      audio: false,
     };
 
     const payloadString = JSON.stringify(payload);
@@ -134,6 +134,7 @@ export async function POST(req: NextRequest) {
       model,
       duration,
       resolution,
+      audio: false,
       promptLength: prompt.length,
       fileName: startFrame.name,
       fileType: startFrame.type,
