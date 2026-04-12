@@ -691,18 +691,22 @@ function ProviderCardSelector({
                 : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-black/10"
             )}
           >
-            <div className="flex items-center justify-between gap-3">
-              <div className="text-sm font-semibold text-white/92">
-                {formatImageProviderName(option)}
-              </div>
-              {active ? (
-                <div className="rounded-full border border-violet-300/20 bg-violet-400/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-violet-100">
-                  Selected
+            <div className="flex min-h-[108px] flex-col items-start justify-between">
+              <div className="w-full">
+                <div className="text-sm font-semibold text-white/92">
+                  {formatImageProviderName(option)}
                 </div>
-              ) : null}
-            </div>
-            <div className="mt-1 text-xs text-white/48">
-              {getImageProviderMeta(option)}
+
+                {active ? (
+                  <div className="mt-2 inline-flex rounded-full border border-violet-300/20 bg-violet-400/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-violet-100">
+                    Selected
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="mt-3 text-xs text-white/48">
+                {getImageProviderMeta(option)}
+              </div>
             </div>
           </motion.button>
         );
