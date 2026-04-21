@@ -15,27 +15,6 @@ function safeJsonParse(raw: string) {
   }
 }
 
-function pickKlingTaskId(data: any): string | null {
-  return (
-    data?.task_id ??
-    data?.taskId ??
-    data?.data?.task_id ??
-    data?.data?.taskId ??
-    data?.id ??
-    null
-  );
-}
-
-function pickKlingStatus(data: any): string | null {
-  return (
-    data?.task_status ??
-    data?.status ??
-    data?.data?.task_status ??
-    data?.data?.status ??
-    null
-  );
-}
-
 function isSupportedImageType(type: string) {
   return ["image/png", "image/jpeg", "image/jpg"].includes(type);
 }
@@ -62,6 +41,27 @@ function normalizeNumber(value: FormDataEntryValue | null) {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+function pickKlingTaskId(data: any): string | null {
+  return (
+    data?.task_id ??
+    data?.taskId ??
+    data?.data?.task_id ??
+    data?.data?.taskId ??
+    data?.id ??
+    null
+  );
+}
+
+function pickKlingStatus(data: any): string | null {
+  return (
+    data?.task_status ??
+    data?.status ??
+    data?.data?.task_status ??
+    data?.data?.status ??
+    null
+  );
+}
+
 export async function POST(req: NextRequest) {
   try {
     const authHeader = getKlingAuthorizationHeader();
@@ -70,12 +70,32 @@ export async function POST(req: NextRequest) {
     const startFrame = formData.get("startFrame");
     const endFrame = formData.get("endFrame");
 
+    console.log("KLING FORM DATA RECEIVED:", {
+      hasStartFrame: startFrame instanceof File,
+      hasEndFrame: endFrame instanceof File,
+      prompt: normalizeString(formData.get("prompt")),
+      negativePrompt: normalizeString(formData.get("negativePrompt")),
+      duration: normalizeString(formData.get("duration")),
+      mode: normalizeString(formData.get("mode")),
+      withAudio: normalizeString(formData.get("withAudio")),
+      multiShot: normalizeString(formData.get("multiShot")),
+      shotType: normalizeString(formData.get("shotType")),
+      callbackUrl: normalizeString(formData.get("callbackUrl")),
+      externalTaskId: normalizeString(formData.get("externalTaskId")),
+    });
+
     if (!(startFrame instanceof File)) {
       return NextResponse.json(
         { error: "Missing startFrame image." },
         { status: 400 }
       );
     }
+
+    console.log("KLING START FRAME:", {
+      name: startFrame.name,
+      type: startFrame.type,
+      size: startFrame.size,
+    });
 
     if (!isSupportedImageType(startFrame.type)) {
       return NextResponse.json(
@@ -92,6 +112,12 @@ export async function POST(req: NextRequest) {
     }
 
     if (endFrame instanceof File) {
+      console.log("KLING END FRAME:", {
+        name: endFrame.name,
+        type: endFrame.type,
+        size: endFrame.size,
+      });
+
       if (!isSupportedImageType(endFrame.type)) {
         return NextResponse.json(
           { error: "Unsupported endFrame format. Use png, jpg, or jpeg." },
@@ -139,6 +165,11 @@ export async function POST(req: NextRequest) {
     const endFrameBase64 =
       endFrame instanceof File ? await fileToRawBase64(endFrame) : undefined;
 
+    console.log("KLING BASE64 LENGTHS:", {
+      startFrameBase64Length: startFrameBase64.length,
+      endFrameBase64Length: endFrameBase64?.length ?? 0,
+    });
+
     const payload = buildKlingImageToVideoPayload({
       image: startFrameBase64,
       imageTail: endFrameBase64,
@@ -160,7 +191,28 @@ export async function POST(req: NextRequest) {
       externalTaskId: normalizeString(formData.get("externalTaskId")),
     });
 
-    const klingRes = await fetch(`${KLING_API_BASE}/v1/videos/image2video`, {
+    const requestUrl = `${KLING_API_BASE}/v1/videos/image2video`;
+
+    console.log("KLING REQUEST URL:", requestUrl);
+    console.log("KLING REQUEST PAYLOAD SUMMARY:", {
+      model_name: payload.model_name,
+      hasImage: !!payload.image,
+      hasImageTail: !!payload.image_tail,
+      multi_shot: payload.multi_shot,
+      shot_type: payload.shot_type,
+      hasPrompt: !!payload.prompt,
+      multi_prompt_count: payload.multi_prompt?.length ?? 0,
+      sound: payload.sound,
+      mode: payload.mode,
+      duration: payload.duration,
+      hasNegativePrompt: !!payload.negative_prompt,
+      hasCameraControl: !!payload.camera_control,
+      hasWatermarkInfo: !!payload.watermark_info,
+      callback_url: payload.callback_url,
+      external_task_id: payload.external_task_id,
+    });
+
+    const klingRes = await fetch(requestUrl, {
       method: "POST",
       headers: {
         Authorization: authHeader,
@@ -173,10 +225,14 @@ export async function POST(req: NextRequest) {
     const raw = await klingRes.text();
     const data = safeJsonParse(raw);
 
+    console.log("KLING RESPONSE STATUS:", klingRes.status);
+    console.log("KLING RESPONSE RAW:", raw);
+
     if (!klingRes.ok) {
       return NextResponse.json(
         {
           error: "Failed to create Kling image-to-video task.",
+          status: klingRes.status,
           details: data ?? raw,
         },
         { status: klingRes.status }
@@ -193,12 +249,19 @@ export async function POST(req: NextRequest) {
       raw: data ?? raw,
     });
   } catch (error) {
+    console.error("Kling image-to-video route error:", error);
+
     return NextResponse.json(
       {
         error:
           error instanceof Error
             ? error.message
             : "Failed to create Kling image-to-video task.",
+        name: error instanceof Error ? error.name : undefined,
+        stack:
+          process.env.NODE_ENV !== "production" && error instanceof Error
+            ? error.stack
+            : undefined,
       },
       { status: 500 }
     );
