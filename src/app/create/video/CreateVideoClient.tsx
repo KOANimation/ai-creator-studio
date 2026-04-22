@@ -460,7 +460,7 @@ function GlassPanel({
       )}
     >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_35%)]" />
-      <div className="relative">{children}</div>
+      <div className="relative h-full min-h-0">{children}</div>
     </motion.div>
   );
 }
