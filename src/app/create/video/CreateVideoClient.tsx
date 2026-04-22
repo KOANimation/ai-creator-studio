@@ -33,14 +33,24 @@ import {
 import TopupButtons from "@/app/components/TopupButtons";
 
 type VideoToolKey = "reference-to-video" | "image-to-video" | "text-to-video";
+
 type GenerationKind =
   | "reference-to-video"
   | "image-to-video"
   | "start-end-to-video"
   | "text-to-video";
 
-type VideoProvider = "vidu";
+type VideoProvider = "vidu" | "kling";
 type ReferenceInputMode = "images" | "subjects";
+
+type KlingShotType = "intelligence" | "customize";
+type KlingMode = "std" | "pro";
+
+type KlingCustomShot = {
+  id: string;
+  prompt: string;
+  duration: number;
+};
 
 type SavedGenerationStatus =
   | "uploading"
@@ -69,6 +79,10 @@ type SavedGeneration = {
   error: string | null;
   chargedCredits: number;
   refundStatus: RefundStatus;
+
+  klingMultiShot?: boolean;
+  klingShotType?: KlingShotType;
+  klingWithAudio?: boolean;
 };
 
 type SubjectReference = {
@@ -87,11 +101,18 @@ const VIDEO_PROVIDERS: Array<{
   value: VideoProvider;
   label: string;
   meta: string;
-}> = [{ value: "vidu", label: "Vidu AI", meta: "cinematic video generation" }];
+}> = [
+  { value: "vidu", label: "Vidu AI", meta: "cinematic video generation" },
+  { value: "kling", label: "Kling AI", meta: "kling-v3 image-to-video" },
+];
 
 const ALL_DURATION_OPTIONS = Array.from({ length: 16 }, (_, i) => i + 1);
 const ALL_ASPECT_OPTIONS = ["16:9", "9:16", "1:1", "3:4", "4:3"];
 const GENERATIONS_STORAGE_KEY = "koa_video_generations_v1";
+
+const KLING_ALLOWED_DURATIONS = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+const KLING_ALLOWED_ASPECTS = ["16:9", "9:16", "1:1"];
+const KLING_ALLOWED_RESOLUTIONS = ["720p"];
 
 const PROMPT_PRESETS = [
   "cinematic camera movement, moody lighting, dramatic atmosphere",
@@ -104,6 +125,17 @@ const PROMPT_PRESETS = [
 
 function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
+}
+
+function createKlingCustomShot(duration = 1): KlingCustomShot {
+  return {
+    id:
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random()}`,
+    prompt: "",
+    duration,
+  };
 }
 
 function formatViduModelName(model: string) {
@@ -124,6 +156,8 @@ function formatViduModelName(model: string) {
       return "Vidu Q1";
     case "vidu2.0":
       return "Vidu 2.0";
+    case "kling-v3":
+      return "Kling v3";
     default:
       return model;
   }
@@ -131,10 +165,12 @@ function formatViduModelName(model: string) {
 
 function formatProviderName(provider: VideoProvider) {
   if (provider === "vidu") return "Vidu AI";
+  if (provider === "kling") return "Kling AI";
   return provider;
 }
 
 function getModelMeta(model: string, kind: GenerationKind) {
+  if (model === "kling-v3") return "kling image-to-video";
   if (model === "viduq3-pro") return "highest quality";
   if (model === "viduq3-turbo") return "fast + premium";
   if (model === "viduq2-pro-fast") return "faster pro";
@@ -145,6 +181,7 @@ function getModelMeta(model: string, kind: GenerationKind) {
 }
 
 function getVideoGenerationCost({
+  provider,
   kind,
   model,
   duration,
@@ -152,7 +189,9 @@ function getVideoGenerationCost({
   amount,
   refImageCount,
   subjectImageCount,
+  klingMultiShot,
 }: {
+  provider: VideoProvider;
   kind: GenerationKind;
   model: string;
   duration: number;
@@ -160,8 +199,26 @@ function getVideoGenerationCost({
   amount: number;
   refImageCount: number;
   subjectImageCount: number;
+  klingMultiShot?: boolean;
 }) {
   let baseCost = 0;
+
+  if (provider === "kling") {
+    if (kind === "image-to-video") {
+      baseCost = klingMultiShot ? 30 : 24;
+    } else if (kind === "start-end-to-video") {
+      baseCost = 28;
+    } else {
+      baseCost = 24;
+    }
+
+    let durationExtra = 0;
+    if (duration >= 5) durationExtra += (duration - 4) * 3;
+    if (duration >= 10) durationExtra += 4;
+    if (duration >= 13) durationExtra += 6;
+
+    return (baseCost + durationExtra) * amount;
+  }
 
   if (kind === "reference-to-video") {
     switch (model) {
@@ -263,6 +320,18 @@ function getVideoGenerationCost({
 
   const perVideoCost = baseCost + durationExtra + resolutionExtra + referenceExtra;
   return perVideoCost * amount;
+}
+
+function getProviderOptions(active: VideoToolKey) {
+  if (active === "image-to-video") {
+    return VIDEO_PROVIDERS;
+  }
+
+  return VIDEO_PROVIDERS.filter((provider) => provider.value === "vidu");
+}
+
+function isKlingAvailableForTool(active: VideoToolKey) {
+  return active === "image-to-video";
 }
 
 function WallpaperRevealBackground({
@@ -1069,6 +1138,13 @@ function getCurrentKind(
 }
 
 function getModelOptions(provider: VideoProvider, kind: GenerationKind): string[] {
+  if (provider === "kling") {
+    if (kind === "image-to-video" || kind === "start-end-to-video") {
+      return ["kling-v3"];
+    }
+    return [];
+  }
+
   if (provider === "vidu") {
     switch (kind) {
       case "reference-to-video":
@@ -1099,7 +1175,18 @@ function getModelOptions(provider: VideoProvider, kind: GenerationKind): string[
   return ["viduq2-pro"];
 }
 
-function getAllowedDurations(kind: GenerationKind, model: string): number[] {
+function getAllowedDurations(
+  provider: VideoProvider,
+  kind: GenerationKind,
+  model: string
+): number[] {
+  if (provider === "kling") {
+    if (kind === "image-to-video" || kind === "start-end-to-video") {
+      return KLING_ALLOWED_DURATIONS;
+    }
+    return [5];
+  }
+
   if (kind === "reference-to-video") {
     if (model === "viduq2-pro") return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
     if (model === "viduq2") return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
@@ -1140,10 +1227,18 @@ function getAllowedDurations(kind: GenerationKind, model: string): number[] {
 }
 
 function getAllowedResolutions(
+  provider: VideoProvider,
   kind: GenerationKind,
   model: string,
   duration: number
 ): string[] {
+  if (provider === "kling") {
+    if (kind === "image-to-video" || kind === "start-end-to-video") {
+      return KLING_ALLOWED_RESOLUTIONS;
+    }
+    return ["720p"];
+  }
+
   if (kind === "reference-to-video") {
     if (model === "viduq2-pro" || model === "viduq2") {
       return ["540p", "720p", "1080p"];
@@ -1188,6 +1283,14 @@ function getAllowedResolutions(
   }
 
   return ["720p"];
+}
+
+function getAllowedAspects(provider: VideoProvider, active: VideoToolKey) {
+  if (provider === "kling" && active === "image-to-video") {
+    return KLING_ALLOWED_ASPECTS;
+  }
+
+  return ALL_ASPECT_OPTIONS;
 }
 
 function getStatusBadgeClasses(status: SavedGenerationStatus) {
@@ -1264,6 +1367,12 @@ function normalizeGeneration(item: Partial<SavedGeneration>): SavedGeneration {
       item.refundStatus === "none"
         ? item.refundStatus
         : "none",
+    klingMultiShot: item.klingMultiShot ?? false,
+    klingShotType:
+      item.klingShotType === "intelligence" || item.klingShotType === "customize"
+        ? item.klingShotType
+        : undefined,
+    klingWithAudio: item.klingWithAudio ?? false,
   };
 }
 
@@ -1361,6 +1470,14 @@ function VideoHistoryCard({
             <div className="rounded-full border border-white/10 bg-black/35 px-2.5 py-1">
               {item.aspect}
             </div>
+            <div className="rounded-full border border-white/10 bg-black/35 px-2.5 py-1">
+              {formatProviderName(item.provider)}
+            </div>
+            {item.provider === "kling" && item.klingMultiShot ? (
+              <div className="rounded-full border border-white/10 bg-black/35 px-2.5 py-1">
+                multi-shot
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
@@ -1405,11 +1522,22 @@ export default function CreateVideoClient({
   const [subjects, setSubjects] = useState<SubjectReference[]>([]);
 
   const [prompt, setPrompt] = useState("");
+  const [negativePrompt, setNegativePrompt] = useState("");
+
   const [model, setModel] = useState("viduq2-pro");
   const [resolution, setResolution] = useState("1080p");
   const [duration, setDuration] = useState<number>(5);
   const [amount, setAmount] = useState<number>(2);
   const [aspect, setAspect] = useState<string>("16:9");
+
+  const [klingMode, setKlingMode] = useState<KlingMode>("std");
+  const [klingMultiShot, setKlingMultiShot] = useState(false);
+  const [klingShotType, setKlingShotType] = useState<KlingShotType>("intelligence");
+  const [klingWithAudio, setKlingWithAudio] = useState(false);
+  const [klingCustomShots, setKlingCustomShots] = useState<KlingCustomShot[]>([
+    createKlingCustomShot(2),
+    createKlingCustomShot(3),
+  ]);
 
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1440,13 +1568,49 @@ export default function CreateVideoClient({
     [subjects]
   );
 
-  const canUseSubjectMode = active === "reference-to-video" && model !== "viduq2-pro";
+  const providerOptions = useMemo(() => getProviderOptions(active), [active]);
+  const canUseSubjectMode =
+    active === "reference-to-video" && provider === "vidu" && model !== "viduq2-pro";
+  const klingAvailable = isKlingAvailableForTool(active);
+  const isKling = provider === "kling";
+  const klingMultiShotLockedByEndFrame =
+    active === "image-to-video" && !!endFrame && isKling;
+
+  useEffect(() => {
+    if (!providerOptions.some((option) => option.value === provider)) {
+      setProvider(providerOptions[0]?.value ?? "vidu");
+    }
+  }, [providerOptions, provider]);
 
   useEffect(() => {
     if (!canUseSubjectMode && referenceInputMode === "subjects") {
       setReferenceInputMode("images");
     }
   }, [canUseSubjectMode, referenceInputMode]);
+
+  useEffect(() => {
+    if (isKling && active !== "image-to-video") {
+      setProvider("vidu");
+    }
+  }, [isKling, active]);
+
+  useEffect(() => {
+    if (!isKling) {
+      setNegativePrompt("");
+      setKlingMultiShot(false);
+      setKlingShotType("intelligence");
+      setKlingWithAudio(false);
+      setKlingMode("std");
+      setKlingCustomShots([createKlingCustomShot(2), createKlingCustomShot(3)]);
+    }
+  }, [isKling]);
+
+  useEffect(() => {
+    if (isKling && endFrame && klingMultiShot) {
+      setKlingMultiShot(false);
+      setKlingShotType("intelligence");
+    }
+  }, [isKling, endFrame, klingMultiShot]);
 
   const setStartFile = (f: File | null) => {
     setStartFrame(f);
@@ -1545,18 +1709,23 @@ export default function CreateVideoClient({
   );
 
   const allowedDurations = useMemo(
-    () => getAllowedDurations(currentKind, model),
-    [currentKind, model]
+    () => getAllowedDurations(provider, currentKind, model),
+    [provider, currentKind, model]
   );
 
   const allowedResolutions = useMemo(
-    () => getAllowedResolutions(currentKind, model, duration),
-    [currentKind, model, duration]
+    () => getAllowedResolutions(provider, currentKind, model, duration),
+    [provider, currentKind, model, duration]
+  );
+
+  const allowedAspects = useMemo(
+    () => getAllowedAspects(provider, active),
+    [provider, active]
   );
 
   useEffect(() => {
     if (!modelOptions.includes(model)) {
-      setModel(modelOptions[0]);
+      setModel(modelOptions[0] ?? "viduq2-pro");
     }
   }, [modelOptions, model]);
 
@@ -1572,8 +1741,69 @@ export default function CreateVideoClient({
     }
   }, [allowedResolutions, resolution]);
 
+  useEffect(() => {
+    if (!allowedAspects.includes(aspect)) {
+      setAspect(allowedAspects[0]);
+    }
+  }, [allowedAspects, aspect]);
+
+  useEffect(() => {
+    if (!isKling) return;
+    if (!klingMultiShot) return;
+
+    if (klingShotType === "customize") {
+      const total = klingCustomShots.reduce((sum, shot) => sum + shot.duration, 0);
+
+      if (total === duration) return;
+
+      setKlingCustomShots((prev) => {
+        if (prev.length === 0) return [createKlingCustomShot(duration)];
+
+        const next = [...prev];
+        const diff = duration - total;
+        const last = next[next.length - 1];
+        const adjusted = Math.max(1, last.duration + diff);
+        next[next.length - 1] = { ...last, duration: adjusted };
+
+        const reTotal = next.reduce((sum, shot) => sum + shot.duration, 0);
+        if (reTotal !== duration) {
+          const finalDiff = duration - reTotal;
+          next[next.length - 1] = {
+            ...next[next.length - 1],
+            duration: Math.max(1, next[next.length - 1].duration + finalDiff),
+          };
+        }
+
+        return next;
+      });
+    }
+  }, [isKling, klingMultiShot, klingShotType, klingCustomShots, duration]);
+
+  const klingCustomDurationSum = useMemo(
+    () => klingCustomShots.reduce((sum, shot) => sum + shot.duration, 0),
+    [klingCustomShots]
+  );
+
+  const klingCustomShotsValid = useMemo(() => {
+    if (!isKling || !klingMultiShot || klingShotType !== "customize") return true;
+    if (klingCustomShots.length === 0 || klingCustomShots.length > 6) return false;
+    if (klingCustomDurationSum !== duration) return false;
+
+    return klingCustomShots.every(
+      (shot) => shot.prompt.trim().length > 0 && Number.isInteger(shot.duration) && shot.duration >= 1
+    );
+  }, [
+    isKling,
+    klingMultiShot,
+    klingShotType,
+    klingCustomShots,
+    klingCustomDurationSum,
+    duration,
+  ]);
+
   const videoCreditCost = useMemo(() => {
     return getVideoGenerationCost({
+      provider,
       kind: currentKind,
       model,
       duration,
@@ -1581,8 +1811,10 @@ export default function CreateVideoClient({
       amount,
       refImageCount: referenceInputMode === "images" ? refImages.length : 0,
       subjectImageCount: referenceInputMode === "subjects" ? subjectImageCount : 0,
+      klingMultiShot,
     });
   }, [
+    provider,
     currentKind,
     model,
     duration,
@@ -1591,6 +1823,7 @@ export default function CreateVideoClient({
     refImages.length,
     subjectImageCount,
     referenceInputMode,
+    klingMultiShot,
   ]);
 
   const remainingCreditsAfterCreate =
@@ -1696,6 +1929,26 @@ export default function CreateVideoClient({
 
   const removeSubject = (subjectId: string) => {
     setSubjects((prev) => prev.filter((subject) => subject.id !== subjectId));
+  };
+
+  const addKlingCustomShot = () => {
+    setKlingCustomShots((prev) => {
+      if (prev.length >= 6) return prev;
+      return [...prev, createKlingCustomShot(1)];
+    });
+  };
+
+  const updateKlingCustomShot = (
+    shotId: string,
+    updater: (shot: KlingCustomShot) => KlingCustomShot
+  ) => {
+    setKlingCustomShots((prev) =>
+      prev.map((shot) => (shot.id === shotId ? updater(shot) : shot))
+    );
+  };
+
+  const removeKlingCustomShot = (shotId: string) => {
+    setKlingCustomShots((prev) => prev.filter((shot) => shot.id !== shotId));
   };
 
   const createReferenceToVideo = async () => {
@@ -1926,7 +2179,263 @@ export default function CreateVideoClient({
     }
   };
 
+  const createKlingImageVideo = async () => {
+    const batchKey =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random()}`;
+
+    try {
+      setError(null);
+      setIsCreating(true);
+
+      if (!user) {
+        throw new Error("You must be logged in.");
+      }
+
+      if (effectiveCredits != null && effectiveCredits < videoCreditCost) {
+        throw new Error(
+          `You need ${videoCreditCost} credits, but only have ${effectiveCredits}.`
+        );
+      }
+
+      if (!startFrame) {
+        throw new Error("Please upload a start frame.");
+      }
+
+      if (!startFrame.type.startsWith("image/")) {
+        throw new Error("Start frame must be an image.");
+      }
+
+      if (endFrame && !endFrame.type.startsWith("image/")) {
+        throw new Error("End frame must be an image.");
+      }
+
+      if (startFrame.size > 10 * 1024 * 1024) {
+        throw new Error("Kling start frame must be 10MB or smaller.");
+      }
+
+      if (endFrame && endFrame.size > 10 * 1024 * 1024) {
+        throw new Error("Kling end frame must be 10MB or smaller.");
+      }
+
+      if (klingMultiShot && endFrame) {
+        throw new Error("Multi-shot cannot be used when an end frame is provided.");
+      }
+
+      if (klingMultiShot) {
+        if (klingShotType === "intelligence") {
+          if (!prompt.trim()) {
+            throw new Error("Please enter a prompt for Kling multi-shot auto mode.");
+          }
+        }
+
+        if (klingShotType === "customize") {
+          if (!klingCustomShotsValid) {
+            throw new Error(
+              "Custom shot builder is invalid. Each shot needs a prompt, and total shot duration must equal the selected duration."
+            );
+          }
+        }
+      } else {
+        if (!prompt.trim()) {
+          throw new Error("Please enter a prompt.");
+        }
+      }
+
+      const mode: GenerationKind = endFrame ? "start-end-to-video" : "image-to-video";
+      const perItemCredits = videoCreditCost / amount;
+
+      await deductCredits(
+        videoCreditCost,
+        endFrame ? "Kling start-end video generation" : "Kling image to video generation",
+        {
+          kind: mode,
+          provider: "kling",
+          model: "kling-v3",
+          duration,
+          resolution,
+          aspect,
+          amount,
+          klingMode,
+          klingMultiShot,
+          klingShotType: klingMultiShot ? klingShotType : null,
+          klingWithAudio,
+          batchKey,
+        }
+      );
+
+      const requests = Array.from({ length: amount }, async () => {
+        const formData = new FormData();
+        formData.append("startFrame", startFrame);
+
+        if (endFrame) {
+          formData.append("endFrame", endFrame);
+        }
+
+        if (!klingMultiShot || klingShotType === "intelligence") {
+          formData.append("prompt", prompt);
+        }
+
+        if (negativePrompt.trim()) {
+          formData.append("negativePrompt", negativePrompt);
+        }
+
+        formData.append("duration", String(duration));
+        formData.append("mode", klingMode);
+        formData.append("withAudio", String(klingWithAudio));
+        formData.append("multiShot", String(klingMultiShot));
+
+        if (klingMultiShot) {
+          formData.append("shotType", klingShotType);
+        }
+
+        if (klingMultiShot && klingShotType === "customize") {
+          formData.append(
+            "multiPrompt",
+            JSON.stringify(
+              klingCustomShots.map((shot, index) => ({
+                index: index + 1,
+                prompt: shot.prompt.trim(),
+                duration: String(shot.duration),
+              }))
+            )
+          );
+        }
+
+        const res = await fetch("/api/kling/image-to-video", {
+          method: "POST",
+          body: formData,
+        });
+
+        const raw = await res.text();
+        const data = parseJsonSafely(raw);
+
+        if (!res.ok) {
+          throw new Error(
+            (data as { details?: { message?: string }; error?: string } | null)
+              ?.details?.message ||
+              (data as { error?: string } | null)?.error ||
+              raw ||
+              "Failed to create Kling task."
+          );
+        }
+
+        const createdTaskId =
+          (data as { taskId?: string } | null)?.taskId ?? "";
+        const apiStatus =
+          (data as { status?: string } | null)?.status?.toLowerCase() ?? "submitted";
+
+        let createdState: SavedGenerationStatus = "created";
+
+        if (apiStatus.includes("queue")) createdState = "queueing";
+        else if (apiStatus.includes("process")) createdState = "processing";
+        else if (apiStatus.includes("success") || apiStatus.includes("succeed")) {
+          createdState = "success";
+        } else if (apiStatus.includes("fail")) {
+          createdState = "failed";
+        }
+
+        if (!createdTaskId) {
+          throw new Error("Kling task created but no task id was returned.");
+        }
+
+        return {
+          taskId: createdTaskId,
+          state: createdState,
+          kind: mode,
+        };
+      });
+
+      const results = await Promise.allSettled(requests);
+
+      const successes = results.flatMap((result) =>
+        result.status === "fulfilled" ? [result.value] : []
+      );
+
+      const failedCount = results.length - successes.length;
+
+      if (failedCount > 0) {
+        const refundAmount = perItemCredits * failedCount;
+        try {
+          await refundCredits(
+            refundAmount,
+            "Refund for failed Kling batch items",
+            buildBatchRefundReferenceKey(`${batchKey}:${mode}:kling:${failedCount}`),
+            {
+              batchKey,
+              kind: mode,
+              failedCount,
+              amountRefunded: refundAmount,
+              provider: "kling",
+              model: "kling-v3",
+              duration,
+              resolution,
+              aspect,
+              klingMultiShot,
+              klingShotType: klingMultiShot ? klingShotType : null,
+            }
+          );
+        } catch (refundErr) {
+          console.error("Kling batch refund failed:", refundErr);
+        }
+      }
+
+      if (successes.length === 0) {
+        throw new Error("No Kling video tasks were created.");
+      }
+
+      const timestamp = new Date().toISOString();
+
+      const newGenerations: SavedGeneration[] = successes.map((task, index) =>
+        normalizeGeneration({
+          id:
+            typeof crypto !== "undefined" && "randomUUID" in crypto
+              ? crypto.randomUUID()
+              : `${Date.now()}-${index}-${Math.random()}`,
+          kind: task.kind,
+          taskId: task.taskId,
+          prompt,
+          provider: "kling",
+          model: "kling-v3",
+          duration,
+          resolution,
+          aspect,
+          createdAt: timestamp,
+          status: task.state,
+          videoUrl: null,
+          coverUrl: null,
+          error: null,
+          chargedCredits: perItemCredits,
+          refundStatus: "none",
+          klingMultiShot,
+          klingShotType: klingMultiShot ? klingShotType : undefined,
+          klingWithAudio,
+        })
+      );
+
+      setGenerations((prev) => [...newGenerations, ...prev]);
+      setSelectedGeneration(newGenerations[0] ?? null);
+
+      if (failedCount > 0) {
+        setError(
+          `${failedCount} Kling generation${failedCount > 1 ? "s were" : " was"} not created and refunded automatically.`
+        );
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setIsCreating(false);
+      await refreshCredits();
+    }
+  };
+
   const createImageOrStartEndVideo = async () => {
+    if (provider === "kling") {
+      await createKlingImageVideo();
+      return;
+    }
+
     const batchKey =
       typeof crypto !== "undefined" && "randomUUID" in crypto
         ? crypto.randomUUID()
@@ -2304,8 +2813,69 @@ export default function CreateVideoClient({
     let cancelled = false;
     let interval: ReturnType<typeof setInterval> | null = null;
 
-    const pollOne = async (generationTaskId: string) => {
-      const res = await fetch(`/api/vidu/tasks/${generationTaskId}`, {
+    const pollOne = async (item: SavedGeneration) => {
+      if (item.provider === "kling") {
+        const res = await fetch(`/api/kling/tasks/${item.taskId}`, {
+          method: "GET",
+          cache: "no-store",
+        });
+
+        const raw = await res.text();
+        const data = parseJsonSafely(raw);
+
+        if (!res.ok) {
+          throw new Error(
+            (data as { error?: string } | null)?.error ||
+              raw ||
+              "Failed to fetch Kling task status."
+          );
+        }
+
+        const typed = data as
+          | {
+              status?: string;
+              videoUrl?: string | null;
+              coverUrl?: string | null;
+              raw?: any;
+            }
+          | null;
+
+        const rawStatus = typed?.status?.toLowerCase() ?? "";
+        let state: SavedGenerationStatus | null = item.status;
+
+        if (rawStatus.includes("queue")) state = "queueing";
+        else if (
+          rawStatus.includes("process") ||
+          rawStatus.includes("running") ||
+          rawStatus.includes("submit")
+        ) {
+          state = "processing";
+        } else if (
+          rawStatus.includes("success") ||
+          rawStatus.includes("succeed") ||
+          rawStatus.includes("completed")
+        ) {
+          state = "success";
+        } else if (rawStatus.includes("fail")) {
+          state = "failed";
+        }
+
+        return {
+          taskId: item.taskId,
+          state,
+          errCode:
+            typed?.raw?.error_code ??
+            typed?.raw?.error ??
+            typed?.raw?.data?.error ??
+            null,
+          creation: {
+            url: typed?.videoUrl ?? null,
+            cover_url: typed?.coverUrl ?? null,
+          },
+        };
+      }
+
+      const res = await fetch(`/api/vidu/tasks/${item.taskId}`, {
         method: "GET",
         cache: "no-store",
       });
@@ -2330,7 +2900,7 @@ export default function CreateVideoClient({
         | null;
 
       return {
-        taskId: generationTaskId,
+        taskId: item.taskId,
         state: typed?.state ?? null,
         errCode: typed?.err_code ?? null,
         creation: typed?.creations?.[0] ?? null,
@@ -2340,7 +2910,7 @@ export default function CreateVideoClient({
     const pollAll = async () => {
       try {
         const results = await Promise.all(
-          pendingGenerations.map((item) => pollOne(item.taskId))
+          pendingGenerations.map((item) => pollOne(item))
         );
 
         if (cancelled) return;
@@ -2369,7 +2939,12 @@ export default function CreateVideoClient({
               return {
                 ...item,
                 status: "failed" as const,
-                error: match.errCode || "Vidu generation failed.",
+                error:
+                  typeof match.errCode === "string" && match.errCode
+                    ? match.errCode
+                    : item.provider === "kling"
+                      ? "Kling generation failed."
+                      : "Vidu generation failed.",
                 refundStatus:
                   item.refundStatus === "refunded" ? "refunded" : "pending",
               };
@@ -2441,6 +3016,9 @@ export default function CreateVideoClient({
               resolution: item.resolution,
               aspect: item.aspect,
               chargedCredits: item.chargedCredits,
+              klingMultiShot: item.klingMultiShot ?? false,
+              klingShotType: item.klingShotType ?? null,
+              klingWithAudio: item.klingWithAudio ?? false,
             }
           );
 
@@ -2533,6 +3111,12 @@ export default function CreateVideoClient({
     setDuration(item.duration);
     setResolution(item.resolution);
     setAspect(item.aspect);
+
+    if (item.provider === "kling") {
+      setKlingMultiShot(item.klingMultiShot ?? false);
+      setKlingShotType(item.klingShotType ?? "intelligence");
+      setKlingWithAudio(item.klingWithAudio ?? false);
+    }
   };
 
   const remixGeneration = (item: SavedGeneration) => {
@@ -2542,7 +3126,7 @@ export default function CreateVideoClient({
 
   const renderTimeline = currentTask ? getTimelineSteps(currentTask.status) : [];
 
-  return (
+    return (
     <div className="relative min-h-screen overflow-x-hidden text-white">
       <WallpaperRevealBackground src="/wallpaper.jpg" radius={260} />
 
@@ -2634,10 +3218,22 @@ export default function CreateVideoClient({
                 <div className="mt-4">
                   <ProviderCardSelector
                     value={provider}
-                    options={VIDEO_PROVIDERS}
+                    options={providerOptions}
                     onChange={setProvider}
                   />
                 </div>
+
+                {active !== "image-to-video" && (
+                  <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-xs text-white/55">
+                    Kling is only available for Image to Video.
+                  </div>
+                )}
+
+                {active === "image-to-video" && klingAvailable && (
+                  <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-xs text-white/55">
+                    Kling uses only <span className="text-white/80">kling-v3</span> and only inside Image to Video.
+                  </div>
+                )}
               </div>
 
               <div className="rounded-[24px] border border-white/10 bg-black/22 p-4">
@@ -2797,6 +3393,232 @@ export default function CreateVideoClient({
                           />
                         </div>
                       </div>
+
+                      {isKling && (
+                        <div className="rounded-[24px] border border-white/10 bg-black/18 p-4">
+                          <SectionTitle icon={<Clapperboard size={14} />} kicker="Kling v3">
+                            Kling Story Controls
+                          </SectionTitle>
+
+                          <div className="mt-4 space-y-4">
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (!klingMultiShotLockedByEndFrame) {
+                                    setKlingMultiShot((prev) => !prev);
+                                  }
+                                }}
+                                disabled={klingMultiShotLockedByEndFrame}
+                                className={cn(
+                                  "rounded-2xl border p-4 text-left transition",
+                                  klingMultiShot
+                                    ? "border-violet-300/25 bg-violet-400/12"
+                                    : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-black/10",
+                                  klingMultiShotLockedByEndFrame &&
+                                    "cursor-not-allowed opacity-50"
+                                )}
+                              >
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="text-sm font-semibold text-white/92">
+                                    Multi-shot
+                                  </div>
+                                  <div
+                                    className={cn(
+                                      "rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.14em]",
+                                      klingMultiShot
+                                        ? "border-violet-300/20 bg-violet-400/10 text-violet-100"
+                                        : "border-white/10 bg-black/35 text-white/60"
+                                    )}
+                                  >
+                                    {klingMultiShot ? "On" : "Off"}
+                                  </div>
+                                </div>
+                                <div className="mt-1 text-xs text-white/48">
+                                  Turn one start frame into a storyboard-driven video.
+                                </div>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => setKlingWithAudio((prev) => !prev)}
+                                className={cn(
+                                  "rounded-2xl border p-4 text-left transition",
+                                  klingWithAudio
+                                    ? "border-violet-300/25 bg-violet-400/12"
+                                    : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-black/10"
+                                )}
+                              >
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="text-sm font-semibold text-white/92">
+                                    Audio
+                                  </div>
+                                  <div
+                                    className={cn(
+                                      "rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.14em]",
+                                      klingWithAudio
+                                        ? "border-violet-300/20 bg-violet-400/10 text-violet-100"
+                                        : "border-white/10 bg-black/35 text-white/60"
+                                    )}
+                                  >
+                                    {klingWithAudio ? "On" : "Off"}
+                                  </div>
+                                </div>
+                                <div className="mt-1 text-xs text-white/48">
+                                  Request audio generation from Kling.
+                                </div>
+                              </button>
+                            </div>
+
+                            {klingMultiShotLockedByEndFrame && (
+                              <div className="rounded-2xl border border-amber-300/20 bg-amber-400/10 px-3 py-2.5 text-xs text-amber-100">
+                                Multi-shot is disabled while an end frame exists. Remove Frame 2 to enable Kling multi-shot.
+                              </div>
+                            )}
+
+                            <div>
+                              <div className="mb-2 text-sm text-white/70">Quality mode</div>
+                              <ChipSelector
+                                value={klingMode}
+                                onChange={(next) => setKlingMode(next as KlingMode)}
+                                options={[
+                                  { value: "std", label: "Standard", meta: "balanced" },
+                                  { value: "pro", label: "Pro", meta: "higher quality" },
+                                ]}
+                              />
+                            </div>
+
+                            {klingMultiShot && (
+                              <>
+                                <div>
+                                  <div className="mb-2 text-sm text-white/70">Shot type</div>
+                                  <div className="rounded-[24px] border border-white/10 bg-black/18 p-2">
+                                    <div className="flex gap-1">
+                                      <MiniTab
+                                        label="Auto"
+                                        active={klingShotType === "intelligence"}
+                                        onClick={() => setKlingShotType("intelligence")}
+                                      />
+                                      <MiniTab
+                                        label="Custom"
+                                        active={klingShotType === "customize"}
+                                        onClick={() => setKlingShotType("customize")}
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {klingShotType === "intelligence" ? (
+                                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-3 text-xs text-white/55">
+                                    Auto mode uses your main prompt and lets Kling intelligently split the scene into multiple shots.
+                                  </div>
+                                ) : (
+                                  <div className="space-y-3">
+                                    <div className="flex items-center justify-between rounded-[24px] border border-white/10 bg-black/18 p-4">
+                                      <div>
+                                        <div className="text-sm font-semibold text-white/92">
+                                          Custom Shot Builder
+                                        </div>
+                                        <div className="mt-1 text-xs text-white/50">
+                                          Up to 6 shots. The total duration must equal {duration}s.
+                                        </div>
+                                      </div>
+
+                                      <button
+                                        type="button"
+                                        onClick={addKlingCustomShot}
+                                        disabled={klingCustomShots.length >= 6}
+                                        className="inline-flex h-11 items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 text-sm text-white/80 transition hover:border-white/20 hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-40"
+                                      >
+                                        <Plus size={16} />
+                                        Add shot
+                                      </button>
+                                    </div>
+
+                                    {klingCustomShots.map((shot, index) => (
+                                      <div
+                                        key={shot.id}
+                                        className="rounded-[24px] border border-white/10 bg-black/18 p-4"
+                                      >
+                                        <div className="flex items-start justify-between gap-3">
+                                          <div>
+                                            <div className="text-sm font-semibold text-white/92">
+                                              Shot {index + 1}
+                                            </div>
+                                            <div className="mt-1 text-xs text-white/50">
+                                              Define the action and timing for this storyboard shot.
+                                            </div>
+                                          </div>
+
+                                          <button
+                                            type="button"
+                                            onClick={() => removeKlingCustomShot(shot.id)}
+                                            className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white/70 transition hover:border-white/20 hover:bg-white/[0.08]"
+                                            title="Remove shot"
+                                          >
+                                            <Trash2 size={14} />
+                                          </button>
+                                        </div>
+
+                                        <textarea
+                                          value={shot.prompt}
+                                          onChange={(e) =>
+                                            updateKlingCustomShot(shot.id, (prev) => ({
+                                              ...prev,
+                                              prompt: e.target.value,
+                                            }))
+                                          }
+                                          placeholder="Describe this specific shot..."
+                                          className="mt-4 h-28 w-full resize-none rounded-[20px] border border-white/10 bg-black/30 px-4 py-3 text-sm text-white placeholder:text-white/36 outline-none transition focus:border-white/25 focus:bg-black/35"
+                                        />
+
+                                        <div className="mt-4">
+                                          <div className="mb-2 text-sm text-white/70">
+                                            Shot duration
+                                          </div>
+                                          <div className="grid grid-cols-6 gap-2">
+                                            {[1, 2, 3, 4, 5, 6].map((n) => (
+                                              <button
+                                                key={n}
+                                                type="button"
+                                                onClick={() =>
+                                                  updateKlingCustomShot(shot.id, (prev) => ({
+                                                    ...prev,
+                                                    duration: n,
+                                                  }))
+                                                }
+                                                className={cn(
+                                                  "cursor-pointer rounded-2xl border px-3 py-3 text-sm font-medium transition",
+                                                  shot.duration === n
+                                                    ? "border-violet-300/25 bg-violet-400/12 text-white shadow-[0_10px_24px_rgba(139,92,246,0.12)]"
+                                                    : "border-white/10 bg-black/20 text-white/70 hover:border-white/20 hover:bg-black/10"
+                                                )}
+                                              >
+                                                {n}
+                                              </button>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))}
+
+                                    <div
+                                      className={cn(
+                                        "rounded-2xl border px-3 py-2.5 text-xs",
+                                        klingCustomShotsValid
+                                          ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
+                                          : "border-amber-300/20 bg-amber-400/10 text-amber-100"
+                                      )}
+                                    >
+                                      Custom shot total: {klingCustomDurationSum}s / {duration}s
+                                    </div>
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </>
                   )}
 
@@ -2822,9 +3644,23 @@ export default function CreateVideoClient({
                       ? "Describe the scene and reference your subjects like @hero or @girl..."
                       : active === "text-to-video"
                         ? "Write the full scene prompt..."
-                        : "Describe motion, camera, lighting, mood, style..."
+                        : isKling && klingMultiShot && klingShotType === "customize"
+                          ? "Optional in custom multi-shot mode. Each shot can have its own prompt."
+                          : "Describe motion, camera, lighting, mood, style..."
                   }
                 />
+
+                {isKling && (
+                  <div className="mt-4">
+                    <div className="mb-2 text-sm text-white/70">Negative prompt</div>
+                    <textarea
+                      value={negativePrompt}
+                      onChange={(e) => setNegativePrompt(e.target.value)}
+                      className="h-28 w-full resize-none rounded-[20px] border border-white/10 bg-black/30 px-4 py-3 text-sm text-white placeholder:text-white/36 outline-none transition focus:border-white/25 focus:bg-black/35"
+                      placeholder="Things you want Kling to avoid..."
+                    />
+                  </div>
+                )}
 
                 <div className="mt-3 flex flex-wrap gap-2">
                   {PROMPT_PRESETS.map((preset) => (
@@ -2909,7 +3745,7 @@ export default function CreateVideoClient({
                     <ChipSelector
                       value={aspect}
                       onChange={setAspect}
-                      options={ALL_ASPECT_OPTIONS.map((a) => ({ value: a }))}
+                      options={allowedAspects.map((a) => ({ value: a }))}
                     />
                   </div>
 
@@ -2957,6 +3793,12 @@ export default function CreateVideoClient({
                 {!hasEnoughCredits && creditsAreResolved && (
                   <div className="mt-3 rounded-2xl border border-red-500/20 bg-red-500/10 px-3 py-2.5 text-xs text-red-200">
                     You do not have enough credits for this video generation.
+                  </div>
+                )}
+
+                {isKling && klingMultiShot && klingShotType === "customize" && !klingCustomShotsValid && (
+                  <div className="mt-3 rounded-2xl border border-amber-300/20 bg-amber-400/10 px-3 py-2.5 text-xs text-amber-100">
+                    Your custom shot builder is not valid yet. Every shot needs a prompt and the summed durations must exactly match the selected duration.
                   </div>
                 )}
 
@@ -3015,7 +3857,16 @@ export default function CreateVideoClient({
                       void createTextToVideo();
                     }
                   }}
-                  disabled={isCreating || !creditsAreResolved || !hasEnoughCredits || authLoading}
+                  disabled={
+                    isCreating ||
+                    !creditsAreResolved ||
+                    !hasEnoughCredits ||
+                    authLoading ||
+                    (isKling &&
+                      klingMultiShot &&
+                      klingShotType === "customize" &&
+                      !klingCustomShotsValid)
+                  }
                   className="mt-4 flex w-full cursor-pointer items-center justify-center gap-2 rounded-[20px] bg-white px-4 py-3.5 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <Sparkles size={16} />
@@ -3209,6 +4060,21 @@ export default function CreateVideoClient({
                           <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
                             {selectedGeneration.chargedCredits} credits
                           </div>
+                          {selectedGeneration.provider === "kling" && (
+                            <>
+                              <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
+                                audio: {selectedGeneration.klingWithAudio ? "on" : "off"}
+                              </div>
+                              <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
+                                multi-shot: {selectedGeneration.klingMultiShot ? "on" : "off"}
+                              </div>
+                              {selectedGeneration.klingMultiShot && selectedGeneration.klingShotType && (
+                                <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
+                                  shot type: {selectedGeneration.klingShotType}
+                                </div>
+                              )}
+                            </>
+                          )}
                           {selectedGeneration.status === "failed" && (
                             <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
                               refund: {selectedGeneration.refundStatus}
@@ -3377,6 +4243,8 @@ export default function CreateVideoClient({
                             <span>{new Date(item.createdAt).toLocaleString()}</span>
                             <span>•</span>
                             <span>{item.chargedCredits} credits</span>
+                            <span>•</span>
+                            <span>{formatProviderName(item.provider)}</span>
                           </div>
                         </div>
                       </motion.button>
