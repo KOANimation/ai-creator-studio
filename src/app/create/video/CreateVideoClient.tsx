@@ -3249,7 +3249,7 @@ export default function CreateVideoClient({
                     </div>
                   </div>
 
-                  <div className="mt-4 h-[calc(100%-76px)] overflow-y-auto overscroll-contain pr-1">
+                  <div className="dark-scrollbar mt-4 h-[calc(100%-76px)] overflow-y-auto overscroll-contain pr-1">
                     <div className="space-y-4 pb-4">
                       <div className="rounded-[24px] border border-white/10 bg-black/22 p-4">
                         <SectionTitle
@@ -4041,7 +4041,7 @@ export default function CreateVideoClient({
                     </div>
                   )}
 
-                  <div className="mt-4 h-[calc(100%-210px)] overflow-y-auto overscroll-contain pr-1">
+                  <div className="dark-scrollbar mt-4 h-[calc(100%-210px)] overflow-y-auto overscroll-contain pr-1">
                     <div className="grid gap-4 xl:grid-cols-[1.28fr_0.72fr]">
                       <div className="overflow-hidden rounded-[28px] border border-white/10 bg-black/18">
                         <div className="border-b border-white/10 px-4 py-3">
