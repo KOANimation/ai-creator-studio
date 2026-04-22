@@ -3048,6 +3048,26 @@ export default function CreateVideoClient({
     }
   }, [generations, selectedGeneration]);
 
+  useEffect(() => {
+  if (!selectedGeneration) return;
+
+  const latestSelected = generations.find(
+    (item) => item.id === selectedGeneration.id
+  );
+
+  if (!latestSelected) return;
+
+  if (
+    latestSelected.videoUrl !== selectedGeneration.videoUrl ||
+    latestSelected.coverUrl !== selectedGeneration.coverUrl ||
+    latestSelected.status !== selectedGeneration.status ||
+    latestSelected.error !== selectedGeneration.error ||
+    latestSelected.refundStatus !== selectedGeneration.refundStatus
+  ) {
+    setSelectedGeneration(latestSelected);
+  }
+}, [generations, selectedGeneration]);
+
   const currentTask = generations.find(
     (item) =>
       item.status === "uploading" ||
