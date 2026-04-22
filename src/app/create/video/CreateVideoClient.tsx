@@ -1834,8 +1834,7 @@ export default function CreateVideoClient({
   const hasEnoughCredits =
     effectiveCredits != null && effectiveCredits >= videoCreditCost;
 
-
-    useEffect(() => {
+  useEffect(() => {
     if (creditsAreResolved && !hasEnoughCredits) {
       setShowTopupPanel(true);
     }
@@ -1953,6 +1952,7 @@ export default function CreateVideoClient({
   const removeKlingCustomShot = (shotId: string) => {
     setKlingCustomShots((prev) => prev.filter((shot) => shot.id !== shotId));
   };
+
 
   const createReferenceToVideo = async () => {
     const batchKey =
@@ -3155,7 +3155,6 @@ export default function CreateVideoClient({
   const workspaceViewportHeight =
     "h-[calc(100vh-136px)] min-h-[720px] max-h-[980px]";
 
-
   return (
     <div className="relative min-h-screen overflow-x-hidden text-white">
       <WallpaperRevealBackground src="/wallpaper.jpg" radius={260} />
@@ -3230,27 +3229,27 @@ export default function CreateVideoClient({
         >
           <div
             className={cn(
-              "grid gap-5 lg:grid-cols-[460px_minmax(0,1fr)]",
+              "grid gap-5 overflow-hidden lg:grid-cols-[460px_minmax(0,1fr)]",
               workspaceViewportHeight
             )}
           >
-            <div className="min-h-0 h-full overflow-hidden">
-              <GlassPanel className="flex h-full min-h-0 flex-col overflow-hidden p-4">
-                <div className="shrink-0 rounded-[24px] border border-white/10 bg-black/22 p-2">
-                  <div className="flex gap-1">
-                    {VIDEO_TOOLS.map((t) => (
-                      <ToolTab
-                        key={t.key}
-                        label={t.label}
-                        active={active === t.key}
-                        onClick={() => onChangeTool(t.key)}
-                      />
-                    ))}
+            <div className="h-full overflow-hidden">
+              <GlassPanel className="h-full overflow-hidden p-4">
+                <div className="flex h-full flex-col overflow-hidden">
+                  <div className="shrink-0 rounded-[24px] border border-white/10 bg-black/22 p-2">
+                    <div className="flex gap-1">
+                      {VIDEO_TOOLS.map((t) => (
+                        <ToolTab
+                          key={t.key}
+                          label={t.label}
+                          active={active === t.key}
+                          onClick={() => onChangeTool(t.key)}
+                        />
+                      ))}
+                    </div>
                   </div>
-                </div>
 
-                <div className="mt-4 min-h-0 flex-1 overflow-hidden">
-                  <div className="h-full min-h-0 overflow-y-auto pr-1">
+                  <div className="mt-4 h-[calc(100%-76px)] overflow-y-auto overscroll-contain pr-1">
                     <div className="space-y-4 pb-4">
                       <div className="rounded-[24px] border border-white/10 bg-black/22 p-4">
                         <SectionTitle
@@ -3964,85 +3963,85 @@ export default function CreateVideoClient({
               </GlassPanel>
             </div>
 
-            <div className="min-h-0 h-full overflow-hidden">
-              <GlassPanel className="flex h-full min-h-0 flex-col overflow-hidden p-4">
-                <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <div className="text-xs uppercase tracking-[0.18em] text-white/42">
-                      Workspace
-                    </div>
-                    <div className="mt-1 text-xl font-semibold">{toolLabel}</div>
-                    <div className="mt-1 text-xs text-white/45">
-                      Latest result and recent generations
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white/70">
-                    {mounted ? new Date().toLocaleString() : "—"}
-                  </div>
-                </div>
-
-                <AnimatePresence>
-                  {error && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -6 }}
-                      className="mt-4 shrink-0 rounded-2xl border border-red-500/20 bg-red-500/10 px-3 py-2.5 text-sm text-red-200"
-                    >
-                      {error}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                {currentTask && (
-                  <div className="mt-4 shrink-0 rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <div className="text-[11px] uppercase tracking-[0.18em] text-white/35">
-                          Current Task
-                        </div>
-                        <div className="mt-1 text-sm text-white/75">
-                          {prettyStatus(currentTask.status)}
-                        </div>
+            <div className="h-full overflow-hidden">
+              <GlassPanel className="h-full overflow-hidden p-4">
+                <div className="flex h-full flex-col overflow-hidden">
+                  <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <div className="text-xs uppercase tracking-[0.18em] text-white/42">
+                        Workspace
                       </div>
-                      <div className="rounded-full border border-violet-400/20 bg-violet-400/10 px-3 py-1 text-xs text-violet-100">
-                        {formatViduModelName(currentTask.model)} • {currentTask.resolution} •{" "}
-                        {currentTask.duration}s
+                      <div className="mt-1 text-xl font-semibold">{toolLabel}</div>
+                      <div className="mt-1 text-xs text-white/45">
+                        Latest result and recent generations
                       </div>
                     </div>
 
-                    <div className="mt-4 grid grid-cols-4 gap-2">
-                      {renderTimeline.map((step, index) => (
-                        <div
-                          key={`${step.label}-${index}`}
-                          className={cn(
-                            "rounded-2xl border px-3 py-3 text-center text-xs transition",
-                            step.done
-                              ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
-                              : step.active
-                                ? "border-violet-400/20 bg-violet-400/10 text-violet-100"
-                                : "border-white/10 bg-black/20 text-white/45"
-                          )}
-                        >
-                          <div className="mb-1 flex justify-center">
-                            {step.done ? (
-                              <CheckCircle2 size={14} />
-                            ) : step.active ? (
-                              <LoaderCircle size={14} className="animate-spin" />
-                            ) : (
-                              <div className="h-3.5 w-3.5 rounded-full border border-white/20" />
-                            )}
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white/70">
+                      {mounted ? new Date().toLocaleString() : "—"}
+                    </div>
+                  </div>
+
+                  <AnimatePresence>
+                    {error && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -6 }}
+                        className="mt-4 shrink-0 rounded-2xl border border-red-500/20 bg-red-500/10 px-3 py-2.5 text-sm text-red-200"
+                      >
+                        {error}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {currentTask && (
+                    <div className="mt-4 shrink-0 rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="text-[11px] uppercase tracking-[0.18em] text-white/35">
+                            Current Task
                           </div>
-                          {step.label}
+                          <div className="mt-1 text-sm text-white/75">
+                            {prettyStatus(currentTask.status)}
+                          </div>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                        <div className="rounded-full border border-violet-400/20 bg-violet-400/10 px-3 py-1 text-xs text-violet-100">
+                          {formatViduModelName(currentTask.model)} • {currentTask.resolution} •{" "}
+                          {currentTask.duration}s
+                        </div>
+                      </div>
 
-                <div className="mt-4 min-h-0 flex-1 overflow-hidden">
-                  <div className="h-full min-h-0 overflow-y-auto pr-1">
+                      <div className="mt-4 grid grid-cols-4 gap-2">
+                        {renderTimeline.map((step, index) => (
+                          <div
+                            key={`${step.label}-${index}`}
+                            className={cn(
+                              "rounded-2xl border px-3 py-3 text-center text-xs transition",
+                              step.done
+                                ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
+                                : step.active
+                                  ? "border-violet-400/20 bg-violet-400/10 text-violet-100"
+                                  : "border-white/10 bg-black/20 text-white/45"
+                            )}
+                          >
+                            <div className="mb-1 flex justify-center">
+                              {step.done ? (
+                                <CheckCircle2 size={14} />
+                              ) : step.active ? (
+                                <LoaderCircle size={14} className="animate-spin" />
+                              ) : (
+                                <div className="h-3.5 w-3.5 rounded-full border border-white/20" />
+                              )}
+                            </div>
+                            {step.label}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="mt-4 h-[calc(100%-210px)] overflow-y-auto overscroll-contain pr-1">
                     <div className="grid gap-4 xl:grid-cols-[1.28fr_0.72fr]">
                       <div className="overflow-hidden rounded-[28px] border border-white/10 bg-black/18">
                         <div className="border-b border-white/10 px-4 py-3">
