@@ -79,7 +79,6 @@ type SavedGeneration = {
   error: string | null;
   chargedCredits: number;
   refundStatus: RefundStatus;
-
   klingMultiShot?: boolean;
   klingShotType?: KlingShotType;
   klingWithAudio?: boolean;
@@ -1230,7 +1229,7 @@ function getAllowedResolutions(
   provider: VideoProvider,
   kind: GenerationKind,
   model: string,
-  duration: number
+  _duration: number
 ): string[] {
   if (provider === "kling") {
     if (kind === "image-to-video" || kind === "start-end-to-video") {
@@ -1832,7 +1831,7 @@ export default function CreateVideoClient({
   const hasEnoughCredits =
     effectiveCredits != null && effectiveCredits >= videoCreditCost;
 
-  useEffect(() => {
+      useEffect(() => {
     if (creditsAreResolved && !hasEnoughCredits) {
       setShowTopupPanel(true);
     }
@@ -2017,11 +2016,15 @@ export default function CreateVideoClient({
           }
 
           if (subject.files.length === 0) {
-            throw new Error(`Subject "${subject.name || "Unnamed"}" must have at least 1 image.`);
+            throw new Error(
+              `Subject "${subject.name || "Unnamed"}" must have at least 1 image.`
+            );
           }
 
           if (subject.files.length > 3) {
-            throw new Error(`Subject "${subject.name || "Unnamed"}" can have at most 3 images.`);
+            throw new Error(
+              `Subject "${subject.name || "Unnamed"}" can have at most 3 images.`
+            );
           }
         }
       }
@@ -2321,8 +2324,7 @@ export default function CreateVideoClient({
           );
         }
 
-        const createdTaskId =
-          (data as { taskId?: string } | null)?.taskId ?? "";
+        const createdTaskId = (data as { taskId?: string } | null)?.taskId ?? "";
         const apiStatus =
           (data as { status?: string } | null)?.status?.toLowerCase() ?? "submitted";
 
@@ -3049,24 +3051,24 @@ export default function CreateVideoClient({
   }, [generations, selectedGeneration]);
 
   useEffect(() => {
-  if (!selectedGeneration) return;
+    if (!selectedGeneration) return;
 
-  const latestSelected = generations.find(
-    (item) => item.id === selectedGeneration.id
-  );
+    const latestSelected = generations.find(
+      (item) => item.id === selectedGeneration.id
+    );
 
-  if (!latestSelected) return;
+    if (!latestSelected) return;
 
-  if (
-    latestSelected.videoUrl !== selectedGeneration.videoUrl ||
-    latestSelected.coverUrl !== selectedGeneration.coverUrl ||
-    latestSelected.status !== selectedGeneration.status ||
-    latestSelected.error !== selectedGeneration.error ||
-    latestSelected.refundStatus !== selectedGeneration.refundStatus
-  ) {
-    setSelectedGeneration(latestSelected);
-  }
-}, [generations, selectedGeneration]);
+    if (
+      latestSelected.videoUrl !== selectedGeneration.videoUrl ||
+      latestSelected.coverUrl !== selectedGeneration.coverUrl ||
+      latestSelected.status !== selectedGeneration.status ||
+      latestSelected.error !== selectedGeneration.error ||
+      latestSelected.refundStatus !== selectedGeneration.refundStatus
+    ) {
+      setSelectedGeneration(latestSelected);
+    }
+  }, [generations, selectedGeneration]);
 
   const currentTask = generations.find(
     (item) =>
@@ -3146,7 +3148,11 @@ export default function CreateVideoClient({
 
   const renderTimeline = currentTask ? getTimelineSteps(currentTask.status) : [];
 
-    return (
+  const workspaceViewportHeight =
+    "h-[calc(100vh-136px)] min-h-[720px] max-h-[980px]";
+
+
+      return (
     <div className="relative min-h-screen overflow-x-hidden text-white">
       <WallpaperRevealBackground src="/wallpaper.jpg" radius={260} />
 
@@ -3174,7 +3180,10 @@ export default function CreateVideoClient({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <CreditsPill credits={effectiveCredits} loading={!creditsAreResolved && authLoading} />
+            <CreditsPill
+              credits={effectiveCredits}
+              loading={!creditsAreResolved && authLoading}
+            />
 
             <TopbarButton
               onClick={goPricing}
@@ -3213,1071 +3222,1128 @@ export default function CreateVideoClient({
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.04, duration: 0.35 }}
-          className="mt-5 grid gap-5 lg:grid-cols-[460px_1fr]"
+          className="mt-5"
         >
-          <GlassPanel className="p-4">
-            <div className="rounded-[24px] border border-white/10 bg-black/22 p-2">
-              <div className="flex gap-1">
-                {VIDEO_TOOLS.map((t) => (
-                  <ToolTab
-                    key={t.key}
-                    label={t.label}
-                    active={active === t.key}
-                    onClick={() => onChangeTool(t.key)}
-                  />
-                ))}
-              </div>
-            </div>
-
-            <div className="mt-4 space-y-4">
-              <div className="rounded-[24px] border border-white/10 bg-black/22 p-4">
-                <SectionTitle icon={<SlidersHorizontal size={14} />} kicker="Provider">
-                  AI Provider
-                </SectionTitle>
-
-                <div className="mt-4">
-                  <ProviderCardSelector
-                    value={provider}
-                    options={providerOptions}
-                    onChange={setProvider}
-                  />
-                </div>
-
-                {active !== "image-to-video" && (
-                  <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-xs text-white/55">
-                    Kling is only available for Image to Video.
-                  </div>
-                )}
-
-                {active === "image-to-video" && klingAvailable && (
-                  <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-xs text-white/55">
-                    Kling uses only <span className="text-white/80">kling-v3</span> and only inside Image to Video.
-                  </div>
-                )}
-              </div>
-
-              <div className="rounded-[24px] border border-white/10 bg-black/22 p-4">
-                <SectionTitle icon={<Upload size={14} />} kicker="Inputs">
-                  Source Material
-                </SectionTitle>
-
-                <div className="mt-4 space-y-4">
-                  {active === "reference-to-video" && (
-                    <>
-                      <div className="rounded-[24px] border border-white/10 bg-black/18 p-2">
-                        <div className="flex gap-1">
-                          <MiniTab
-                            label="Reference Images"
-                            active={referenceInputMode === "images"}
-                            onClick={() => setReferenceInputMode("images")}
-                          />
-                          <MiniTab
-                            label="Named Subjects"
-                            active={referenceInputMode === "subjects"}
-                            onClick={() => setReferenceInputMode("subjects")}
-                            disabled={!canUseSubjectMode}
-                          />
-                        </div>
-                      </div>
-
-                      {!canUseSubjectMode && (
-                        <div className="rounded-2xl border border-amber-300/20 bg-amber-400/10 px-3 py-2.5 text-xs text-amber-100">
-                          Named Subjects are currently available with Vidu Q2. Vidu Q2 Pro uses plain image references only.
-                        </div>
-                      )}
-
-                      {referenceInputMode === "images" ? (
-                        <UploadRow
-                          title="Reference Images"
-                          subtitle="Upload 1 to 7 images"
-                          accept="image/*"
-                          multiple={true}
-                          files={refImages}
-                          maxFiles={7}
-                          onAddFiles={setRefImages}
-                        />
-                      ) : (
-                        <>
-                          <div className="flex items-center justify-between rounded-[24px] border border-white/10 bg-black/18 p-4">
-                            <div>
-                              <div className="text-sm font-semibold text-white/92">
-                                Named Subjects
-                              </div>
-                              <div className="mt-1 text-xs text-white/50">
-                                Add 1 to 7 subjects. Each subject can contain up to 3 images.
-                              </div>
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={addSubject}
-                              disabled={subjects.length >= 7}
-                              className="inline-flex h-11 items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 text-sm text-white/80 transition hover:border-white/20 hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-40"
-                            >
-                              <Plus size={16} />
-                              Add subject
-                            </button>
-                          </div>
-
-                          {subjects.length > 0 ? (
-                            <div className="space-y-3">
-                              {subjects.map((subject) => (
-                                <SubjectCard
-                                  key={subject.id}
-                                  subject={subject}
-                                  onChangeName={(value) =>
-                                    updateSubject(subject.id, (prev) => ({
-                                      ...prev,
-                                      name: value,
-                                    }))
-                                  }
-                                  onAddFiles={(files) =>
-                                    updateSubject(subject.id, (prev) => ({
-                                      ...prev,
-                                      files: [...prev.files, ...files].slice(0, 3),
-                                    }))
-                                  }
-                                  onRemoveFile={(index) =>
-                                    updateSubject(subject.id, (prev) => ({
-                                      ...prev,
-                                      files: prev.files.filter((_, i) => i !== index),
-                                    }))
-                                  }
-                                  onRemoveSubject={() => removeSubject(subject.id)}
-                                />
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-6 text-sm text-white/45">
-                              No subjects added yet.
-                            </div>
-                          )}
-
-                          <div className="text-[11px] text-white/38">
-                            Total subject images: {subjectImageCount}/7
-                          </div>
-                        </>
-                      )}
-                    </>
-                  )}
-
-                  {active === "image-to-video" && (
-                    <>
-                      <input
-                        ref={startInputRef}
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => {
-                          const f = e.target.files?.[0] ?? null;
-                          if (f) setStartFile(f);
-                          e.currentTarget.value = "";
-                        }}
+          <div
+            className={cn(
+              "grid gap-5 lg:grid-cols-[460px_minmax(0,1fr)]",
+              workspaceViewportHeight
+            )}
+          >
+            <div className="min-h-0 overflow-hidden">
+              <GlassPanel className="flex h-full min-h-0 flex-col p-4">
+                <div className="shrink-0 rounded-[24px] border border-white/10 bg-black/22 p-2">
+                  <div className="flex gap-1">
+                    {VIDEO_TOOLS.map((t) => (
+                      <ToolTab
+                        key={t.key}
+                        label={t.label}
+                        active={active === t.key}
+                        onClick={() => onChangeTool(t.key)}
                       />
-                      <input
-                        ref={endInputRef}
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => {
-                          const f = e.target.files?.[0] ?? null;
-                          if (f) setEndFile(f);
-                          e.currentTarget.value = "";
-                        }}
-                      />
-
-                      <div className="rounded-[24px] border border-white/10 bg-black/18 p-4">
-                        <div>
-                          <div className="text-sm font-semibold text-white/90">
-                            Upload Frames
-                          </div>
-                          <div className="mt-1 text-xs text-white/55">
-                            Upload Frame 1 for image-to-video, or both Frame 1 and Frame 2 for start-end-to-video
-                          </div>
-                        </div>
-
-                        <div className="mt-4 flex gap-3">
-                          <FrameSlot
-                            index={1}
-                            label="Frame 1 (Start)"
-                            previewUrl={startPreview}
-                            onPick={() => startInputRef.current?.click()}
-                            onClear={() => setStartFile(null)}
-                          />
-                          <FrameSlot
-                            index={2}
-                            label="Frame 2 (End)"
-                            previewUrl={endPreview}
-                            onPick={() => endInputRef.current?.click()}
-                            onClear={() => setEndFile(null)}
-                          />
-                        </div>
-                      </div>
-
-                      {isKling && (
-                        <div className="rounded-[24px] border border-white/10 bg-black/18 p-4">
-                          <SectionTitle icon={<Clapperboard size={14} />} kicker="Kling v3">
-                            Kling Story Controls
-                          </SectionTitle>
-
-                          <div className="mt-4 space-y-4">
-                            <div className="grid gap-3 sm:grid-cols-2">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (!klingMultiShotLockedByEndFrame) {
-                                    setKlingMultiShot((prev) => !prev);
-                                  }
-                                }}
-                                disabled={klingMultiShotLockedByEndFrame}
-                                className={cn(
-                                  "rounded-2xl border p-4 text-left transition",
-                                  klingMultiShot
-                                    ? "border-violet-300/25 bg-violet-400/12"
-                                    : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-black/10",
-                                  klingMultiShotLockedByEndFrame &&
-                                    "cursor-not-allowed opacity-50"
-                                )}
-                              >
-                                <div className="flex items-center justify-between gap-3">
-                                  <div className="text-sm font-semibold text-white/92">
-                                    Multi-shot
-                                  </div>
-                                  <div
-                                    className={cn(
-                                      "rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.14em]",
-                                      klingMultiShot
-                                        ? "border-violet-300/20 bg-violet-400/10 text-violet-100"
-                                        : "border-white/10 bg-black/35 text-white/60"
-                                    )}
-                                  >
-                                    {klingMultiShot ? "On" : "Off"}
-                                  </div>
-                                </div>
-                                <div className="mt-1 text-xs text-white/48">
-                                  Turn one start frame into a storyboard-driven video.
-                                </div>
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => setKlingWithAudio((prev) => !prev)}
-                                className={cn(
-                                  "rounded-2xl border p-4 text-left transition",
-                                  klingWithAudio
-                                    ? "border-violet-300/25 bg-violet-400/12"
-                                    : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-black/10"
-                                )}
-                              >
-                                <div className="flex items-center justify-between gap-3">
-                                  <div className="text-sm font-semibold text-white/92">
-                                    Audio
-                                  </div>
-                                  <div
-                                    className={cn(
-                                      "rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.14em]",
-                                      klingWithAudio
-                                        ? "border-violet-300/20 bg-violet-400/10 text-violet-100"
-                                        : "border-white/10 bg-black/35 text-white/60"
-                                    )}
-                                  >
-                                    {klingWithAudio ? "On" : "Off"}
-                                  </div>
-                                </div>
-                                <div className="mt-1 text-xs text-white/48">
-                                  Request audio generation from Kling.
-                                </div>
-                              </button>
-                            </div>
-
-                            {klingMultiShotLockedByEndFrame && (
-                              <div className="rounded-2xl border border-amber-300/20 bg-amber-400/10 px-3 py-2.5 text-xs text-amber-100">
-                                Multi-shot is disabled while an end frame exists. Remove Frame 2 to enable Kling multi-shot.
-                              </div>
-                            )}
-
-                            <div>
-                              <div className="mb-2 text-sm text-white/70">Quality mode</div>
-                              <ChipSelector
-                                value={klingMode}
-                                onChange={(next) => setKlingMode(next as KlingMode)}
-                                options={[
-                                  { value: "std", label: "Standard", meta: "balanced" },
-                                  { value: "pro", label: "Pro", meta: "higher quality" },
-                                ]}
-                              />
-                            </div>
-
-                            {klingMultiShot && (
-                              <>
-                                <div>
-                                  <div className="mb-2 text-sm text-white/70">Shot type</div>
-                                  <div className="rounded-[24px] border border-white/10 bg-black/18 p-2">
-                                    <div className="flex gap-1">
-                                      <MiniTab
-                                        label="Auto"
-                                        active={klingShotType === "intelligence"}
-                                        onClick={() => setKlingShotType("intelligence")}
-                                      />
-                                      <MiniTab
-                                        label="Custom"
-                                        active={klingShotType === "customize"}
-                                        onClick={() => setKlingShotType("customize")}
-                                      />
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {klingShotType === "intelligence" ? (
-                                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-3 text-xs text-white/55">
-                                    Auto mode uses your main prompt and lets Kling intelligently split the scene into multiple shots.
-                                  </div>
-                                ) : (
-                                  <div className="space-y-3">
-                                    <div className="flex items-center justify-between rounded-[24px] border border-white/10 bg-black/18 p-4">
-                                      <div>
-                                        <div className="text-sm font-semibold text-white/92">
-                                          Custom Shot Builder
-                                        </div>
-                                        <div className="mt-1 text-xs text-white/50">
-                                          Up to 6 shots. The total duration must equal {duration}s.
-                                        </div>
-                                      </div>
-
-                                      <button
-                                        type="button"
-                                        onClick={addKlingCustomShot}
-                                        disabled={klingCustomShots.length >= 6}
-                                        className="inline-flex h-11 items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 text-sm text-white/80 transition hover:border-white/20 hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-40"
-                                      >
-                                        <Plus size={16} />
-                                        Add shot
-                                      </button>
-                                    </div>
-
-                                    {klingCustomShots.map((shot, index) => (
-                                      <div
-                                        key={shot.id}
-                                        className="rounded-[24px] border border-white/10 bg-black/18 p-4"
-                                      >
-                                        <div className="flex items-start justify-between gap-3">
-                                          <div>
-                                            <div className="text-sm font-semibold text-white/92">
-                                              Shot {index + 1}
-                                            </div>
-                                            <div className="mt-1 text-xs text-white/50">
-                                              Define the action and timing for this storyboard shot.
-                                            </div>
-                                          </div>
-
-                                          <button
-                                            type="button"
-                                            onClick={() => removeKlingCustomShot(shot.id)}
-                                            className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white/70 transition hover:border-white/20 hover:bg-white/[0.08]"
-                                            title="Remove shot"
-                                          >
-                                            <Trash2 size={14} />
-                                          </button>
-                                        </div>
-
-                                        <textarea
-                                          value={shot.prompt}
-                                          onChange={(e) =>
-                                            updateKlingCustomShot(shot.id, (prev) => ({
-                                              ...prev,
-                                              prompt: e.target.value,
-                                            }))
-                                          }
-                                          placeholder="Describe this specific shot..."
-                                          className="mt-4 h-28 w-full resize-none rounded-[20px] border border-white/10 bg-black/30 px-4 py-3 text-sm text-white placeholder:text-white/36 outline-none transition focus:border-white/25 focus:bg-black/35"
-                                        />
-
-                                        <div className="mt-4">
-                                          <div className="mb-2 text-sm text-white/70">
-                                            Shot duration
-                                          </div>
-                                          <div className="grid grid-cols-6 gap-2">
-                                            {[1, 2, 3, 4, 5, 6].map((n) => (
-                                              <button
-                                                key={n}
-                                                type="button"
-                                                onClick={() =>
-                                                  updateKlingCustomShot(shot.id, (prev) => ({
-                                                    ...prev,
-                                                    duration: n,
-                                                  }))
-                                                }
-                                                className={cn(
-                                                  "cursor-pointer rounded-2xl border px-3 py-3 text-sm font-medium transition",
-                                                  shot.duration === n
-                                                    ? "border-violet-300/25 bg-violet-400/12 text-white shadow-[0_10px_24px_rgba(139,92,246,0.12)]"
-                                                    : "border-white/10 bg-black/20 text-white/70 hover:border-white/20 hover:bg-black/10"
-                                                )}
-                                              >
-                                                {n}
-                                              </button>
-                                            ))}
-                                          </div>
-                                        </div>
-                                      </div>
-                                    ))}
-
-                                    <div
-                                      className={cn(
-                                        "rounded-2xl border px-3 py-2.5 text-xs",
-                                        klingCustomShotsValid
-                                          ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
-                                          : "border-amber-300/20 bg-amber-400/10 text-amber-100"
-                                      )}
-                                    >
-                                      Custom shot total: {klingCustomDurationSum}s / {duration}s
-                                    </div>
-                                  </div>
-                                )}
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  )}
-
-                  {active === "text-to-video" && (
-                    <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-6 text-sm text-white/45">
-                      No reference uploads needed for text-to-video.
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="rounded-[24px] border border-white/10 bg-black/22 p-4">
-                <SectionTitle icon={<Sparkles size={14} />} kicker="Prompt">
-                  Scene Direction
-                </SectionTitle>
-
-                <textarea
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  className="mt-4 h-36 w-full resize-none rounded-[20px] border border-white/10 bg-black/30 px-4 py-3 text-sm text-white placeholder:text-white/36 outline-none transition focus:border-white/25 focus:bg-black/35"
-                  placeholder={
-                    active === "reference-to-video" && referenceInputMode === "subjects"
-                      ? "Describe the scene and reference your subjects like @hero or @girl..."
-                      : active === "text-to-video"
-                        ? "Write the full scene prompt..."
-                        : isKling && klingMultiShot && klingShotType === "customize"
-                          ? "Optional in custom multi-shot mode. Each shot can have its own prompt."
-                          : "Describe motion, camera, lighting, mood, style..."
-                  }
-                />
-
-                {isKling && (
-                  <div className="mt-4">
-                    <div className="mb-2 text-sm text-white/70">Negative prompt</div>
-                    <textarea
-                      value={negativePrompt}
-                      onChange={(e) => setNegativePrompt(e.target.value)}
-                      className="h-28 w-full resize-none rounded-[20px] border border-white/10 bg-black/30 px-4 py-3 text-sm text-white placeholder:text-white/36 outline-none transition focus:border-white/25 focus:bg-black/35"
-                      placeholder="Things you want Kling to avoid..."
-                    />
-                  </div>
-                )}
-
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {PROMPT_PRESETS.map((preset) => (
-                    <button
-                      key={preset}
-                      type="button"
-                      onClick={() => applyPromptPreset(preset)}
-                      className="cursor-pointer rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-white/70 transition hover:border-white/20 hover:bg-white/[0.06]"
-                    >
-                      {preset}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="rounded-[24px] border border-white/10 bg-black/22 p-4">
-                <SectionTitle icon={<SlidersHorizontal size={14} />} kicker="Settings">
-                  Generation Settings
-                </SectionTitle>
-
-                <div className="mt-4 space-y-5">
-                  <div>
-                    <div className="mb-2 text-sm text-white/70">Model</div>
-                    <ModelCardSelector
-                      value={model}
-                      options={modelOptions}
-                      onChange={setModel}
-                      kind={currentKind}
-                    />
-                  </div>
-
-                  <div>
-                    <div className="mb-2 text-sm text-white/70">Duration</div>
-                    <div className="grid grid-cols-6 gap-2">
-                      {ALL_DURATION_OPTIONS.map((d) => {
-                        const enabled = allowedDurations.includes(d);
-
-                        return (
-                          <motion.button
-                            key={d}
-                            type="button"
-                            onClick={() => enabled && setDuration(d)}
-                            whileTap={enabled ? { scale: 0.97 } : undefined}
-                            disabled={!enabled}
-                            className={cn(
-                              "cursor-pointer rounded-2xl border px-3 py-3 text-sm font-medium transition",
-                              duration === d
-                                ? "border-violet-300/25 bg-violet-400/12 text-white shadow-[0_10px_24px_rgba(139,92,246,0.12)]"
-                                : "border-white/10 bg-black/20 text-white/70 hover:border-white/20 hover:bg-black/10",
-                              !enabled && "cursor-not-allowed opacity-30"
-                            )}
-                          >
-                            {d}
-                          </motion.button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="mb-2 text-sm text-white/70">Resolution</div>
-                    <ChipSelector
-                      value={resolution}
-                      onChange={setResolution}
-                      options={allowedResolutions.map((r) => ({
-                        value: r,
-                        label: r,
-                        meta:
-                          r === "540p"
-                            ? "fastest"
-                            : r === "720p"
-                              ? "balanced"
-                              : r === "1080p"
-                                ? "highest quality"
-                                : "",
-                      }))}
-                    />
-                  </div>
-
-                  <div>
-                    <div className="mb-2 text-sm text-white/70">Aspect Ratio</div>
-                    <ChipSelector
-                      value={aspect}
-                      onChange={setAspect}
-                      options={allowedAspects.map((a) => ({ value: a }))}
-                    />
-                  </div>
-
-                  <div>
-                    <div className="mb-2 text-sm text-white/70">Amount</div>
-                    <div className="grid grid-cols-4 gap-2">
-                      {[1, 2, 3, 4].map((n) => (
-                        <motion.button
-                          key={n}
-                          type="button"
-                          onClick={() => setAmount(n)}
-                          whileTap={{ scale: 0.97 }}
-                          className={cn(
-                            "cursor-pointer rounded-2xl border px-3 py-3 text-sm font-medium transition",
-                            amount === n
-                              ? "border-violet-300/25 bg-violet-400/12 text-white shadow-[0_10px_24px_rgba(139,92,246,0.12)]"
-                              : "border-white/10 bg-black/20 text-white/70 hover:border-white/20 hover:bg-black/10"
-                          )}
-                        >
-                          {n}
-                        </motion.button>
-                      ))}
-                    </div>
+                    ))}
                   </div>
                 </div>
-              </div>
 
-              <div className="sticky bottom-4 z-20 rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(18,18,24,0.95),rgba(10,10,14,0.95))] p-4 backdrop-blur-2xl shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
-                <SectionTitle icon={<Coins size={14} />} kicker="Summary">
-                  Ready to Generate
-                </SectionTitle>
-
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <StatCard label="Generation cost" value={`${videoCreditCost} credits`} />
-                  <StatCard
-                    label="Balance after"
-                    value={remainingCreditsAfterCreate ?? "Loading..."}
-                    danger={
-                      remainingCreditsAfterCreate != null &&
-                      remainingCreditsAfterCreate < 0
-                    }
-                  />
-                </div>
-
-                {!hasEnoughCredits && creditsAreResolved && (
-                  <div className="mt-3 rounded-2xl border border-red-500/20 bg-red-500/10 px-3 py-2.5 text-xs text-red-200">
-                    You do not have enough credits for this video generation.
-                  </div>
-                )}
-
-                {isKling && klingMultiShot && klingShotType === "customize" && !klingCustomShotsValid && (
-                  <div className="mt-3 rounded-2xl border border-amber-300/20 bg-amber-400/10 px-3 py-2.5 text-xs text-amber-100">
-                    Your custom shot builder is not valid yet. Every shot needs a prompt and the summed durations must exactly match the selected duration.
-                  </div>
-                )}
-
-                <AnimatePresence>
-                  {showTopupPanel && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 8 }}
-                      transition={{ duration: 0.2 }}
-                      className="mt-3 overflow-hidden rounded-[22px] border border-amber-300/20 bg-[linear-gradient(180deg,rgba(255,224,138,0.08),rgba(255,196,77,0.03))] p-4"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <div className="text-sm font-semibold text-amber-50">
-                            Top up your credits
-                          </div>
-                          <div className="mt-1 text-xs leading-relaxed text-amber-100/65">
-                            Buy one-time credit packs without changing your subscription.
-                            Purchased top-up credits persist through monthly resets.
-                          </div>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => setShowTopupPanel(false)}
-                          className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-xl border border-white/10 bg-black/20 text-white/70 transition hover:border-white/20 hover:bg-black/30 hover:text-white"
-                          aria-label="Close top-up panel"
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
+                <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
+                  <div className="space-y-4 pb-4">
+                    <div className="rounded-[24px] border border-white/10 bg-black/22 p-4">
+                      <SectionTitle
+                        icon={<SlidersHorizontal size={14} />}
+                        kicker="Provider"
+                      >
+                        AI Provider
+                      </SectionTitle>
 
                       <div className="mt-4">
-                        <TopupButtons />
+                        <ProviderCardSelector
+                          value={provider}
+                          options={providerOptions}
+                          onChange={setProvider}
+                        />
                       </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
 
-                <motion.button
-                  type="button"
-                  whileTap={{ scale: 0.99 }}
-                  onClick={() => {
-                    if (active === "reference-to-video") {
-                      void createReferenceToVideo();
-                      return;
-                    }
-
-                    if (active === "image-to-video") {
-                      void createImageOrStartEndVideo();
-                      return;
-                    }
-
-                    if (active === "text-to-video") {
-                      void createTextToVideo();
-                    }
-                  }}
-                  disabled={
-                    isCreating ||
-                    !creditsAreResolved ||
-                    !hasEnoughCredits ||
-                    authLoading ||
-                    (isKling &&
-                      klingMultiShot &&
-                      klingShotType === "customize" &&
-                      !klingCustomShotsValid)
-                  }
-                  className="mt-4 flex w-full cursor-pointer items-center justify-center gap-2 rounded-[20px] bg-white px-4 py-3.5 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <Sparkles size={16} />
-                  <span>
-                    {isCreating
-                      ? `Generating ${amount} video${amount > 1 ? "s" : ""}...`
-                      : !creditsAreResolved
-                        ? "Loading credits..."
-                        : !hasEnoughCredits
-                          ? `Insufficient credits • Need ${videoCreditCost}`
-                          : `Create • ${videoCreditCost} credits`}
-                  </span>
-                </motion.button>
-              </div>
-            </div>
-          </GlassPanel>
-
-          <GlassPanel className="p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <div className="text-xs uppercase tracking-[0.18em] text-white/42">
-                  Workspace
-                </div>
-                <div className="mt-1 text-xl font-semibold">{toolLabel}</div>
-                <div className="mt-1 text-xs text-white/45">
-                  Latest result and recent generations
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white/70">
-                {mounted ? new Date().toLocaleString() : "—"}
-              </div>
-            </div>
-
-            <AnimatePresence>
-              {error && (
-                <motion.div
-                  initial={{ opacity: 0, y: -6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  className="mt-4 rounded-2xl border border-red-500/20 bg-red-500/10 px-3 py-2.5 text-sm text-red-200"
-                >
-                  {error}
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {currentTask && (
-              <div className="mt-4 rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div className="text-[11px] uppercase tracking-[0.18em] text-white/35">
-                      Current Task
-                    </div>
-                    <div className="mt-1 text-sm text-white/75">
-                      {prettyStatus(currentTask.status)}
-                    </div>
-                  </div>
-                  <div className="rounded-full border border-violet-400/20 bg-violet-400/10 px-3 py-1 text-xs text-violet-100">
-                    {formatViduModelName(currentTask.model)} • {currentTask.resolution} • {currentTask.duration}s
-                  </div>
-                </div>
-
-                <div className="mt-4 grid grid-cols-4 gap-2">
-                  {renderTimeline.map((step, index) => (
-                    <div
-                      key={`${step.label}-${index}`}
-                      className={cn(
-                        "rounded-2xl border px-3 py-3 text-center text-xs transition",
-                        step.done
-                          ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
-                          : step.active
-                            ? "border-violet-400/20 bg-violet-400/10 text-violet-100"
-                            : "border-white/10 bg-black/20 text-white/45"
+                      {active !== "image-to-video" && (
+                        <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-xs text-white/55">
+                          Kling is only available for Image to Video.
+                        </div>
                       )}
-                    >
-                      <div className="mb-1 flex justify-center">
-                        {step.done ? (
-                          <CheckCircle2 size={14} />
-                        ) : step.active ? (
-                          <LoaderCircle size={14} className="animate-spin" />
-                        ) : (
-                          <div className="h-3.5 w-3.5 rounded-full border border-white/20" />
-                        )}
-                      </div>
-                      {step.label}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
 
-            <div className="mt-4 grid gap-4 xl:grid-cols-[1.28fr_0.72fr]">
-              <div className="overflow-hidden rounded-[28px] border border-white/10 bg-black/18">
-                <div className="border-b border-white/10 px-4 py-3">
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <div className="text-sm font-semibold text-white/90">
-                        {selectedGeneration
-                          ? kindLabel(selectedGeneration.kind)
-                          : "Latest Preview"}
-                      </div>
-                      <div className="mt-1 text-xs text-white/45">
-                        {selectedGeneration
-                          ? new Date(selectedGeneration.createdAt).toLocaleString()
-                          : "Your generated videos will appear here."}
-                      </div>
+                      {active === "image-to-video" && klingAvailable && (
+                        <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-xs text-white/55">
+                          Kling uses only <span className="text-white/80">kling-v3</span> and
+                          only inside Image to Video.
+                        </div>
+                      )}
                     </div>
 
-                    {selectedGeneration && (
-                      <div
-                        className={cn(
-                          "rounded-2xl border px-3 py-2 text-xs",
-                          getStatusBadgeClasses(selectedGeneration.status)
-                        )}
-                      >
-                        {prettyStatus(selectedGeneration.status)}
-                      </div>
-                    )}
-                  </div>
-                </div>
+                    <div className="rounded-[24px] border border-white/10 bg-black/22 p-4">
+                      <SectionTitle icon={<Upload size={14} />} kicker="Inputs">
+                        Source Material
+                      </SectionTitle>
 
-                <div className="p-4">
-                  {selectedGeneration ? (
-                    <>
-                      <AnimatePresence mode="wait">
-                        <motion.div
-                          key={selectedGeneration.id}
-                          initial={{ opacity: 0, scale: 0.985 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          exit={{ opacity: 0, scale: 0.985 }}
-                          transition={{ duration: 0.22 }}
-                        >
-                          {selectedGeneration.videoUrl ? (
-                            <video
-                              className="max-h-[720px] w-full rounded-[24px] border border-white/10 bg-black object-contain"
-                              src={selectedGeneration.videoUrl}
-                              controls
-                              playsInline
-                              poster={selectedGeneration.coverUrl ?? undefined}
+                      <div className="mt-4 space-y-4">
+                        {active === "reference-to-video" && (
+                          <>
+                            <div className="rounded-[24px] border border-white/10 bg-black/18 p-2">
+                              <div className="flex gap-1">
+                                <MiniTab
+                                  label="Reference Images"
+                                  active={referenceInputMode === "images"}
+                                  onClick={() => setReferenceInputMode("images")}
+                                />
+                                <MiniTab
+                                  label="Named Subjects"
+                                  active={referenceInputMode === "subjects"}
+                                  onClick={() => setReferenceInputMode("subjects")}
+                                  disabled={!canUseSubjectMode}
+                                />
+                              </div>
+                            </div>
+
+                            {!canUseSubjectMode && (
+                              <div className="rounded-2xl border border-amber-300/20 bg-amber-400/10 px-3 py-2.5 text-xs text-amber-100">
+                                Named Subjects are currently available with Vidu Q2. Vidu Q2 Pro
+                                uses plain image references only.
+                              </div>
+                            )}
+
+                            {referenceInputMode === "images" ? (
+                              <UploadRow
+                                title="Reference Images"
+                                subtitle="Upload 1 to 7 images"
+                                accept="image/*"
+                                multiple={true}
+                                files={refImages}
+                                maxFiles={7}
+                                onAddFiles={setRefImages}
+                              />
+                            ) : (
+                              <>
+                                <div className="flex items-center justify-between rounded-[24px] border border-white/10 bg-black/18 p-4">
+                                  <div>
+                                    <div className="text-sm font-semibold text-white/92">
+                                      Named Subjects
+                                    </div>
+                                    <div className="mt-1 text-xs text-white/50">
+                                      Add 1 to 7 subjects. Each subject can contain up to 3
+                                      images.
+                                    </div>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={addSubject}
+                                    disabled={subjects.length >= 7}
+                                    className="inline-flex h-11 items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 text-sm text-white/80 transition hover:border-white/20 hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-40"
+                                  >
+                                    <Plus size={16} />
+                                    Add subject
+                                  </button>
+                                </div>
+
+                                {subjects.length > 0 ? (
+                                  <div className="space-y-3">
+                                    {subjects.map((subject) => (
+                                      <SubjectCard
+                                        key={subject.id}
+                                        subject={subject}
+                                        onChangeName={(value) =>
+                                          updateSubject(subject.id, (prev) => ({
+                                            ...prev,
+                                            name: value,
+                                          }))
+                                        }
+                                        onAddFiles={(files) =>
+                                          updateSubject(subject.id, (prev) => ({
+                                            ...prev,
+                                            files: [...prev.files, ...files].slice(0, 3),
+                                          }))
+                                        }
+                                        onRemoveFile={(index) =>
+                                          updateSubject(subject.id, (prev) => ({
+                                            ...prev,
+                                            files: prev.files.filter((_, i) => i !== index),
+                                          }))
+                                        }
+                                        onRemoveSubject={() => removeSubject(subject.id)}
+                                      />
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-6 text-sm text-white/45">
+                                    No subjects added yet.
+                                  </div>
+                                )}
+
+                                <div className="text-[11px] text-white/38">
+                                  Total subject images: {subjectImageCount}/7
+                                </div>
+                              </>
+                            )}
+                          </>
+                        )}
+
+                        {active === "image-to-video" && (
+                          <>
+                            <input
+                              ref={startInputRef}
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const f = e.target.files?.[0] ?? null;
+                                if (f) setStartFile(f);
+                                e.currentTarget.value = "";
+                              }}
                             />
-                          ) : selectedGeneration.status === "failed" ? (
-                            <div className="flex min-h-[440px] items-center justify-center rounded-[24px] border border-red-500/20 bg-red-500/10 px-6 text-center text-sm text-red-200">
-                              {selectedGeneration.error || "Generation failed."}
-                            </div>
-                          ) : (
-                            <div className="flex min-h-[440px] items-center justify-center rounded-[24px] border border-white/10 bg-white/[0.03]">
-                              <div className="flex flex-col items-center gap-4">
-                                <div className="relative h-12 w-12">
-                                  <div className="absolute inset-0 rounded-full border-2 border-white/10" />
-                                  <div className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-white/80" />
+                            <input
+                              ref={endInputRef}
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const f = e.target.files?.[0] ?? null;
+                                if (f) setEndFile(f);
+                                e.currentTarget.value = "";
+                              }}
+                            />
+
+                            <div className="rounded-[24px] border border-white/10 bg-black/18 p-4">
+                              <div>
+                                <div className="text-sm font-semibold text-white/90">
+                                  Upload Frames
                                 </div>
-                                <div className="text-center">
-                                  <div className="text-sm font-medium text-white/90">
-                                    {prettyStatus(selectedGeneration.status)}
+                                <div className="mt-1 text-xs text-white/55">
+                                  Upload Frame 1 for image-to-video, or both Frame 1 and Frame 2
+                                  for start-end-to-video
+                                </div>
+                              </div>
+
+                              <div className="mt-4 flex gap-3">
+                                <FrameSlot
+                                  index={1}
+                                  label="Frame 1 (Start)"
+                                  previewUrl={startPreview}
+                                  onPick={() => startInputRef.current?.click()}
+                                  onClear={() => setStartFile(null)}
+                                />
+                                <FrameSlot
+                                  index={2}
+                                  label="Frame 2 (End)"
+                                  previewUrl={endPreview}
+                                  onPick={() => endInputRef.current?.click()}
+                                  onClear={() => setEndFile(null)}
+                                />
+                              </div>
+                            </div>
+
+                            {isKling && (
+                              <div className="rounded-[24px] border border-white/10 bg-black/18 p-4">
+                                <SectionTitle icon={<Clapperboard size={14} />} kicker="Kling v3">
+                                  Kling Story Controls
+                                </SectionTitle>
+
+                                <div className="mt-4 space-y-4">
+                                  <div className="grid gap-3 sm:grid-cols-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        if (!klingMultiShotLockedByEndFrame) {
+                                          setKlingMultiShot((prev) => !prev);
+                                        }
+                                      }}
+                                      disabled={klingMultiShotLockedByEndFrame}
+                                      className={cn(
+                                        "rounded-2xl border p-4 text-left transition",
+                                        klingMultiShot
+                                          ? "border-violet-300/25 bg-violet-400/12"
+                                          : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-black/10",
+                                        klingMultiShotLockedByEndFrame &&
+                                          "cursor-not-allowed opacity-50"
+                                      )}
+                                    >
+                                      <div className="flex items-center justify-between gap-3">
+                                        <div className="text-sm font-semibold text-white/92">
+                                          Multi-shot
+                                        </div>
+                                        <div
+                                          className={cn(
+                                            "rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.14em]",
+                                            klingMultiShot
+                                              ? "border-violet-300/20 bg-violet-400/10 text-violet-100"
+                                              : "border-white/10 bg-black/35 text-white/60"
+                                          )}
+                                        >
+                                          {klingMultiShot ? "On" : "Off"}
+                                        </div>
+                                      </div>
+                                      <div className="mt-1 text-xs text-white/48">
+                                        Turn one start frame into a storyboard-driven video.
+                                      </div>
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => setKlingWithAudio((prev) => !prev)}
+                                      className={cn(
+                                        "rounded-2xl border p-4 text-left transition",
+                                        klingWithAudio
+                                          ? "border-violet-300/25 bg-violet-400/12"
+                                          : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-black/10"
+                                      )}
+                                    >
+                                      <div className="flex items-center justify-between gap-3">
+                                        <div className="text-sm font-semibold text-white/92">
+                                          Audio
+                                        </div>
+                                        <div
+                                          className={cn(
+                                            "rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.14em]",
+                                            klingWithAudio
+                                              ? "border-violet-300/20 bg-violet-400/10 text-violet-100"
+                                              : "border-white/10 bg-black/35 text-white/60"
+                                          )}
+                                        >
+                                          {klingWithAudio ? "On" : "Off"}
+                                        </div>
+                                      </div>
+                                      <div className="mt-1 text-xs text-white/48">
+                                        Request audio generation from Kling.
+                                      </div>
+                                    </button>
                                   </div>
-                                  <div className="mt-1 text-xs text-white/50">
-                                    {formatProviderName(selectedGeneration.provider)} is working on this generation.
+
+                                  {klingMultiShotLockedByEndFrame && (
+                                    <div className="rounded-2xl border border-amber-300/20 bg-amber-400/10 px-3 py-2.5 text-xs text-amber-100">
+                                      Multi-shot is disabled while an end frame exists. Remove
+                                      Frame 2 to enable Kling multi-shot.
+                                    </div>
+                                  )}
+
+                                  <div>
+                                    <div className="mb-2 text-sm text-white/70">Quality mode</div>
+                                    <ChipSelector
+                                      value={klingMode}
+                                      onChange={(next) => setKlingMode(next as KlingMode)}
+                                      options={[
+                                        {
+                                          value: "std",
+                                          label: "Standard",
+                                          meta: "balanced",
+                                        },
+                                        {
+                                          value: "pro",
+                                          label: "Pro",
+                                          meta: "higher quality",
+                                        },
+                                      ]}
+                                    />
                                   </div>
+
+                                  {klingMultiShot && (
+                                    <>
+                                      <div>
+                                        <div className="mb-2 text-sm text-white/70">
+                                          Shot type
+                                        </div>
+                                        <div className="rounded-[24px] border border-white/10 bg-black/18 p-2">
+                                          <div className="flex gap-1">
+                                            <MiniTab
+                                              label="Auto"
+                                              active={klingShotType === "intelligence"}
+                                              onClick={() => setKlingShotType("intelligence")}
+                                            />
+                                            <MiniTab
+                                              label="Custom"
+                                              active={klingShotType === "customize"}
+                                              onClick={() => setKlingShotType("customize")}
+                                            />
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      {klingShotType === "intelligence" ? (
+                                        <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-3 text-xs text-white/55">
+                                          Auto mode uses your main prompt and lets Kling
+                                          intelligently split the scene into multiple shots.
+                                        </div>
+                                      ) : (
+                                        <div className="space-y-3">
+                                          <div className="flex items-center justify-between rounded-[24px] border border-white/10 bg-black/18 p-4">
+                                            <div>
+                                              <div className="text-sm font-semibold text-white/92">
+                                                Custom Shot Builder
+                                              </div>
+                                              <div className="mt-1 text-xs text-white/50">
+                                                Up to 6 shots. The total duration must equal{" "}
+                                                {duration}s.
+                                              </div>
+                                            </div>
+
+                                            <button
+                                              type="button"
+                                              onClick={addKlingCustomShot}
+                                              disabled={klingCustomShots.length >= 6}
+                                              className="inline-flex h-11 items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 text-sm text-white/80 transition hover:border-white/20 hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-40"
+                                            >
+                                              <Plus size={16} />
+                                              Add shot
+                                            </button>
+                                          </div>
+
+                                          {klingCustomShots.map((shot, index) => (
+                                            <div
+                                              key={shot.id}
+                                              className="rounded-[24px] border border-white/10 bg-black/18 p-4"
+                                            >
+                                              <div className="flex items-start justify-between gap-3">
+                                                <div>
+                                                  <div className="text-sm font-semibold text-white/92">
+                                                    Shot {index + 1}
+                                                  </div>
+                                                  <div className="mt-1 text-xs text-white/50">
+                                                    Define the action and timing for this
+                                                    storyboard shot.
+                                                  </div>
+                                                </div>
+
+                                                <button
+                                                  type="button"
+                                                  onClick={() => removeKlingCustomShot(shot.id)}
+                                                  className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white/70 transition hover:border-white/20 hover:bg-white/[0.08]"
+                                                  title="Remove shot"
+                                                >
+                                                  <Trash2 size={14} />
+                                                </button>
+                                              </div>
+
+                                              <textarea
+                                                value={shot.prompt}
+                                                onChange={(e) =>
+                                                  updateKlingCustomShot(shot.id, (prev) => ({
+                                                    ...prev,
+                                                    prompt: e.target.value,
+                                                  }))
+                                                }
+                                                placeholder="Describe this specific shot..."
+                                                className="mt-4 h-28 w-full resize-none rounded-[20px] border border-white/10 bg-black/30 px-4 py-3 text-sm text-white placeholder:text-white/36 outline-none transition focus:border-white/25 focus:bg-black/35"
+                                              />
+
+                                              <div className="mt-4">
+                                                <div className="mb-2 text-sm text-white/70">
+                                                  Shot duration
+                                                </div>
+                                                <div className="grid grid-cols-6 gap-2">
+                                                  {[1, 2, 3, 4, 5, 6].map((n) => (
+                                                    <button
+                                                      key={n}
+                                                      type="button"
+                                                      onClick={() =>
+                                                        updateKlingCustomShot(shot.id, (prev) => ({
+                                                          ...prev,
+                                                          duration: n,
+                                                        }))
+                                                      }
+                                                      className={cn(
+                                                        "cursor-pointer rounded-2xl border px-3 py-3 text-sm font-medium transition",
+                                                        shot.duration === n
+                                                          ? "border-violet-300/25 bg-violet-400/12 text-white shadow-[0_10px_24px_rgba(139,92,246,0.12)]"
+                                                          : "border-white/10 bg-black/20 text-white/70 hover:border-white/20 hover:bg-black/10"
+                                                      )}
+                                                    >
+                                                      {n}
+                                                    </button>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            </div>
+                                          ))}
+
+                                          <div
+                                            className={cn(
+                                              "rounded-2xl border px-3 py-2.5 text-xs",
+                                              klingCustomShotsValid
+                                                ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
+                                                : "border-amber-300/20 bg-amber-400/10 text-amber-100"
+                                            )}
+                                          >
+                                            Custom shot total: {klingCustomDurationSum}s /{" "}
+                                            {duration}s
+                                          </div>
+                                        </div>
+                                      )}
+                                    </>
+                                  )}
                                 </div>
                               </div>
-                            </div>
-                          )}
-                        </motion.div>
-                      </AnimatePresence>
+                            )}
+                          </>
+                        )}
 
-                      <div className="mt-4 rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
-                        <div className="text-[11px] uppercase tracking-[0.18em] text-white/35">
-                          Prompt
-                        </div>
-                        <div className="mt-2 text-sm leading-6 text-white/70">
-                          {selectedGeneration.prompt}
-                        </div>
-
-                        <div className="mt-4 flex flex-wrap gap-2 text-xs text-white/50">
-                          <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
-                            {formatProviderName(selectedGeneration.provider)}
+                        {active === "text-to-video" && (
+                          <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-6 text-sm text-white/45">
+                            No reference uploads needed for text-to-video.
                           </div>
-                          <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
-                            {formatViduModelName(selectedGeneration.model)}
-                          </div>
-                          <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
-                            {selectedGeneration.duration}s
-                          </div>
-                          <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
-                            {selectedGeneration.resolution}
-                          </div>
-                          <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
-                            {selectedGeneration.aspect}
-                          </div>
-                          <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
-                            {selectedGeneration.chargedCredits} credits
-                          </div>
-                          {selectedGeneration.provider === "kling" && (
-                            <>
-                              <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
-                                audio: {selectedGeneration.klingWithAudio ? "on" : "off"}
-                              </div>
-                              <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
-                                multi-shot: {selectedGeneration.klingMultiShot ? "on" : "off"}
-                              </div>
-                              {selectedGeneration.klingMultiShot && selectedGeneration.klingShotType && (
-                                <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
-                                  shot type: {selectedGeneration.klingShotType}
-                                </div>
-                              )}
-                            </>
-                          )}
-                          {selectedGeneration.status === "failed" && (
-                            <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
-                              refund: {selectedGeneration.refundStatus}
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="mt-4 flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() => reusePrompt(selectedGeneration)}
-                            className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm text-white/75 transition hover:border-white/20 hover:bg-white/[0.06]"
-                          >
-                            <Wand2 size={15} />
-                            Reuse prompt
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => reuseSettings(selectedGeneration)}
-                            className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm text-white/75 transition hover:border-white/20 hover:bg-white/[0.06]"
-                          >
-                            <SlidersHorizontal size={15} />
-                            Reuse settings
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => remixGeneration(selectedGeneration)}
-                            className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-violet-300/20 bg-violet-400/10 px-4 py-2.5 text-sm text-violet-100 transition hover:border-violet-200/30 hover:bg-violet-400/15"
-                          >
-                            <Sparkles size={15} />
-                            Remix this
-                          </button>
-
-                          {selectedGeneration.videoUrl && (
-                            <a
-                              href={selectedGeneration.videoUrl}
-                              download={`koa-video-${selectedGeneration.id}.mp4`}
-                              className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm text-white/75 transition hover:border-white/20 hover:bg-white/[0.06]"
-                            >
-                              <Download size={15} />
-                              Download video
-                            </a>
-                          )}
-                        </div>
+                        )}
                       </div>
-                    </>
-                  ) : (
-                    <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02))] p-6">
-                      <div className="flex items-start gap-4">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-violet-300/20 bg-violet-400/10 text-violet-100">
-                          <Clapperboard size={20} />
+                    </div>
+
+                    <div className="rounded-[24px] border border-white/10 bg-black/22 p-4">
+                      <SectionTitle icon={<Sparkles size={14} />} kicker="Prompt">
+                        Scene Direction
+                      </SectionTitle>
+
+                      <textarea
+                        value={prompt}
+                        onChange={(e) => setPrompt(e.target.value)}
+                        className="mt-4 h-36 w-full resize-none rounded-[20px] border border-white/10 bg-black/30 px-4 py-3 text-sm text-white placeholder:text-white/36 outline-none transition focus:border-white/25 focus:bg-black/35"
+                        placeholder={
+                          active === "reference-to-video" &&
+                          referenceInputMode === "subjects"
+                            ? "Describe the scene and reference your subjects like @hero or @girl..."
+                            : active === "text-to-video"
+                              ? "Write the full scene prompt..."
+                              : isKling &&
+                                  klingMultiShot &&
+                                  klingShotType === "customize"
+                                ? "Optional in custom multi-shot mode. Each shot can have its own prompt."
+                                : "Describe motion, camera, lighting, mood, style..."
+                        }
+                      />
+
+                      {isKling && (
+                        <div className="mt-4">
+                          <div className="mb-2 text-sm text-white/70">
+                            Negative prompt
+                          </div>
+                          <textarea
+                            value={negativePrompt}
+                            onChange={(e) => setNegativePrompt(e.target.value)}
+                            className="h-28 w-full resize-none rounded-[20px] border border-white/10 bg-black/30 px-4 py-3 text-sm text-white placeholder:text-white/36 outline-none transition focus:border-white/25 focus:bg-black/35"
+                            placeholder="Things you want Kling to avoid..."
+                          />
+                        </div>
+                      )}
+
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {PROMPT_PRESETS.map((preset) => (
+                          <button
+                            key={preset}
+                            type="button"
+                            onClick={() => applyPromptPreset(preset)}
+                            className="cursor-pointer rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-white/70 transition hover:border-white/20 hover:bg-white/[0.06]"
+                          >
+                            {preset}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="rounded-[24px] border border-white/10 bg-black/22 p-4">
+                      <SectionTitle icon={<SlidersHorizontal size={14} />} kicker="Settings">
+                        Generation Settings
+                      </SectionTitle>
+
+                      <div className="mt-4 space-y-5">
+                        <div>
+                          <div className="mb-2 text-sm text-white/70">Model</div>
+                          <ModelCardSelector
+                            value={model}
+                            options={modelOptions}
+                            onChange={setModel}
+                            kind={currentKind}
+                          />
                         </div>
 
                         <div>
-                          <div className="text-lg font-semibold text-white">
-                            Create cinematic AI video
-                          </div>
-                          <div className="mt-1 max-w-xl text-sm text-white/55">
-                            Build motion-driven clips with text prompts, start/end frames, or reference material. Everything you render appears here.
-                          </div>
+                          <div className="mb-2 text-sm text-white/70">Duration</div>
+                          <div className="grid grid-cols-6 gap-2">
+                            {ALL_DURATION_OPTIONS.map((d) => {
+                              const enabled = allowedDurations.includes(d);
 
-                          <div className="mt-4 flex flex-wrap gap-2">
-                            {["Text to video", "Image to video", "Reference guided"].map(
-                              (pill) => (
-                                <div
-                                  key={pill}
-                                  className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-white/70"
+                              return (
+                                <motion.button
+                                  key={d}
+                                  type="button"
+                                  onClick={() => enabled && setDuration(d)}
+                                  whileTap={enabled ? { scale: 0.97 } : undefined}
+                                  disabled={!enabled}
+                                  className={cn(
+                                    "cursor-pointer rounded-2xl border px-3 py-3 text-sm font-medium transition",
+                                    duration === d
+                                      ? "border-violet-300/25 bg-violet-400/12 text-white shadow-[0_10px_24px_rgba(139,92,246,0.12)]"
+                                      : "border-white/10 bg-black/20 text-white/70 hover:border-white/20 hover:bg-black/10",
+                                    !enabled && "cursor-not-allowed opacity-30"
+                                  )}
                                 >
-                                  {pill}
-                                </div>
-                              )
-                            )}
+                                  {d}
+                                </motion.button>
+                              );
+                            })}
                           </div>
+                        </div>
 
-                          <div className="mt-5 grid gap-3 md:grid-cols-2">
-                            {[
-                              "/backgrounds/1.mp4",
-                              "/backgrounds/2.mp4",
-                              "/backgrounds/3.mp4",
-                              "/backgrounds/4.mp4",
-                            ].map((src) => (
-                              <div
-                                key={src}
-                                className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/30"
+                        <div>
+                          <div className="mb-2 text-sm text-white/70">Resolution</div>
+                          <ChipSelector
+                            value={resolution}
+                            onChange={setResolution}
+                            options={allowedResolutions.map((r) => ({
+                              value: r,
+                              label: r,
+                              meta:
+                                r === "540p"
+                                  ? "fastest"
+                                  : r === "720p"
+                                    ? "balanced"
+                                    : r === "1080p"
+                                      ? "highest quality"
+                                      : "",
+                            }))}
+                          />
+                        </div>
+
+                        <div>
+                          <div className="mb-2 text-sm text-white/70">Aspect Ratio</div>
+                          <ChipSelector
+                            value={aspect}
+                            onChange={setAspect}
+                            options={allowedAspects.map((a) => ({ value: a }))}
+                          />
+                        </div>
+
+                        <div>
+                          <div className="mb-2 text-sm text-white/70">Amount</div>
+                          <div className="grid grid-cols-4 gap-2">
+                            {[1, 2, 3, 4].map((n) => (
+                              <motion.button
+                                key={n}
+                                type="button"
+                                onClick={() => setAmount(n)}
+                                whileTap={{ scale: 0.97 }}
+                                className={cn(
+                                  "cursor-pointer rounded-2xl border px-3 py-3 text-sm font-medium transition",
+                                  amount === n
+                                    ? "border-violet-300/25 bg-violet-400/12 text-white shadow-[0_10px_24px_rgba(139,92,246,0.12)]"
+                                    : "border-white/10 bg-black/20 text-white/70 hover:border-white/20 hover:bg-black/10"
+                                )}
                               >
-                                <video
-                                  className="h-56 w-full object-cover"
-                                  src={src}
-                                  autoPlay
-                                  loop
-                                  muted
-                                  playsInline
-                                  preload="metadata"
-                                />
-                                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                              </div>
+                                {n}
+                              </motion.button>
                             ))}
                           </div>
                         </div>
                       </div>
                     </div>
-                  )}
-                </div>
-              </div>
 
-              <div className="rounded-[28px] border border-white/10 bg-black/18 p-4">
-                <div className="flex items-center justify-between">
+                    <div className="rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(18,18,24,0.95),rgba(10,10,14,0.95))] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
+                      <SectionTitle icon={<Coins size={14} />} kicker="Summary">
+                        Ready to Generate
+                      </SectionTitle>
+
+                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                        <StatCard
+                          label="Generation cost"
+                          value={`${videoCreditCost} credits`}
+                        />
+                        <StatCard
+                          label="Balance after"
+                          value={remainingCreditsAfterCreate ?? "Loading..."}
+                          danger={
+                            remainingCreditsAfterCreate != null &&
+                            remainingCreditsAfterCreate < 0
+                          }
+                        />
+                      </div>
+
+                      {!hasEnoughCredits && creditsAreResolved && (
+                        <div className="mt-3 rounded-2xl border border-red-500/20 bg-red-500/10 px-3 py-2.5 text-xs text-red-200">
+                          You do not have enough credits for this video generation.
+                        </div>
+                      )}
+
+                      {isKling &&
+                        klingMultiShot &&
+                        klingShotType === "customize" &&
+                        !klingCustomShotsValid && (
+                          <div className="mt-3 rounded-2xl border border-amber-300/20 bg-amber-400/10 px-3 py-2.5 text-xs text-amber-100">
+                            Your custom shot builder is not valid yet. Every shot needs a
+                            prompt and the summed durations must exactly match the selected
+                            duration.
+                          </div>
+                        )}
+
+                      <AnimatePresence>
+                        {showTopupPanel && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 8 }}
+                            transition={{ duration: 0.2 }}
+                            className="mt-3 overflow-hidden rounded-[22px] border border-amber-300/20 bg-[linear-gradient(180deg,rgba(255,224,138,0.08),rgba(255,196,77,0.03))] p-4"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <div className="text-sm font-semibold text-amber-50">
+                                  Top up your credits
+                                </div>
+                                <div className="mt-1 text-xs leading-relaxed text-amber-100/65">
+                                  Buy one-time credit packs without changing your subscription.
+                                  Purchased top-up credits persist through monthly resets.
+                                </div>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => setShowTopupPanel(false)}
+                                className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-xl border border-white/10 bg-black/20 text-white/70 transition hover:border-white/20 hover:bg-black/30 hover:text-white"
+                                aria-label="Close top-up panel"
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+
+                            <div className="mt-4">
+                              <TopupButtons />
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
+                      <motion.button
+                        type="button"
+                        whileTap={{ scale: 0.99 }}
+                        onClick={() => {
+                          if (active === "reference-to-video") {
+                            void createReferenceToVideo();
+                            return;
+                          }
+
+                          if (active === "image-to-video") {
+                            void createImageOrStartEndVideo();
+                            return;
+                          }
+
+                          if (active === "text-to-video") {
+                            void createTextToVideo();
+                          }
+                        }}
+                        disabled={
+                          isCreating ||
+                          !creditsAreResolved ||
+                          !hasEnoughCredits ||
+                          authLoading ||
+                          (isKling &&
+                            klingMultiShot &&
+                            klingShotType === "customize" &&
+                            !klingCustomShotsValid)
+                        }
+                        className="mt-4 flex w-full cursor-pointer items-center justify-center gap-2 rounded-[20px] bg-white px-4 py-3.5 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <Sparkles size={16} />
+                        <span>
+                          {isCreating
+                            ? `Generating ${amount} video${amount > 1 ? "s" : ""}...`
+                            : !creditsAreResolved
+                              ? "Loading credits..."
+                              : !hasEnoughCredits
+                                ? `Insufficient credits • Need ${videoCreditCost}`
+                                : `Create • ${videoCreditCost} credits`}
+                        </span>
+                      </motion.button>
+                    </div>
+                  </div>
+                </div>
+              </GlassPanel>
+            </div>
+
+            <div className="min-h-0">
+              <GlassPanel className="flex h-full min-h-0 flex-col p-4">
+                <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
                   <div>
-                    <div className="text-sm font-semibold text-white/90">Recent</div>
+                    <div className="text-xs uppercase tracking-[0.18em] text-white/42">
+                      Workspace
+                    </div>
+                    <div className="mt-1 text-xl font-semibold">{toolLabel}</div>
                     <div className="mt-1 text-xs text-white/45">
-                      Click a card to preview it
+                      Latest result and recent generations
                     </div>
                   </div>
 
-                  <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5 text-xs text-white/60">
-                    {generations.length} total
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white/70">
+                    {mounted ? new Date().toLocaleString() : "—"}
                   </div>
                 </div>
 
-                {recentGenerations.length > 0 ? (
-                  <div className="mt-4 space-y-3">
-                    {recentGenerations.map((item) => (
-                      <motion.button
-                        key={item.id}
-                        type="button"
-                        onClick={() => setSelectedGeneration(item)}
-                        whileHover={{ y: -2 }}
-                        className={cn(
-                          "flex w-full cursor-pointer items-center gap-3 rounded-2xl border p-2 text-left transition",
-                          selectedGeneration?.id === item.id
-                            ? "border-white/20 bg-white/[0.08]"
-                            : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/[0.04]"
-                        )}
-                      >
-                        <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-black">
-                          {item.videoUrl ? (
-                            <video
-                              className="h-full w-full object-cover"
-                              src={item.videoUrl}
-                              poster={item.coverUrl ?? undefined}
-                              muted
-                              playsInline
-                              preload="metadata"
-                            />
-                          ) : item.coverUrl ? (
-                            <img
-                              src={item.coverUrl}
-                              alt={item.prompt}
-                              className="h-full w-full object-cover"
-                              draggable={false}
-                            />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center text-[10px] text-white/45">
-                              {item.status === "failed" ? "FAIL" : "..."}
+                <AnimatePresence>
+                  {error && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      className="mt-4 shrink-0 rounded-2xl border border-red-500/20 bg-red-500/10 px-3 py-2.5 text-sm text-red-200"
+                    >
+                      {error}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {currentTask && (
+                  <div className="mt-4 shrink-0 rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-[11px] uppercase tracking-[0.18em] text-white/35">
+                          Current Task
+                        </div>
+                        <div className="mt-1 text-sm text-white/75">
+                          {prettyStatus(currentTask.status)}
+                        </div>
+                      </div>
+                      <div className="rounded-full border border-violet-400/20 bg-violet-400/10 px-3 py-1 text-xs text-violet-100">
+                        {formatViduModelName(currentTask.model)} • {currentTask.resolution} •{" "}
+                        {currentTask.duration}s
+                      </div>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-4 gap-2">
+                      {renderTimeline.map((step, index) => (
+                        <div
+                          key={`${step.label}-${index}`}
+                          className={cn(
+                            "rounded-2xl border px-3 py-3 text-center text-xs transition",
+                            step.done
+                              ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
+                              : step.active
+                                ? "border-violet-400/20 bg-violet-400/10 text-violet-100"
+                                : "border-white/10 bg-black/20 text-white/45"
+                          )}
+                        >
+                          <div className="mb-1 flex justify-center">
+                            {step.done ? (
+                              <CheckCircle2 size={14} />
+                            ) : step.active ? (
+                              <LoaderCircle size={14} className="animate-spin" />
+                            ) : (
+                              <div className="h-3.5 w-3.5 rounded-full border border-white/20" />
+                            )}
+                          </div>
+                          {step.label}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
+                  <div className="grid gap-4 xl:grid-cols-[1.28fr_0.72fr]">
+                    <div className="overflow-hidden rounded-[28px] border border-white/10 bg-black/18">
+                      <div className="border-b border-white/10 px-4 py-3">
+                        <div className="flex items-center justify-between gap-4">
+                          <div>
+                            <div className="text-sm font-semibold text-white/90">
+                              {selectedGeneration
+                                ? kindLabel(selectedGeneration.kind)
+                                : "Latest Preview"}
+                            </div>
+                            <div className="mt-1 text-xs text-white/45">
+                              {selectedGeneration
+                                ? new Date(selectedGeneration.createdAt).toLocaleString()
+                                : "Your generated videos will appear here."}
+                            </div>
+                          </div>
+
+                          {selectedGeneration && (
+                            <div
+                              className={cn(
+                                "rounded-2xl border px-3 py-2 text-xs",
+                                getStatusBadgeClasses(selectedGeneration.status)
+                              )}
+                            >
+                              {prettyStatus(selectedGeneration.status)}
                             </div>
                           )}
                         </div>
+                      </div>
 
-                        <div className="min-w-0 flex-1">
-                          <div className="line-clamp-2 text-sm text-white/85">
-                            {item.prompt || "Untitled generation"}
+                      <div className="p-4">
+                        {selectedGeneration ? (
+                          <>
+                            <AnimatePresence mode="wait">
+                              <motion.div
+                                key={selectedGeneration.id}
+                                initial={{ opacity: 0, scale: 0.985 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.985 }}
+                                transition={{ duration: 0.22 }}
+                              >
+                                {selectedGeneration.videoUrl ? (
+                                  <video
+                                    className="max-h-[720px] w-full rounded-[24px] border border-white/10 bg-black object-contain"
+                                    src={selectedGeneration.videoUrl}
+                                    controls
+                                    playsInline
+                                    poster={selectedGeneration.coverUrl ?? undefined}
+                                  />
+                                ) : selectedGeneration.status === "failed" ? (
+                                  <div className="flex min-h-[440px] items-center justify-center rounded-[24px] border border-red-500/20 bg-red-500/10 px-6 text-center text-sm text-red-200">
+                                    {selectedGeneration.error || "Generation failed."}
+                                  </div>
+                                ) : (
+                                  <div className="flex min-h-[440px] items-center justify-center rounded-[24px] border border-white/10 bg-white/[0.03]">
+                                    <div className="flex flex-col items-center gap-4">
+                                      <div className="relative h-12 w-12">
+                                        <div className="absolute inset-0 rounded-full border-2 border-white/10" />
+                                        <div className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-white/80" />
+                                      </div>
+                                      <div className="text-center">
+                                        <div className="text-sm font-medium text-white/90">
+                                          {prettyStatus(selectedGeneration.status)}
+                                        </div>
+                                        <div className="mt-1 text-xs text-white/50">
+                                          {formatProviderName(selectedGeneration.provider)} is
+                                          working on this generation.
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </motion.div>
+                            </AnimatePresence>
+
+                            <div className="mt-4 rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
+                              <div className="text-[11px] uppercase tracking-[0.18em] text-white/35">
+                                Prompt
+                              </div>
+                              <div className="mt-2 text-sm leading-6 text-white/70">
+                                {selectedGeneration.prompt}
+                              </div>
+
+                              <div className="mt-4 flex flex-wrap gap-2 text-xs text-white/50">
+                                <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
+                                  {formatProviderName(selectedGeneration.provider)}
+                                </div>
+                                <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
+                                  {formatViduModelName(selectedGeneration.model)}
+                                </div>
+                                <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
+                                  {selectedGeneration.duration}s
+                                </div>
+                                <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
+                                  {selectedGeneration.resolution}
+                                </div>
+                                <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
+                                  {selectedGeneration.aspect}
+                                </div>
+                                <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
+                                  {selectedGeneration.chargedCredits} credits
+                                </div>
+                                {selectedGeneration.provider === "kling" && (
+                                  <>
+                                    <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
+                                      audio: {selectedGeneration.klingWithAudio ? "on" : "off"}
+                                    </div>
+                                    <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
+                                      multi-shot:{" "}
+                                      {selectedGeneration.klingMultiShot ? "on" : "off"}
+                                    </div>
+                                    {selectedGeneration.klingMultiShot &&
+                                      selectedGeneration.klingShotType && (
+                                        <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
+                                          shot type: {selectedGeneration.klingShotType}
+                                        </div>
+                                      )}
+                                  </>
+                                )}
+                                {selectedGeneration.status === "failed" && (
+                                  <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
+                                    refund: {selectedGeneration.refundStatus}
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="mt-4 flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => reusePrompt(selectedGeneration)}
+                                  className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm text-white/75 transition hover:border-white/20 hover:bg-white/[0.06]"
+                                >
+                                  <Wand2 size={15} />
+                                  Reuse prompt
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => reuseSettings(selectedGeneration)}
+                                  className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm text-white/75 transition hover:border-white/20 hover:bg-white/[0.06]"
+                                >
+                                  <SlidersHorizontal size={15} />
+                                  Reuse settings
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => remixGeneration(selectedGeneration)}
+                                  className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-violet-300/20 bg-violet-400/10 px-4 py-2.5 text-sm text-violet-100 transition hover:border-violet-200/30 hover:bg-violet-400/15"
+                                >
+                                  <Sparkles size={15} />
+                                  Remix this
+                                </button>
+
+                                {selectedGeneration.videoUrl && (
+                                  <a
+                                    href={selectedGeneration.videoUrl}
+                                    download={`koa-video-${selectedGeneration.id}.mp4`}
+                                    className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm text-white/75 transition hover:border-white/20 hover:bg-white/[0.06]"
+                                  >
+                                    <Download size={15} />
+                                    Download video
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02))] p-6">
+                            <div className="flex items-start gap-4">
+                              <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-violet-300/20 bg-violet-400/10 text-violet-100">
+                                <Clapperboard size={20} />
+                              </div>
+
+                              <div>
+                                <div className="text-lg font-semibold text-white">
+                                  Create cinematic AI video
+                                </div>
+                                <div className="mt-1 max-w-xl text-sm text-white/55">
+                                  Build motion-driven clips with text prompts, start/end frames,
+                                  or reference material. Everything you render appears here.
+                                </div>
+
+                                <div className="mt-4 flex flex-wrap gap-2">
+                                  {[
+                                    "Text to video",
+                                    "Image to video",
+                                    "Reference guided",
+                                  ].map((pill) => (
+                                    <div
+                                      key={pill}
+                                      className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-white/70"
+                                    >
+                                      {pill}
+                                    </div>
+                                  ))}
+                                </div>
+
+                                <div className="mt-5 grid gap-3 md:grid-cols-2">
+                                  {[
+                                    "/backgrounds/1.mp4",
+                                    "/backgrounds/2.mp4",
+                                    "/backgrounds/3.mp4",
+                                    "/backgrounds/4.mp4",
+                                  ].map((src) => (
+                                    <div
+                                      key={src}
+                                      className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/30"
+                                    >
+                                      <video
+                                        className="h-56 w-full object-cover"
+                                        src={src}
+                                        autoPlay
+                                        loop
+                                        muted
+                                        playsInline
+                                        preload="metadata"
+                                      />
+                                      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
                           </div>
-                          <div className="mt-1 flex flex-wrap gap-2 text-xs text-white/45">
-                            <span>{new Date(item.createdAt).toLocaleString()}</span>
-                            <span>•</span>
-                            <span>{item.chargedCredits} credits</span>
-                            <span>•</span>
-                            <span>{formatProviderName(item.provider)}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="rounded-[28px] border border-white/10 bg-black/18 p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-sm font-semibold text-white/90">Recent</div>
+                          <div className="mt-1 text-xs text-white/45">
+                            Click a card to preview it
                           </div>
                         </div>
-                      </motion.button>
-                    ))}
+
+                        <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5 text-xs text-white/60">
+                          {generations.length} total
+                        </div>
+                      </div>
+
+                      {recentGenerations.length > 0 ? (
+                        <div className="mt-4 space-y-3">
+                          {recentGenerations.map((item) => (
+                            <motion.button
+                              key={item.id}
+                              type="button"
+                              onClick={() => setSelectedGeneration(item)}
+                              whileHover={{ y: -2 }}
+                              className={cn(
+                                "flex w-full cursor-pointer items-center gap-3 rounded-2xl border p-2 text-left transition",
+                                selectedGeneration?.id === item.id
+                                  ? "border-white/20 bg-white/[0.08]"
+                                  : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/[0.04]"
+                              )}
+                            >
+                              <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-black">
+                                {item.videoUrl ? (
+                                  <video
+                                    className="h-full w-full object-cover"
+                                    src={item.videoUrl}
+                                    poster={item.coverUrl ?? undefined}
+                                    muted
+                                    playsInline
+                                    preload="metadata"
+                                  />
+                                ) : item.coverUrl ? (
+                                  <img
+                                    src={item.coverUrl}
+                                    alt={item.prompt}
+                                    className="h-full w-full object-cover"
+                                    draggable={false}
+                                  />
+                                ) : (
+                                  <div className="flex h-full w-full items-center justify-center text-[10px] text-white/45">
+                                    {item.status === "failed" ? "FAIL" : "..."}
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="min-w-0 flex-1">
+                                <div className="line-clamp-2 text-sm text-white/85">
+                                  {item.prompt || "Untitled generation"}
+                                </div>
+                                <div className="mt-1 flex flex-wrap gap-2 text-xs text-white/45">
+                                  <span>{new Date(item.createdAt).toLocaleString()}</span>
+                                  <span>•</span>
+                                  <span>{item.chargedCredits} credits</span>
+                                  <span>•</span>
+                                  <span>{formatProviderName(item.provider)}</span>
+                                </div>
+                              </div>
+                            </motion.button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 px-4 py-6 text-sm text-white/50">
+                          No generations yet.
+                        </div>
+                      )}
+                    </div>
                   </div>
-                ) : (
-                  <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 px-4 py-6 text-sm text-white/50">
-                    No generations yet.
-                  </div>
-                )}
-              </div>
+                </div>
+              </GlassPanel>
             </div>
-          </GlassPanel>
+          </div>
         </motion.div>
 
         <motion.div
