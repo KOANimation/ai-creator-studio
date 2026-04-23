@@ -524,7 +524,7 @@ function GlassPanel({
       )}
     >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_35%)]" />
-      <div className="relative">{children}</div>
+      <div className="relative h-full min-h-0">{children}</div>
     </motion.div>
   );
 }
@@ -663,6 +663,7 @@ function ChipSelector({
     </div>
   );
 }
+
 
 function ProviderCardSelector({
   value,
@@ -1095,6 +1096,7 @@ export default function CreateImageClient({
   const hasEnoughCredits =
     effectiveCredits != null && effectiveCredits >= imageCreditCost;
 
+
   useEffect(() => {
     if (creditsAreResolved && !hasEnoughCredits) {
       setShowTopupPanel(true);
@@ -1244,6 +1246,26 @@ export default function CreateImageClient({
     }
   }, [generations, selectedGeneration]);
 
+  useEffect(() => {
+    if (!selectedGeneration) return;
+
+    const latestSelected = generations.find(
+      (item) => item.id === selectedGeneration.id
+    );
+
+    if (!latestSelected) return;
+
+    if (
+      latestSelected.imageUrl !== selectedGeneration.imageUrl ||
+      latestSelected.status !== selectedGeneration.status ||
+      latestSelected.error !== selectedGeneration.error ||
+      latestSelected.refundStatus !== selectedGeneration.refundStatus ||
+      latestSelected.note !== selectedGeneration.note
+    ) {
+      setSelectedGeneration(latestSelected);
+    }
+  }, [generations, selectedGeneration]);
+
   const toolLabel = useMemo(
     () => IMAGE_TOOLS.find((t) => t.key === active)?.label ?? "Create",
     [active]
@@ -1385,7 +1407,7 @@ export default function CreateImageClient({
           outputFormat,
           amountRequest: amount,
           createdAt: timestamp,
-          status: "processing",
+          status: "processing" as const,
           imageUrl: null,
           mimeType: null,
           note: null,
@@ -1393,7 +1415,7 @@ export default function CreateImageClient({
           referenceCount:
             active === "reference-to-image" ? refImages.length : 0,
           chargedCredits: perItemCredits,
-          refundStatus: "none",
+          refundStatus: "none" as const,
           requestKey,
         };
       });
@@ -1589,6 +1611,11 @@ export default function CreateImageClient({
     }
   };
 
+  const workspaceViewportHeight =
+    "h-[calc(100vh-136px)] min-h-[720px] max-h-[980px]";
+
+
+
   return (
     <div className="relative min-h-screen overflow-x-hidden text-white">
       <WallpaperRevealBackground src="/wallpaper.jpg" radius={260} />
@@ -1659,631 +1686,660 @@ export default function CreateImageClient({
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.04, duration: 0.35 }}
-          className="mt-5 grid gap-5 lg:grid-cols-[460px_1fr]"
+          className="mt-5"
         >
-          <GlassPanel className="p-4">
-            <div className="rounded-[24px] border border-white/10 bg-black/22 p-2">
-              <div className="flex gap-1">
-                {IMAGE_TOOLS.map((t) => (
-                  <ToolTab
-                    key={t.key}
-                    label={t.label}
-                    active={active === t.key}
-                    onClick={() => onChangeTool(t.key)}
-                  />
-                ))}
-              </div>
-            </div>
-
-            <div className="mt-4 space-y-4">
-              <div className="rounded-[24px] border border-white/10 bg-black/22 p-4">
-                <SectionTitle icon={<Palette size={14} />} kicker="Provider">
-                  AI Provider
-                </SectionTitle>
-
-                <div className="mt-4">
-                  <ProviderCardSelector value={provider} onChange={setProvider} />
-                </div>
-              </div>
-
-              <div className="rounded-[24px] border border-white/10 bg-black/22 p-4">
-                <SectionTitle icon={<Upload size={14} />} kicker="Inputs">
-                  Source Material
-                </SectionTitle>
-
-                <div className="mt-4 space-y-4">
-                  {active === "reference-to-image" ? (
-                    <UploadImagesCard
-                      title="Reference Uploads"
-                      subtitle="Upload 1 to 4 reference images"
-                      maxFiles={4}
-                      files={refImages}
-                      onChangeFiles={setRefImages}
-                    />
-                  ) : (
-                    <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-6 text-sm text-white/45">
-                      No reference uploads needed for text-to-image.
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="rounded-[24px] border border-white/10 bg-black/22 p-4">
-                <SectionTitle icon={<Sparkles size={14} />} kicker="Prompt">
-                  Creative Direction
-                </SectionTitle>
-
-                <textarea
-                  value={
-                    active === "reference-to-image"
-                      ? referencePrompt
-                      : textPrompt
-                  }
-                  onChange={(e) =>
-                    active === "reference-to-image"
-                      ? setReferencePrompt(e.target.value)
-                      : setTextPrompt(e.target.value)
-                  }
-                  className="mt-4 h-36 w-full resize-none rounded-[20px] border border-white/10 bg-black/30 px-4 py-3 text-sm text-white placeholder:text-white/36 outline-none transition focus:border-white/25 focus:bg-black/35"
-                  placeholder={
-                    active === "reference-to-image"
-                      ? "Describe what to generate and what to preserve from the references..."
-                      : "Write the full image prompt..."
-                  }
-                />
-
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {PROMPT_PRESETS.map((preset) => (
-                    <button
-                      key={preset}
-                      type="button"
-                      onClick={() => applyPromptPreset(preset)}
-                      className="cursor-pointer rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-white/70 transition hover:border-white/20 hover:bg-white/[0.06]"
-                    >
-                      {preset}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="rounded-[24px] border border-white/10 bg-black/22 p-4">
-                <SectionTitle icon={<SlidersHorizontal size={14} />} kicker="Settings">
-                  Generation Settings
-                </SectionTitle>
-
-                <div className="mt-4 space-y-5">
-                  <div>
-                    <div className="mb-2 text-sm text-white/70">Model</div>
-                    <ModelCardSelector
-                      provider={provider}
-                      activeTool={active}
-                      selectedModel={selectedModel}
-                      onChangeModel={setSelectedModel}
-                    />
-                  </div>
-
-                  <div>
-                    <div className="mb-2 text-sm text-white/70">Output Format</div>
-                    <ChipSelector
-                      value={outputFormat}
-                      onChange={setOutputFormat}
-                      options={ALL_FORMAT_OPTIONS.map((value) => ({
-                        value,
-                        meta:
-                          value === "PNG"
-                            ? "best quality"
-                            : value === "JPG"
-                              ? "smaller size"
-                              : "modern format",
-                      }))}
-                    />
-                  </div>
-
-                  <div>
-                    <div className="mb-2 text-sm text-white/70">Aspect Ratio</div>
-                    <ChipSelector
-                      value={aspect}
-                      onChange={setAspect}
-                      options={ALL_ASPECT_OPTIONS.map((value) => ({ value }))}
-                    />
-                  </div>
-
-                  <div>
-                    <div className="mb-2 text-sm text-white/70">Amount</div>
-                    <div className="grid grid-cols-4 gap-2">
-                      {[1, 2, 3, 4].map((n) => (
-                        <motion.button
-                          key={n}
-                          type="button"
-                          onClick={() => setAmount(n)}
-                          whileTap={{ scale: 0.97 }}
-                          className={cn(
-                            "cursor-pointer rounded-2xl border px-3 py-3 text-sm font-medium transition",
-                            amount === n
-                              ? "border-violet-300/25 bg-violet-400/12 text-white shadow-[0_10px_24px_rgba(139,92,246,0.12)]"
-                              : "border-white/10 bg-black/20 text-white/70 hover:border-white/20 hover:bg-black/10"
-                          )}
-                        >
-                          {n}
-                        </motion.button>
+          <div
+            className={cn(
+              "grid gap-5 overflow-hidden lg:grid-cols-[460px_minmax(0,1fr)]",
+              workspaceViewportHeight
+            )}
+          >
+            <div className="h-full overflow-hidden">
+              <GlassPanel className="h-full overflow-hidden p-4">
+                <div className="flex h-full flex-col overflow-hidden">
+                  <div className="shrink-0 rounded-[24px] border border-white/10 bg-black/22 p-2">
+                    <div className="flex gap-1">
+                      {IMAGE_TOOLS.map((t) => (
+                        <ToolTab
+                          key={t.key}
+                          label={t.label}
+                          active={active === t.key}
+                          onClick={() => onChangeTool(t.key)}
+                        />
                       ))}
                     </div>
                   </div>
-                </div>
-              </div>
 
-              <div className="sticky bottom-4 z-20 rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(18,18,24,0.95),rgba(10,10,14,0.95))] p-4 backdrop-blur-2xl shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
-                <SectionTitle icon={<Coins size={14} />} kicker="Summary">
-                  Ready to Generate
-                </SectionTitle>
+                  <div className="dark-scrollbar mt-4 h-[calc(100%-76px)] overflow-y-auto overscroll-contain pr-1">
+                    <div className="space-y-4 pb-4">
+                      <div className="rounded-[24px] border border-white/10 bg-black/22 p-4">
+                        <SectionTitle icon={<Palette size={14} />} kicker="Provider">
+                          AI Provider
+                        </SectionTitle>
 
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <StatCard
-                    label="Generation cost"
-                    value={`${imageCreditCost} credits`}
-                  />
-                  <StatCard
-                    label="Balance after"
-                    value={remainingCreditsAfterCreate ?? "Loading..."}
-                    danger={
-                      remainingCreditsAfterCreate != null &&
-                      remainingCreditsAfterCreate < 0
-                    }
-                  />
-                </div>
+                        <div className="mt-4">
+                          <ProviderCardSelector value={provider} onChange={setProvider} />
+                        </div>
+                      </div>
 
-                {!hasEnoughCredits && creditsAreResolved && (
-                  <div className="mt-3 rounded-2xl border border-red-500/20 bg-red-500/10 px-3 py-2.5 text-xs text-red-200">
-                    You do not have enough credits for this image generation.
-                  </div>
-                )}
+                      <div className="rounded-[24px] border border-white/10 bg-black/22 p-4">
+                        <SectionTitle icon={<Upload size={14} />} kicker="Inputs">
+                          Source Material
+                        </SectionTitle>
 
-                <AnimatePresence>
-                  {showTopupPanel && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 8 }}
-                      transition={{ duration: 0.2 }}
-                      className="mt-3 overflow-hidden rounded-[22px] border border-amber-300/20 bg-[linear-gradient(180deg,rgba(255,224,138,0.08),rgba(255,196,77,0.03))] p-4"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <div className="text-sm font-semibold text-amber-50">
-                            Top up your credits
+                        <div className="mt-4 space-y-4">
+                          {active === "reference-to-image" ? (
+                            <UploadImagesCard
+                              title="Reference Uploads"
+                              subtitle="Upload 1 to 4 reference images"
+                              maxFiles={4}
+                              files={refImages}
+                              onChangeFiles={setRefImages}
+                            />
+                          ) : (
+                            <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-6 text-sm text-white/45">
+                              No reference uploads needed for text-to-image.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="rounded-[24px] border border-white/10 bg-black/22 p-4">
+                        <SectionTitle icon={<Sparkles size={14} />} kicker="Prompt">
+                          Creative Direction
+                        </SectionTitle>
+
+                        <textarea
+                          value={
+                            active === "reference-to-image"
+                              ? referencePrompt
+                              : textPrompt
+                          }
+                          onChange={(e) =>
+                            active === "reference-to-image"
+                              ? setReferencePrompt(e.target.value)
+                              : setTextPrompt(e.target.value)
+                          }
+                          className="mt-4 h-36 w-full resize-none rounded-[20px] border border-white/10 bg-black/30 px-4 py-3 text-sm text-white placeholder:text-white/36 outline-none transition focus:border-white/25 focus:bg-black/35"
+                          placeholder={
+                            active === "reference-to-image"
+                              ? "Describe what to generate and what to preserve from the references..."
+                              : "Write the full image prompt..."
+                          }
+                        />
+
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {PROMPT_PRESETS.map((preset) => (
+                            <button
+                              key={preset}
+                              type="button"
+                              onClick={() => applyPromptPreset(preset)}
+                              className="cursor-pointer rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-white/70 transition hover:border-white/20 hover:bg-white/[0.06]"
+                            >
+                              {preset}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="rounded-[24px] border border-white/10 bg-black/22 p-4">
+                        <SectionTitle icon={<SlidersHorizontal size={14} />} kicker="Settings">
+                          Generation Settings
+                        </SectionTitle>
+
+                        <div className="mt-4 space-y-5">
+                          <div>
+                            <div className="mb-2 text-sm text-white/70">Model</div>
+                            <ModelCardSelector
+                              provider={provider}
+                              activeTool={active}
+                              selectedModel={selectedModel}
+                              onChangeModel={setSelectedModel}
+                            />
                           </div>
-                          <div className="mt-1 text-xs leading-relaxed text-amber-100/65">
-                            Buy one-time credit packs without changing your
-                            subscription. Purchased top-up credits persist through
-                            monthly resets.
+
+                          <div>
+                            <div className="mb-2 text-sm text-white/70">
+                              Output Format
+                            </div>
+                            <ChipSelector
+                              value={outputFormat}
+                              onChange={setOutputFormat}
+                              options={ALL_FORMAT_OPTIONS.map((value) => ({
+                                value,
+                                meta:
+                                  value === "PNG"
+                                    ? "best quality"
+                                    : value === "JPG"
+                                      ? "smaller size"
+                                      : "modern format",
+                              }))}
+                            />
+                          </div>
+
+                          <div>
+                            <div className="mb-2 text-sm text-white/70">Aspect Ratio</div>
+                            <ChipSelector
+                              value={aspect}
+                              onChange={setAspect}
+                              options={ALL_ASPECT_OPTIONS.map((value) => ({ value }))}
+                            />
+                          </div>
+
+                          <div>
+                            <div className="mb-2 text-sm text-white/70">Amount</div>
+                            <div className="grid grid-cols-4 gap-2">
+                              {[1, 2, 3, 4].map((n) => (
+                                <motion.button
+                                  key={n}
+                                  type="button"
+                                  onClick={() => setAmount(n)}
+                                  whileTap={{ scale: 0.97 }}
+                                  className={cn(
+                                    "cursor-pointer rounded-2xl border px-3 py-3 text-sm font-medium transition",
+                                    amount === n
+                                      ? "border-violet-300/25 bg-violet-400/12 text-white shadow-[0_10px_24px_rgba(139,92,246,0.12)]"
+                                      : "border-white/10 bg-black/20 text-white/70 hover:border-white/20 hover:bg-black/10"
+                                  )}
+                                >
+                                  {n}
+                                </motion.button>
+                              ))}
+                            </div>
                           </div>
                         </div>
+                      </div>
 
-                        <button
+                      <div className="rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(18,18,24,0.95),rgba(10,10,14,0.95))] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
+                        <SectionTitle icon={<Coins size={14} />} kicker="Summary">
+                          Ready to Generate
+                        </SectionTitle>
+
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                          <StatCard
+                            label="Generation cost"
+                            value={`${imageCreditCost} credits`}
+                          />
+                          <StatCard
+                            label="Balance after"
+                            value={remainingCreditsAfterCreate ?? "Loading..."}
+                            danger={
+                              remainingCreditsAfterCreate != null &&
+                              remainingCreditsAfterCreate < 0
+                            }
+                          />
+                        </div>
+
+                        {!hasEnoughCredits && creditsAreResolved && (
+                          <div className="mt-3 rounded-2xl border border-red-500/20 bg-red-500/10 px-3 py-2.5 text-xs text-red-200">
+                            You do not have enough credits for this image generation.
+                          </div>
+                        )}
+
+                        <AnimatePresence>
+                          {showTopupPanel && (
+                            <motion.div
+                              initial={{ opacity: 0, y: 8 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: 8 }}
+                              transition={{ duration: 0.2 }}
+                              className="mt-3 overflow-hidden rounded-[22px] border border-amber-300/20 bg-[linear-gradient(180deg,rgba(255,224,138,0.08),rgba(255,196,77,0.03))] p-4"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <div className="text-sm font-semibold text-amber-50">
+                                    Top up your credits
+                                  </div>
+                                  <div className="mt-1 text-xs leading-relaxed text-amber-100/65">
+                                    Buy one-time credit packs without changing your
+                                    subscription. Purchased top-up credits persist through
+                                    monthly resets.
+                                  </div>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => setShowTopupPanel(false)}
+                                  className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-xl border border-white/10 bg-black/20 text-white/70 transition hover:border-white/20 hover:bg-black/30 hover:text-white"
+                                  aria-label="Close top-up panel"
+                                >
+                                  <X size={14} />
+                                </button>
+                              </div>
+
+                              <div className="mt-4">
+                                <TopupButtons />
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+
+                        <motion.button
                           type="button"
-                          onClick={() => setShowTopupPanel(false)}
-                          className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-xl border border-white/10 bg-black/20 text-white/70 transition hover:border-white/20 hover:bg-black/30 hover:text-white"
-                          aria-label="Close top-up panel"
+                          onClick={() => void createImages()}
+                          whileTap={{ scale: 0.99 }}
+                          disabled={
+                            isCreating ||
+                            !creditsAreResolved ||
+                            !hasEnoughCredits ||
+                            authLoading
+                          }
+                          className="mt-4 flex w-full cursor-pointer items-center justify-center gap-2 rounded-[20px] bg-white px-4 py-3.5 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                          <X size={14} />
-                        </button>
+                          <Sparkles size={16} />
+                          <span>
+                            {isCreating
+                              ? `Generating ${amount} image${amount > 1 ? "s" : ""}...`
+                              : !creditsAreResolved
+                                ? "Loading credits..."
+                                : !hasEnoughCredits
+                                  ? `Insufficient credits • Need ${imageCreditCost}`
+                                  : `Create • ${imageCreditCost} credits`}
+                          </span>
+                        </motion.button>
                       </div>
-
-                      <div className="mt-4">
-                        <TopupButtons />
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                <motion.button
-                  type="button"
-                  onClick={() => void createImages()}
-                  whileTap={{ scale: 0.99 }}
-                  disabled={isCreating || !creditsAreResolved || !hasEnoughCredits || authLoading}
-                  className="mt-4 flex w-full cursor-pointer items-center justify-center gap-2 rounded-[20px] bg-white px-4 py-3.5 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <Sparkles size={16} />
-                  <span>
-                    {isCreating
-                      ? `Generating ${amount} image${amount > 1 ? "s" : ""}...`
-                      : !creditsAreResolved
-                        ? "Loading credits..."
-                        : !hasEnoughCredits
-                          ? `Insufficient credits • Need ${imageCreditCost}`
-                          : `Create • ${imageCreditCost} credits`}
-                  </span>
-                </motion.button>
-              </div>
-            </div>
-          </GlassPanel>
-
-          <GlassPanel className="p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <div className="text-xs uppercase tracking-[0.18em] text-white/42">
-                  Workspace
-                </div>
-                <div className="mt-1 text-xl font-semibold">{toolLabel}</div>
-                <div className="mt-1 text-xs text-white/45">
-                  Latest result and recent generations
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white/70">
-                {mounted ? new Date().toLocaleString() : "—"}
-              </div>
-            </div>
-
-            <AnimatePresence>
-              {error && (
-                <motion.div
-                  initial={{ opacity: 0, y: -6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  className="mt-4 rounded-2xl border border-red-500/20 bg-red-500/10 px-3 py-2.5 text-sm text-red-200"
-                >
-                  {error}
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {currentTask && (
-              <div className="mt-4 rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div className="text-[11px] uppercase tracking-[0.18em] text-white/35">
-                      Current Task
-                    </div>
-                    <div className="mt-1 text-sm text-white/75">
-                      {prettyImageStatus(currentTask.status)}
                     </div>
                   </div>
-                  <div className="rounded-full border border-violet-400/20 bg-violet-400/10 px-3 py-1 text-xs text-violet-100">
-                    {currentTask.model} • {currentTask.aspect} • {currentTask.outputFormat}
-                  </div>
                 </div>
+              </GlassPanel>
+            </div>
 
-                <div className="mt-4 grid grid-cols-3 gap-2">
-                  {[
-                    { label: "Created", state: true, done: true },
-                    { label: "Rendering", state: true, done: false },
-                    { label: "Ready", state: false, done: false },
-                  ].map((step) => (
-                    <div
-                      key={step.label}
-                      className={cn(
-                        "rounded-2xl border px-3 py-3 text-center text-xs transition",
-                        step.done
-                          ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
-                          : step.state
-                            ? "border-violet-400/20 bg-violet-400/10 text-violet-100"
-                            : "border-white/10 bg-black/20 text-white/45"
-                      )}
-                    >
-                      <div className="mb-1 flex justify-center">
-                        {step.done ? (
-                          <CheckCircle2 size={14} />
-                        ) : step.state ? (
-                          <LoaderCircle size={14} className="animate-spin" />
-                        ) : (
-                          <div className="h-3.5 w-3.5 rounded-full border border-white/20" />
-                        )}
-                      </div>
-                      {step.label}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="mt-4 grid gap-4 xl:grid-cols-[1.28fr_0.72fr]">
-              <div className="overflow-hidden rounded-[28px] border border-white/10 bg-black/18">
-                <div className="border-b border-white/10 px-4 py-3">
-                  <div className="flex items-center justify-between gap-4">
+            <div className="h-full overflow-hidden">
+              <GlassPanel className="h-full overflow-hidden p-4">
+                <div className="flex h-full flex-col overflow-hidden">
+                  <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
                     <div>
-                      <div className="text-sm font-semibold text-white/90">
-                        {selectedGeneration
-                          ? kindLabel(selectedGeneration.kind)
-                          : "Latest Preview"}
+                      <div className="text-xs uppercase tracking-[0.18em] text-white/42">
+                        Workspace
                       </div>
+                      <div className="mt-1 text-xl font-semibold">{toolLabel}</div>
                       <div className="mt-1 text-xs text-white/45">
-                        {selectedGeneration
-                          ? new Date(
-                              selectedGeneration.createdAt
-                            ).toLocaleString()
-                          : "Your generated images will appear here."}
+                        Latest result and recent generations
                       </div>
                     </div>
 
-                    {selectedGeneration && (
-                      <div
-                        className={cn(
-                          "rounded-2xl border px-3 py-2 text-xs",
-                          getStatusBadgeClasses(selectedGeneration.status)
-                        )}
-                      >
-                        {prettyImageStatus(selectedGeneration.status)}
-                      </div>
-                    )}
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white/70">
+                      {mounted ? new Date().toLocaleString() : "—"}
+                    </div>
                   </div>
-                </div>
 
-                <div className="p-4">
-                  {selectedGeneration ? (
-                    <>
-                      <AnimatePresence mode="wait">
-                        <motion.div
-                          key={selectedGeneration.id}
-                          initial={{ opacity: 0, scale: 0.985 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          exit={{ opacity: 0, scale: 0.985 }}
-                          transition={{ duration: 0.22 }}
-                        >
-                          {selectedGeneration.imageUrl ? (
-                            <img
-                              src={selectedGeneration.imageUrl}
-                              alt={selectedGeneration.prompt}
-                              className="max-h-[720px] w-full rounded-[24px] border border-white/10 bg-black object-contain"
-                              draggable={false}
-                            />
-                          ) : selectedGeneration.status === "failed" ? (
-                            <div className="flex min-h-[440px] items-center justify-center rounded-[24px] border border-red-500/20 bg-red-500/10 px-6 text-center text-sm text-red-200">
-                              {selectedGeneration.error || "Generation failed."}
+                  <AnimatePresence>
+                    {error && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -6 }}
+                        className="mt-4 shrink-0 rounded-2xl border border-red-500/20 bg-red-500/10 px-3 py-2.5 text-sm text-red-200"
+                      >
+                        {error}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {currentTask && (
+                    <div className="mt-4 shrink-0 rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="text-[11px] uppercase tracking-[0.18em] text-white/35">
+                            Current Task
+                          </div>
+                          <div className="mt-1 text-sm text-white/75">
+                            {prettyImageStatus(currentTask.status)}
+                          </div>
+                        </div>
+                        <div className="rounded-full border border-violet-400/20 bg-violet-400/10 px-3 py-1 text-xs text-violet-100">
+                          {currentTask.model} • {currentTask.aspect} •{" "}
+                          {currentTask.outputFormat}
+                        </div>
+                      </div>
+
+                      <div className="mt-4 grid grid-cols-3 gap-2">
+                        {[
+                          { label: "Created", state: true, done: true },
+                          { label: "Rendering", state: true, done: false },
+                          { label: "Ready", state: false, done: false },
+                        ].map((step) => (
+                          <div
+                            key={step.label}
+                            className={cn(
+                              "rounded-2xl border px-3 py-3 text-center text-xs transition",
+                              step.done
+                                ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
+                                : step.state
+                                  ? "border-violet-400/20 bg-violet-400/10 text-violet-100"
+                                  : "border-white/10 bg-black/20 text-white/45"
+                            )}
+                          >
+                            <div className="mb-1 flex justify-center">
+                              {step.done ? (
+                                <CheckCircle2 size={14} />
+                              ) : step.state ? (
+                                <LoaderCircle size={14} className="animate-spin" />
+                              ) : (
+                                <div className="h-3.5 w-3.5 rounded-full border border-white/20" />
+                              )}
                             </div>
-                          ) : selectedGeneration.status === "processing" ? (
-                            <div className="flex min-h-[440px] items-center justify-center rounded-[24px] border border-white/10 bg-white/[0.03]">
-                              <div className="flex flex-col items-center gap-4">
-                                <div className="relative h-12 w-12">
-                                  <div className="absolute inset-0 rounded-full border-2 border-white/10" />
-                                  <div className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-white/80" />
-                                </div>
-                                <div className="text-center">
-                                  <div className="text-sm font-medium text-white/90">
-                                    {prettyImageStatus(selectedGeneration.status)}
-                                  </div>
-                                  <div className="mt-1 text-xs text-white/50">
-                                    {selectedGeneration.model || "The model"} is
-                                    working on this generation.
-                                  </div>
-                                </div>
+                            {step.label}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="dark-scrollbar mt-4 h-[calc(100%-190px)] overflow-y-auto overscroll-contain pr-1">
+                    <div className="grid gap-4 xl:grid-cols-[1.28fr_0.72fr]">
+                      <div className="overflow-hidden rounded-[28px] border border-white/10 bg-black/18">
+                        <div className="border-b border-white/10 px-4 py-3">
+                          <div className="flex items-center justify-between gap-4">
+                            <div>
+                              <div className="text-sm font-semibold text-white/90">
+                                {selectedGeneration
+                                  ? kindLabel(selectedGeneration.kind)
+                                  : "Latest Preview"}
+                              </div>
+                              <div className="mt-1 text-xs text-white/45">
+                                {selectedGeneration
+                                  ? new Date(
+                                      selectedGeneration.createdAt
+                                    ).toLocaleString()
+                                  : "Your generated images will appear here."}
                               </div>
                             </div>
-                          ) : (
-                            <div className="flex min-h-[440px] items-center justify-center rounded-[24px] border border-white/10 bg-white/[0.03] px-6 text-center text-sm text-white/50">
-                              Preview not stored locally
-                            </div>
-                          )}
-                        </motion.div>
-                      </AnimatePresence>
 
-                      <div className="mt-4 rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
-                        <div className="text-[11px] uppercase tracking-[0.18em] text-white/35">
-                          Prompt
-                        </div>
-                        <div className="mt-2 text-sm leading-6 text-white/70">
-                          {selectedGeneration.prompt}
-                        </div>
-
-                        <div className="mt-4 flex flex-wrap gap-2 text-xs text-white/50">
-                          <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
-                            {formatImageProviderName(selectedGeneration.provider)}
-                          </div>
-                          <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
-                            {selectedGeneration.model}
-                          </div>
-                          <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
-                            {selectedGeneration.aspect}
-                          </div>
-                          <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
-                            {selectedGeneration.outputFormat}
-                          </div>
-                          <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
-                            {selectedGeneration.chargedCredits} credits
-                          </div>
-                          {selectedGeneration.kind === "reference-to-image" && (
-                            <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
-                              {selectedGeneration.referenceCount} refs
-                            </div>
-                          )}
-                          {selectedGeneration.status === "failed" && (
-                            <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
-                              refund: {selectedGeneration.refundStatus}
-                            </div>
-                          )}
-                        </div>
-
-                        {selectedGeneration.note && (
-                          <div className="mt-4 rounded-2xl border border-white/10 bg-black/25 p-3 text-sm text-white/60">
-                            {selectedGeneration.note}
-                          </div>
-                        )}
-
-                        <div className="mt-4 flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() => reusePrompt(selectedGeneration)}
-                            className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm text-white/75 transition hover:border-white/20 hover:bg-white/[0.06]"
-                          >
-                            <Wand2 size={15} />
-                            Reuse prompt
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => reuseSettings(selectedGeneration)}
-                            className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm text-white/75 transition hover:border-white/20 hover:bg-white/[0.06]"
-                          >
-                            <SlidersHorizontal size={15} />
-                            Reuse settings
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => remixGeneration(selectedGeneration)}
-                            className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-violet-300/20 bg-violet-400/10 px-4 py-2.5 text-sm text-violet-100 transition hover:border-violet-200/30 hover:bg-violet-400/15"
-                          >
-                            <Sparkles size={15} />
-                            Remix this
-                          </button>
-
-                          {selectedGeneration.imageUrl && (
-                            <a
-                              href={selectedGeneration.imageUrl}
-                              download={`koa-image-${selectedGeneration.id}.${selectedGeneration.mimeType?.includes("jpeg") ? "jpg" : selectedGeneration.mimeType?.split("/")[1] || "png"}`}
-                              className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm text-white/75 transition hover:border-white/20 hover:bg-white/[0.06]"
-                            >
-                              <Download size={15} />
-                              Download image
-                            </a>
-                          )}
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02))] p-6">
-                      <div className="flex items-start gap-4">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-violet-300/20 bg-violet-400/10 text-violet-100">
-                          <ImageIcon size={20} />
-                        </div>
-
-                        <div>
-                          <div className="text-lg font-semibold text-white">
-                            Create premium AI images
-                          </div>
-                          <div className="mt-1 max-w-xl text-sm text-white/55">
-                            Build polished visuals from text prompts or reference
-                            images. Your latest renders appear here.
-                          </div>
-
-                          <div className="mt-4 flex flex-wrap gap-2">
-                            {["Text to image", "Reference guided", "Premium renders"].map(
-                              (pill) => (
-                                <div
-                                  key={pill}
-                                  className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-white/70"
-                                >
-                                  {pill}
-                                </div>
-                              )
+                            {selectedGeneration && (
+                              <div
+                                className={cn(
+                                  "rounded-2xl border px-3 py-2 text-xs",
+                                  getStatusBadgeClasses(selectedGeneration.status)
+                                )}
+                              >
+                                {prettyImageStatus(selectedGeneration.status)}
+                              </div>
                             )}
                           </div>
-
-                          <div className="mt-5 grid gap-3 md:grid-cols-2">
-                            {[
-                              "/backgrounds/1.jpg",
-                              "/backgrounds/2.jpg",
-                              "/backgrounds/3.jpg",
-                              "/backgrounds/4.jpg",
-                            ].map((src, index) => (
-                              <div
-                                key={`${src}-${index}`}
-                                className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/30"
-                              >
-                                <img
-                                  src={src}
-                                  alt=""
-                                  className="h-56 w-full object-cover"
-                                  draggable={false}
-                                />
-                                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                              </div>
-                            ))}
-                          </div>
                         </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
 
-              <div className="rounded-[28px] border border-white/10 bg-black/18 p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-sm font-semibold text-white/90">
-                      Recent
-                    </div>
-                    <div className="mt-1 text-xs text-white/45">
-                      Click a card to preview it
-                    </div>
-                  </div>
+                        <div className="p-4">
+                          {selectedGeneration ? (
+                            <>
+                              <AnimatePresence mode="wait">
+                                <motion.div
+                                  key={selectedGeneration.id}
+                                  initial={{ opacity: 0, scale: 0.985 }}
+                                  animate={{ opacity: 1, scale: 1 }}
+                                  exit={{ opacity: 0, scale: 0.985 }}
+                                  transition={{ duration: 0.22 }}
+                                >
+                                  {selectedGeneration.imageUrl ? (
+                                    <img
+                                      src={selectedGeneration.imageUrl}
+                                      alt={selectedGeneration.prompt}
+                                      className="max-h-[720px] w-full rounded-[24px] border border-white/10 bg-black object-contain"
+                                      draggable={false}
+                                    />
+                                  ) : selectedGeneration.status === "failed" ? (
+                                    <div className="flex min-h-[440px] items-center justify-center rounded-[24px] border border-red-500/20 bg-red-500/10 px-6 text-center text-sm text-red-200">
+                                      {selectedGeneration.error || "Generation failed."}
+                                    </div>
+                                  ) : selectedGeneration.status === "processing" ? (
+                                    <div className="flex min-h-[440px] items-center justify-center rounded-[24px] border border-white/10 bg-white/[0.03]">
+                                      <div className="flex flex-col items-center gap-4">
+                                        <div className="relative h-12 w-12">
+                                          <div className="absolute inset-0 rounded-full border-2 border-white/10" />
+                                          <div className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-white/80" />
+                                        </div>
+                                        <div className="text-center">
+                                          <div className="text-sm font-medium text-white/90">
+                                            {prettyImageStatus(selectedGeneration.status)}
+                                          </div>
+                                          <div className="mt-1 text-xs text-white/50">
+                                            {selectedGeneration.model || "The model"} is
+                                            working on this generation.
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="flex min-h-[440px] items-center justify-center rounded-[24px] border border-white/10 bg-white/[0.03] px-6 text-center text-sm text-white/50">
+                                      Preview not stored locally
+                                    </div>
+                                  )}
+                                </motion.div>
+                              </AnimatePresence>
 
-                  <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5 text-xs text-white/60">
-                    {generations.length} total
-                  </div>
-                </div>
+                              <div className="mt-4 rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
+                                <div className="text-[11px] uppercase tracking-[0.18em] text-white/35">
+                                  Prompt
+                                </div>
+                                <div className="mt-2 text-sm leading-6 text-white/70">
+                                  {selectedGeneration.prompt}
+                                </div>
 
-                {recentGenerations.length > 0 ? (
-                  <div className="mt-4 space-y-3">
-                    {recentGenerations.map((item) => (
-                      <motion.button
-                        key={item.id}
-                        type="button"
-                        onClick={() => setSelectedGeneration(item)}
-                        whileHover={{ y: -2 }}
-                        className={cn(
-                          "flex w-full cursor-pointer items-center gap-3 rounded-2xl border p-2 text-left transition",
-                          selectedGeneration?.id === item.id
-                            ? "border-white/20 bg-white/[0.08]"
-                            : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/[0.04]"
-                        )}
-                      >
-                        <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-black">
-                          {item.imageUrl ? (
-                            <img
-                              src={item.imageUrl}
-                              alt={item.prompt}
-                              className="h-full w-full object-cover"
-                              draggable={false}
-                            />
-                          ) : item.status === "failed" ? (
-                            <div className="flex h-full w-full items-center justify-center text-[10px] text-white/45">
-                              FAIL
-                            </div>
-                          ) : item.status === "processing" ? (
-                            <div className="flex h-full w-full items-center justify-center text-[10px] text-white/45">
-                              ...
-                            </div>
+                                <div className="mt-4 flex flex-wrap gap-2 text-xs text-white/50">
+                                  <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
+                                    {formatImageProviderName(selectedGeneration.provider)}
+                                  </div>
+                                  <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
+                                    {selectedGeneration.model}
+                                  </div>
+                                  <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
+                                    {selectedGeneration.aspect}
+                                  </div>
+                                  <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
+                                    {selectedGeneration.outputFormat}
+                                  </div>
+                                  <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
+                                    {selectedGeneration.chargedCredits} credits
+                                  </div>
+                                  {selectedGeneration.kind === "reference-to-image" && (
+                                    <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
+                                      {selectedGeneration.referenceCount} refs
+                                    </div>
+                                  )}
+                                  {selectedGeneration.status === "failed" && (
+                                    <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
+                                      refund: {selectedGeneration.refundStatus}
+                                    </div>
+                                  )}
+                                </div>
+
+                                {selectedGeneration.note && (
+                                  <div className="mt-4 rounded-2xl border border-white/10 bg-black/25 p-3 text-sm text-white/60">
+                                    {selectedGeneration.note}
+                                  </div>
+                                )}
+
+                                <div className="mt-4 flex flex-wrap gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => reusePrompt(selectedGeneration)}
+                                    className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm text-white/75 transition hover:border-white/20 hover:bg-white/[0.06]"
+                                  >
+                                    <Wand2 size={15} />
+                                    Reuse prompt
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => reuseSettings(selectedGeneration)}
+                                    className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm text-white/75 transition hover:border-white/20 hover:bg-white/[0.06]"
+                                  >
+                                    <SlidersHorizontal size={15} />
+                                    Reuse settings
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => remixGeneration(selectedGeneration)}
+                                    className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-violet-300/20 bg-violet-400/10 px-4 py-2.5 text-sm text-violet-100 transition hover:border-violet-200/30 hover:bg-violet-400/15"
+                                  >
+                                    <Sparkles size={15} />
+                                    Remix this
+                                  </button>
+
+                                  {selectedGeneration.imageUrl && (
+                                    <a
+                                      href={selectedGeneration.imageUrl}
+                                      download={`koa-image-${selectedGeneration.id}.${selectedGeneration.mimeType?.includes("jpeg") ? "jpg" : selectedGeneration.mimeType?.split("/")[1] || "png"}`}
+                                      className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm text-white/75 transition hover:border-white/20 hover:bg-white/[0.06]"
+                                    >
+                                      <Download size={15} />
+                                      Download image
+                                    </a>
+                                  )}
+                                </div>
+                              </div>
+                            </>
                           ) : (
-                            <div className="flex h-full w-full items-center justify-center text-[10px] text-white/35">
-                              NO PREVIEW
+                            <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02))] p-6">
+                              <div className="flex items-start gap-4">
+                                <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-violet-300/20 bg-violet-400/10 text-violet-100">
+                                  <ImageIcon size={20} />
+                                </div>
+
+                                <div>
+                                  <div className="text-lg font-semibold text-white">
+                                    Create premium AI images
+                                  </div>
+                                  <div className="mt-1 max-w-xl text-sm text-white/55">
+                                    Build polished visuals from text prompts or reference
+                                    images. Your latest renders appear here.
+                                  </div>
+
+                                  <div className="mt-4 flex flex-wrap gap-2">
+                                    {[
+                                      "Text to image",
+                                      "Reference guided",
+                                      "Premium renders",
+                                    ].map((pill) => (
+                                      <div
+                                        key={pill}
+                                        className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-white/70"
+                                      >
+                                        {pill}
+                                      </div>
+                                    ))}
+                                  </div>
+
+                                  <div className="mt-5 grid gap-3 md:grid-cols-2">
+                                    {[
+                                      "/backgrounds/1.jpg",
+                                      "/backgrounds/2.jpg",
+                                      "/backgrounds/3.jpg",
+                                      "/backgrounds/4.jpg",
+                                    ].map((src, index) => (
+                                      <div
+                                        key={`${src}-${index}`}
+                                        className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/30"
+                                      >
+                                        <img
+                                          src={src}
+                                          alt=""
+                                          className="h-56 w-full object-cover"
+                                          draggable={false}
+                                        />
+                                        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
                             </div>
                           )}
                         </div>
+                      </div>
 
-                        <div className="min-w-0 flex-1">
-                          <div className="line-clamp-2 text-sm text-white/85">
-                            {item.prompt || "Untitled generation"}
+                      <div className="rounded-[28px] border border-white/10 bg-black/18 p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="text-sm font-semibold text-white/90">
+                              Recent
+                            </div>
+                            <div className="mt-1 text-xs text-white/45">
+                              Click a card to preview it
+                            </div>
                           </div>
-                          <div className="mt-1 flex flex-wrap gap-2 text-xs text-white/45">
-                            <span>{new Date(item.createdAt).toLocaleString()}</span>
-                            <span>•</span>
-                            <span>{item.chargedCredits} credits</span>
+
+                          <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5 text-xs text-white/60">
+                            {generations.length} total
                           </div>
                         </div>
-                      </motion.button>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 px-4 py-6 text-sm text-white/50">
-                    No generations yet.
-                  </div>
-                )}
 
-                {currentTask && (
-                  <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
-                    <div className="text-[11px] uppercase tracking-[0.18em] text-white/35">
-                      Current Task
-                    </div>
-                    <div className="mt-2 flex items-center gap-2 text-sm text-white/60">
-                      <div className="h-2 w-2 animate-pulse rounded-full bg-violet-300" />
-                      Generating image...
+                        {recentGenerations.length > 0 ? (
+                          <div className="mt-4 space-y-3">
+                            {recentGenerations.map((item) => (
+                              <motion.button
+                                key={item.id}
+                                type="button"
+                                onClick={() => setSelectedGeneration(item)}
+                                whileHover={{ y: -2 }}
+                                className={cn(
+                                  "flex w-full cursor-pointer items-center gap-3 rounded-2xl border p-2 text-left transition",
+                                  selectedGeneration?.id === item.id
+                                    ? "border-white/20 bg-white/[0.08]"
+                                    : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/[0.04]"
+                                )}
+                              >
+                                <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-black">
+                                  {item.imageUrl ? (
+                                    <img
+                                      src={item.imageUrl}
+                                      alt={item.prompt}
+                                      className="h-full w-full object-cover"
+                                      draggable={false}
+                                    />
+                                  ) : item.status === "failed" ? (
+                                    <div className="flex h-full w-full items-center justify-center text-[10px] text-white/45">
+                                      FAIL
+                                    </div>
+                                  ) : item.status === "processing" ? (
+                                    <div className="flex h-full w-full items-center justify-center text-[10px] text-white/45">
+                                      ...
+                                    </div>
+                                  ) : (
+                                    <div className="flex h-full w-full items-center justify-center text-[10px] text-white/35">
+                                      NO PREVIEW
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="min-w-0 flex-1">
+                                  <div className="line-clamp-2 text-sm text-white/85">
+                                    {item.prompt || "Untitled generation"}
+                                  </div>
+                                  <div className="mt-1 flex flex-wrap gap-2 text-xs text-white/45">
+                                    <span>{new Date(item.createdAt).toLocaleString()}</span>
+                                    <span>•</span>
+                                    <span>{item.chargedCredits} credits</span>
+                                  </div>
+                                </div>
+                              </motion.button>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 px-4 py-6 text-sm text-white/50">
+                            No generations yet.
+                          </div>
+                        )}
+
+                        {currentTask && (
+                          <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
+                            <div className="text-[11px] uppercase tracking-[0.18em] text-white/35">
+                              Current Task
+                            </div>
+                            <div className="mt-2 flex items-center gap-2 text-sm text-white/60">
+                              <div className="h-2 w-2 animate-pulse rounded-full bg-violet-300" />
+                              Generating image...
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
-                )}
-              </div>
+                </div>
+              </GlassPanel>
             </div>
-          </GlassPanel>
+          </div>
         </motion.div>
 
         <motion.div
@@ -2382,7 +2438,7 @@ export default function CreateImageClient({
                 No items match your current filters.
               </div>
             ) : (
-              <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:columns-4">
+              <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                 {[
                   "/backgrounds/1.jpg",
                   "/backgrounds/2.jpg",
