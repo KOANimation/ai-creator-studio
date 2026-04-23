@@ -367,6 +367,7 @@ function isKlingAvailableForTool(active: VideoToolKey) {
 }
 
 
+
 function WallpaperRevealBackground({
   src = "/wallpaper.jpg",
   radius = 260,
@@ -1099,6 +1100,7 @@ function StatCard({
 }
 
 
+
 function parseJsonSafely(raw: string) {
   if (!raw) return null;
   try {
@@ -1161,6 +1163,45 @@ function getImageDimensions(
 
     img.src = url;
   });
+}
+
+async function compressImageForUpload(
+  file: File,
+  maxSide = 1280,
+  quality = 0.82
+) {
+  if (!file.type.startsWith("image/")) return file;
+
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    bitmap.close();
+    return file;
+  }
+
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+
+  const blob = await new Promise<Blob | null>((resolve) =>
+    canvas.toBlob(resolve, "image/jpeg", quality)
+  );
+
+  bitmap.close();
+
+  if (!blob) return file;
+
+  return new File([blob], file.name.replace(/\.[^.]+$/, ".jpg"), {
+    type: "image/jpeg",
+  });
+}
+
+async function compressImagesForUpload(files: File[]) {
+  return Promise.all(files.map((file) => compressImageForUpload(file)));
 }
 
 function getCurrentKind(
@@ -2217,6 +2258,7 @@ export default function CreateVideoClient({
 
       const requests = Array.from({ length: amount }, async () => {
         const formData = new FormData();
+
         formData.append("prompt", prompt.trim());
         formData.append("model", model);
         formData.append("duration", String(duration));
@@ -2224,7 +2266,9 @@ export default function CreateVideoClient({
         formData.append("aspectRatio", aspect);
 
         if (referenceInputMode === "images") {
-          refImages.forEach((file) => {
+          const compressedRefImages = await compressImagesForUpload(refImages);
+
+          compressedRefImages.forEach((file) => {
             formData.append("images", file);
           });
         } else {
@@ -2235,11 +2279,15 @@ export default function CreateVideoClient({
 
           formData.append("subjects", JSON.stringify(lightweightSubjects));
 
-          subjects.forEach((subject) => {
-            subject.files.forEach((file) => {
+          for (const subject of subjects) {
+            const compressedSubjectFiles = await compressImagesForUpload(
+              subject.files
+            );
+
+            compressedSubjectFiles.forEach((file) => {
               formData.append(`subjectImages:${subject.id}`, file);
             });
-          });
+          }
         }
 
         const res = await fetch("/api/vidu/reference", {
@@ -2309,7 +2357,8 @@ export default function CreateVideoClient({
 
       if (successes.length === 0) {
         const firstFailure = results.find(
-          (result): result is PromiseRejectedResult => result.status === "rejected"
+          (result): result is PromiseRejectedResult =>
+            result.status === "rejected"
         );
 
         throw new Error(
@@ -2565,7 +2614,16 @@ export default function CreateVideoClient({
       }
 
       if (successes.length === 0) {
-        throw new Error("No Kling video tasks were created.");
+        const firstFailure = results.find(
+          (result): result is PromiseRejectedResult =>
+            result.status === "rejected"
+        );
+
+        throw new Error(
+          firstFailure?.reason instanceof Error
+            ? firstFailure.reason.message
+            : "No Kling video tasks were created."
+        );
       }
 
       const timestamp = new Date().toISOString();
@@ -2780,7 +2838,16 @@ export default function CreateVideoClient({
       }
 
       if (successes.length === 0) {
-        throw new Error("No video tasks were created.");
+        const firstFailure = results.find(
+          (result): result is PromiseRejectedResult =>
+            result.status === "rejected"
+        );
+
+        throw new Error(
+          firstFailure?.reason instanceof Error
+            ? firstFailure.reason.message
+            : "No video tasks were created."
+        );
       }
 
       const timestamp = new Date().toISOString();
@@ -2942,7 +3009,16 @@ export default function CreateVideoClient({
       }
 
       if (successes.length === 0) {
-        throw new Error("No video tasks were created.");
+        const firstFailure = results.find(
+          (result): result is PromiseRejectedResult =>
+            result.status === "rejected"
+        );
+
+        throw new Error(
+          firstFailure?.reason instanceof Error
+            ? firstFailure.reason.message
+            : "No video tasks were created."
+        );
       }
 
       const timestamp = new Date().toISOString();
@@ -2988,7 +3064,6 @@ export default function CreateVideoClient({
       await refreshCredits();
     }
   };
-
 
 
 
@@ -3510,6 +3585,8 @@ export default function CreateVideoClient({
                                       <div className="mt-1 text-xs text-white/50">
                                         Add 1 to 7 subjects. Each subject can contain up
                                         to 3 images. Total subject images cannot exceed 7.
+                                        Images are compressed before upload to avoid payload
+                                        limits.
                                       </div>
                                     </div>
 
@@ -4747,6 +4824,5 @@ export default function CreateVideoClient({
     </div>
   );
 }
-
 
 
