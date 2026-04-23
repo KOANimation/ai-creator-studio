@@ -2308,7 +2308,15 @@ export default function CreateVideoClient({
       }
 
       if (successes.length === 0) {
-        throw new Error("No video tasks were created.");
+        const firstFailure = results.find(
+          (result): result is PromiseRejectedResult => result.status === "rejected"
+        );
+
+        throw new Error(
+          firstFailure?.reason instanceof Error
+            ? firstFailure.reason.message
+            : "No video tasks were created."
+        );
       }
 
       const timestamp = new Date().toISOString();
