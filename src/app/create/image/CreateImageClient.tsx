@@ -664,7 +664,6 @@ function ChipSelector({
   );
 }
 
-
 function ProviderCardSelector({
   value,
   onChange,
@@ -1030,7 +1029,11 @@ export default function CreateImageClient({
   const [outputFormat, setOutputFormat] = useState<string>("PNG");
   const [amount, setAmount] = useState<number>(2);
 
-  const [isCreating, setIsCreating] = useState(false);
+  // IMPORTANT FIX:
+  // Only lock the button while the submission request is actively being sent.
+  // Existing processing images should not block the next submission.
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const [error, setError] = useState<string | null>(null);
 
   const [generations, setGenerations] = useState<SavedImageGeneration[]>([]);
@@ -1095,7 +1098,6 @@ export default function CreateImageClient({
 
   const hasEnoughCredits =
     effectiveCredits != null && effectiveCredits >= imageCreditCost;
-
 
   useEffect(() => {
     if (creditsAreResolved && !hasEnoughCredits) {
@@ -1274,8 +1276,16 @@ export default function CreateImageClient({
   const activePrompt =
     active === "reference-to-image" ? referencePrompt : textPrompt;
 
+  const pendingGenerations = useMemo(
+    () => generations.filter((item) => item.status === "processing"),
+    [generations]
+  );
+
+  const pendingGenerationsCount = pendingGenerations.length;
+
   const recentGenerations = generations.slice(0, 6);
-  const currentTask = generations.find((item) => item.status === "processing");
+  const currentTask =
+    pendingGenerations.length > 0 ? pendingGenerations[0] : null;
 
   const filteredHistory = useMemo(() => {
     return generations.filter((item) => {
@@ -1325,13 +1335,14 @@ export default function CreateImageClient({
     router.push(`/create/image?tab=${k}`);
   };
 
+
   const createImages = async () => {
     const trimmedPrompt = activePrompt.trim();
     let pendingItems: SavedImageGeneration[] = [];
 
     try {
       setError(null);
-      setIsCreating(true);
+      setIsSubmitting(true);
 
       if (!user) {
         throw new Error("You must be logged in.");
@@ -1487,20 +1498,20 @@ export default function CreateImageClient({
                 ...pendingItem,
                 id: result.id || pendingItem.id,
                 createdAt: result.createdAt || pendingItem.createdAt,
-                status: "success",
+                status: "success" as const,
                 imageUrl: result.imageUrl || null,
                 mimeType: result.mimeType || "image/png",
                 note: result.text || null,
                 error: null,
-                refundStatus: "none",
+                refundStatus: "none" as const,
               };
             }
 
             return {
               ...pendingItem,
-              status: "failed",
+              status: "failed" as const,
               error: "No image was returned for this item.",
-              refundStatus: "none",
+              refundStatus: "none" as const,
             };
           }
         );
@@ -1550,19 +1561,20 @@ export default function CreateImageClient({
             pendingItems.some((p) => p.id === item.id)
               ? {
                   ...item,
-                  status: "failed",
+                  status: "failed" as const,
                   error: message,
-                  refundStatus: "refunded",
+                  refundStatus: "refunded" as const,
                 }
               : item
           )
         );
       }
     } finally {
-      setIsCreating(false);
+      setIsSubmitting(false);
       await refreshCredits();
     }
   };
+
 
   const reusePrompt = (item: SavedImageGeneration) => {
     if (item.kind === "reference-to-image") {
@@ -1613,8 +1625,6 @@ export default function CreateImageClient({
 
   const workspaceViewportHeight =
     "h-[calc(100vh-136px)] min-h-[720px] max-h-[980px]";
-
-
 
   return (
     <div className="relative min-h-screen overflow-x-hidden text-white">
@@ -1876,6 +1886,14 @@ export default function CreateImageClient({
                           </div>
                         )}
 
+                        {pendingGenerationsCount > 0 && (
+                          <div className="mt-3 rounded-2xl border border-violet-300/20 bg-violet-400/10 px-3 py-2.5 text-xs text-violet-100">
+                            {pendingGenerationsCount} image generation
+                            {pendingGenerationsCount > 1 ? "s are" : " is"} still processing.
+                            You can queue another one right now.
+                          </div>
+                        )}
+
                         <AnimatePresence>
                           {showTopupPanel && (
                             <motion.div
@@ -1919,7 +1937,7 @@ export default function CreateImageClient({
                           onClick={() => void createImages()}
                           whileTap={{ scale: 0.99 }}
                           disabled={
-                            isCreating ||
+                            isSubmitting ||
                             !creditsAreResolved ||
                             !hasEnoughCredits ||
                             authLoading
@@ -1928,13 +1946,15 @@ export default function CreateImageClient({
                         >
                           <Sparkles size={16} />
                           <span>
-                            {isCreating
-                              ? `Generating ${amount} image${amount > 1 ? "s" : ""}...`
+                            {isSubmitting
+                              ? `Submitting ${amount} image${amount > 1 ? "s" : ""}...`
                               : !creditsAreResolved
                                 ? "Loading credits..."
                                 : !hasEnoughCredits
                                   ? `Insufficient credits • Need ${imageCreditCost}`
-                                  : `Create • ${imageCreditCost} credits`}
+                                  : pendingGenerationsCount > 0
+                                    ? `Queue more • ${imageCreditCost} credits`
+                                    : `Create • ${imageCreditCost} credits`}
                           </span>
                         </motion.button>
                       </div>
@@ -1991,6 +2011,11 @@ export default function CreateImageClient({
                           {currentTask.model} • {currentTask.aspect} •{" "}
                           {currentTask.outputFormat}
                         </div>
+                      </div>
+
+                      <div className="mt-2 text-xs text-white/45">
+                        {pendingGenerationsCount} active image generation
+                        {pendingGenerationsCount > 1 ? "s" : ""} in progress
                       </div>
 
                       <div className="mt-4 grid grid-cols-3 gap-2">
@@ -2330,6 +2355,10 @@ export default function CreateImageClient({
                             <div className="mt-2 flex items-center gap-2 text-sm text-white/60">
                               <div className="h-2 w-2 animate-pulse rounded-full bg-violet-300" />
                               Generating image...
+                            </div>
+                            <div className="mt-2 text-xs text-white/45">
+                              {pendingGenerationsCount} active image generation
+                              {pendingGenerationsCount > 1 ? "s" : ""} in progress
                             </div>
                           </div>
                         )}
