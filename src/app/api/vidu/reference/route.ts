@@ -3,7 +3,18 @@ import { NextRequest, NextResponse } from "next/server";
 const VIDU_API_BASE = "https://api.vidu.com/ent/v2";
 
 const ALLOWED_REFERENCE_MODELS = [
+  "viduq3-mix",
+  "viduq3-turbo",
+  "viduq3",
   "viduq2-pro",
+  "viduq2",
+  "viduq1",
+  "vidu2.0",
+] as const;
+
+const SUBJECT_REFERENCE_MODELS = [
+  "viduq3-turbo",
+  "viduq3",
   "viduq2",
   "viduq1",
   "vidu2.0",
@@ -20,14 +31,16 @@ type AllowedReferenceModel = (typeof ALLOWED_REFERENCE_MODELS)[number];
 type SubjectInput = {
   id: string;
   name: string;
+  voice_id?: string;
 };
 
 type SubjectPayload = {
   name: string;
   images: string[];
+  voice_id?: string;
 };
 
-function safeJsonParse<T>(raw: string): T | null {
+function safeJsonParse<T = unknown>(raw: string): T | null {
   try {
     return raw ? (JSON.parse(raw) as T) : null;
   } catch {
@@ -53,6 +66,27 @@ function estimateUtf8Bytes(value: string) {
   return Buffer.byteLength(value, "utf8");
 }
 
+function parseBoolean(value: FormDataEntryValue | null, defaultValue = false) {
+  if (value === null) return defaultValue;
+
+  const normalized = String(value).trim().toLowerCase();
+
+  if (["true", "1", "yes", "on"].includes(normalized)) return true;
+  if (["false", "0", "no", "off"].includes(normalized)) return false;
+
+  return defaultValue;
+}
+
+function parseOptionalNumber(value: FormDataEntryValue | null) {
+  if (value === null || String(value).trim() === "") return undefined;
+
+  const numberValue = Number(value);
+
+  if (!Number.isFinite(numberValue)) return undefined;
+
+  return numberValue;
+}
+
 async function getImageDimensions(
   file: File
 ): Promise<{ width: number; height: number }> {
@@ -65,9 +99,10 @@ async function getImageDimensions(
       throw new Error("Invalid PNG image.");
     }
 
-    const width = buffer.readUInt32BE(16);
-    const height = buffer.readUInt32BE(20);
-    return { width, height };
+    return {
+      width: buffer.readUInt32BE(16),
+      height: buffer.readUInt32BE(20),
+    };
   }
 
   if (type === "image/jpeg" || type === "image/jpg") {
@@ -94,9 +129,10 @@ async function getImageDimensions(
         marker === 0xce ||
         marker === 0xcf
       ) {
-        const height = buffer.readUInt16BE(offset + 5);
-        const width = buffer.readUInt16BE(offset + 7);
-        return { width, height };
+        return {
+          height: buffer.readUInt16BE(offset + 5),
+          width: buffer.readUInt16BE(offset + 7),
+        };
       }
 
       offset += 2 + blockLength;
@@ -120,9 +156,10 @@ async function getImageDimensions(
     const chunkHeader = buffer.toString("ascii", 12, 16);
 
     if (chunkHeader === "VP8 ") {
-      const width = buffer.readUInt16LE(26) & 0x3fff;
-      const height = buffer.readUInt16LE(28) & 0x3fff;
-      return { width, height };
+      return {
+        width: buffer.readUInt16LE(26) & 0x3fff,
+        height: buffer.readUInt16LE(28) & 0x3fff,
+      };
     }
 
     if (chunkHeader === "VP8L") {
@@ -131,17 +168,19 @@ async function getImageDimensions(
       const b2 = buffer[23];
       const b3 = buffer[24];
 
-      const width = 1 + (((b1 & 0x3f) << 8) | b0);
-      const height = 1 + (((b3 & 0x0f) << 10) | (b2 << 2) | ((b1 & 0xc0) >> 6));
-      return { width, height };
+      return {
+        width: 1 + (((b1 & 0x3f) << 8) | b0),
+        height:
+          1 +
+          (((b3 & 0x0f) << 10) | (b2 << 2) | ((b1 & 0xc0) >> 6)),
+      };
     }
 
     if (chunkHeader === "VP8X") {
-      const width =
-        1 + buffer.readUIntLE(24, 3);
-      const height =
-        1 + buffer.readUIntLE(27, 3);
-      return { width, height };
+      return {
+        width: 1 + buffer.readUIntLE(24, 3),
+        height: 1 + buffer.readUIntLE(27, 3),
+      };
     }
 
     throw new Error("Unsupported WebP image.");
@@ -170,6 +209,7 @@ async function validateImageFile(file: File, label: string) {
   }
 
   const ratio = width / height;
+
   if (ratio > MAX_ASPECT_RATIO || ratio < 1 / MAX_ASPECT_RATIO) {
     throw new Error(
       `${label} aspect ratio must be less extreme than 4:1 or 1:4.`
@@ -179,6 +219,12 @@ async function validateImageFile(file: File, label: string) {
 
 function isAllowedReferenceModel(model: string): model is AllowedReferenceModel {
   return ALLOWED_REFERENCE_MODELS.includes(model as AllowedReferenceModel);
+}
+
+function isAllowedSubjectReferenceModel(model: string) {
+  return SUBJECT_REFERENCE_MODELS.includes(
+    model as (typeof SUBJECT_REFERENCE_MODELS)[number]
+  );
 }
 
 export async function POST(req: NextRequest) {
@@ -195,16 +241,28 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
 
     const prompt = String(formData.get("prompt") || "").trim();
-    const model = String(formData.get("model") || "viduq2-pro");
+    const model = String(formData.get("model") || "viduq3-turbo").trim();
     const duration = Number(formData.get("duration") || 5);
-    const resolution = String(formData.get("resolution") || "1080p");
-    const aspectRatio = String(formData.get("aspectRatio") || "16:9");
+    const resolution = String(formData.get("resolution") || "1080p").trim();
+    const aspectRatio = String(formData.get("aspectRatio") || "16:9").trim();
+
+    const audio = parseBoolean(formData.get("audio"), false);
+    const bgm = parseBoolean(formData.get("bgm"), false);
+    const offPeak = parseBoolean(formData.get("offPeak"), false);
+
+    const seed = parseOptionalNumber(formData.get("seed"));
+
+    const audioType = String(formData.get("audioType") || "").trim();
+    const movementAmplitude = String(
+      formData.get("movementAmplitude") || "auto"
+    ).trim();
+    const payloadValue = String(formData.get("payload") || "");
 
     if (!isAllowedReferenceModel(model)) {
       return NextResponse.json(
         {
           error:
-            "Invalid model for reference-to-video. Allowed: viduq2-pro, viduq2, viduq1, vidu2.0",
+            "Invalid model for reference-to-video. Allowed: viduq3-mix, viduq3-turbo, viduq3, viduq2-pro, viduq2, viduq1, vidu2.0",
         },
         { status: 400 }
       );
@@ -226,8 +284,7 @@ export async function POST(req: NextRequest) {
       .filter((item): item is File => item instanceof File && item.size > 0);
 
     const rawSubjects = String(formData.get("subjects") || "").trim();
-    const parsedSubjects =
-      safeJsonParse<SubjectInput[]>(rawSubjects) ?? [];
+    const parsedSubjects = safeJsonParse<SubjectInput[]>(rawSubjects) ?? [];
 
     const subjectsMode = parsedSubjects.length > 0;
     const imagesMode = imageFiles.length > 0;
@@ -252,11 +309,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (subjectsMode && model === "viduq2-pro") {
+    if (subjectsMode && !isAllowedSubjectReferenceModel(model)) {
       return NextResponse.json(
         {
           error:
-            "viduq2-pro currently only supports non-subject reference calls. Use viduq2 for subject mode.",
+            "Invalid model for named subjects. Use viduq3-turbo, viduq3, viduq2, viduq1, or vidu2.0. viduq3-mix and viduq2-pro do not support named subjects.",
         },
         { status: 400 }
       );
@@ -283,12 +340,18 @@ export async function POST(req: NextRequest) {
 
       const payload = {
         model,
+        images,
         prompt,
         duration,
-        resolution,
+        seed,
         aspect_ratio: aspectRatio,
-        bgm: false,
-        images,
+        resolution,
+        audio,
+        audio_type: audio && audioType ? audioType : undefined,
+        bgm,
+        movement_amplitude: movementAmplitude || "auto",
+        payload: payloadValue,
+        off_peak: offPeak,
       };
 
       const payloadString = JSON.stringify(payload);
@@ -364,6 +427,7 @@ export async function POST(req: NextRequest) {
     for (const subject of subjects) {
       const id = String(subject.id || "").trim();
       const name = String(subject.name || "").trim();
+      const voiceId = String(subject.voice_id || "").trim();
 
       if (!id) {
         return NextResponse.json(
@@ -417,7 +481,10 @@ export async function POST(req: NextRequest) {
       }
 
       for (let i = 0; i < subjectFiles.length; i += 1) {
-        await validateImageFile(subjectFiles[i], `Subject "${name}" image ${i + 1}`);
+        await validateImageFile(
+          subjectFiles[i],
+          `Subject "${name}" image ${i + 1}`
+        );
       }
 
       const subjectImages = await Promise.all(
@@ -432,13 +499,15 @@ export async function POST(req: NextRequest) {
       builtSubjects.push({
         name,
         images: subjectImages,
+        voice_id: voiceId,
       });
     }
 
     if (totalImages === 0 || totalImages > 7) {
       return NextResponse.json(
         {
-          error: "Subject mode supports a total of 1 to 7 images across all subjects.",
+          error:
+            "Subject mode supports a total of 1 to 7 images across all subjects.",
         },
         { status: 400 }
       );
@@ -446,12 +515,18 @@ export async function POST(req: NextRequest) {
 
     const payload = {
       model,
+      subjects: builtSubjects,
       prompt,
       duration,
-      resolution,
+      seed,
       aspect_ratio: aspectRatio,
-      audio: false,
-      subjects: builtSubjects,
+      resolution,
+      audio,
+      audio_type: audio && audioType ? audioType : undefined,
+      bgm,
+      movement_amplitude: movementAmplitude || "auto",
+      payload: payloadValue,
+      off_peak: offPeak,
     };
 
     const payloadString = JSON.stringify(payload);

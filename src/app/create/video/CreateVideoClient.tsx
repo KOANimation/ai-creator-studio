@@ -105,8 +105,36 @@ const VIDEO_PROVIDERS: Array<{
   { value: "kling", label: "Kling AI", meta: "kling-v3 image-to-video" },
 ];
 
+const VIDU_REFERENCE_IMAGE_MODELS = [
+  "viduq3-mix",
+  "viduq3-turbo",
+  "viduq3",
+  "viduq2-pro",
+  "viduq2",
+] as const;
+
+const VIDU_REFERENCE_SUBJECT_MODELS = [
+  "viduq3-turbo",
+  "viduq3",
+  "viduq2",
+] as const;
+
+const VIDU_REFERENCE_Q3_MIX_MODEL = "viduq3-mix" as const;
+
+const VIDU_REFERENCE_Q3_ENTITY_MODELS = [
+  "viduq3-turbo",
+  "viduq3",
+] as const;
+
+const VIDU_REFERENCE_Q2_MODELS = ["viduq2-pro", "viduq2"] as const;
+
 const ALL_DURATION_OPTIONS = Array.from({ length: 16 }, (_, i) => i + 1);
+const Q3_ENTITY_DURATION_OPTIONS = Array.from({ length: 14 }, (_, i) => i + 3);
+const Q2_REFERENCE_DURATION_OPTIONS = Array.from({ length: 10 }, (_, i) => i + 1);
+
 const ALL_ASPECT_OPTIONS = ["16:9", "9:16", "1:1", "3:4", "4:3"];
+const SUBJECT_ASPECT_OPTIONS = ["16:9", "9:16", "1:1"];
+
 const GENERATIONS_STORAGE_KEY = "koa_video_generations_v1";
 
 const KLING_ALLOWED_DURATIONS = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
@@ -139,8 +167,12 @@ function createKlingCustomShot(duration = 1): KlingCustomShot {
 
 function formatViduModelName(model: string) {
   switch (model) {
+    case "viduq3-mix":
+      return "Vidu Q3 Mix";
     case "viduq3-turbo":
       return "Vidu Q3 Turbo";
+    case "viduq3":
+      return "Vidu Q3";
     case "viduq3-pro":
       return "Vidu Q3 Pro";
     case "viduq2-pro-fast":
@@ -151,10 +183,6 @@ function formatViduModelName(model: string) {
       return "Vidu Q2 Turbo";
     case "viduq2":
       return "Vidu Q2";
-    case "viduq1":
-      return "Vidu Q1";
-    case "vidu2.0":
-      return "Vidu 2.0";
     case "kling-v3":
       return "Kling v3";
     default:
@@ -170,12 +198,14 @@ function formatProviderName(provider: VideoProvider) {
 
 function getModelMeta(model: string, kind: GenerationKind) {
   if (model === "kling-v3") return "kling image-to-video";
+  if (model === "viduq3-mix") return "best plain references";
+  if (model === "viduq3-turbo") return "fast q3, supports subjects";
+  if (model === "viduq3") return "consistent q3 subjects";
   if (model === "viduq3-pro") return "highest quality";
-  if (model === "viduq3-turbo") return "fast + premium";
   if (model === "viduq2-pro-fast") return "faster pro";
-  if (model === "viduq2-pro") return "balanced pro";
+  if (model === "viduq2-pro") return "q2 pro image references";
   if (model === "viduq2-turbo") return "fastest";
-  if (model === "viduq2") return "balanced";
+  if (model === "viduq2") return "supports named subjects";
   return kind.replaceAll("-", " ");
 }
 
@@ -221,20 +251,23 @@ function getVideoGenerationCost({
 
   if (kind === "reference-to-video") {
     switch (model) {
+      case "viduq3-mix":
+        baseCost = 34;
+        break;
+      case "viduq3-turbo":
+        baseCost = 28;
+        break;
+      case "viduq3":
+        baseCost = 30;
+        break;
       case "viduq2-pro":
         baseCost = 28;
         break;
       case "viduq2":
         baseCost = 22;
         break;
-      case "viduq1":
-        baseCost = 18;
-        break;
-      case "vidu2.0":
-        baseCost = 16;
-        break;
       default:
-        baseCost = 22;
+        baseCost = 28;
         break;
     }
   }
@@ -332,6 +365,7 @@ function getProviderOptions(active: VideoToolKey) {
 function isKlingAvailableForTool(active: VideoToolKey) {
   return active === "image-to-video";
 }
+
 
 function WallpaperRevealBackground({
   src = "/wallpaper.jpg",
@@ -981,7 +1015,8 @@ function SubjectCard({
           className="w-full rounded-[18px] border border-white/10 bg-black/30 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none transition focus:border-white/20"
         />
         <div className="mt-2 text-[11px] text-white/38">
-          Use this in your prompt like <span className="text-white/60">@{subject.name || "hero"}</span>
+          Use this in your prompt like{" "}
+          <span className="text-white/60">@{subject.name || "hero"}</span>
         </div>
       </div>
 
@@ -1063,6 +1098,7 @@ function StatCard({
   );
 }
 
+
 function parseJsonSafely(raw: string) {
   if (!raw) return null;
   try {
@@ -1136,7 +1172,11 @@ function getCurrentKind(
   return endFrame ? "start-end-to-video" : "image-to-video";
 }
 
-function getModelOptions(provider: VideoProvider, kind: GenerationKind): string[] {
+function getModelOptions(
+  provider: VideoProvider,
+  kind: GenerationKind,
+  referenceInputMode: ReferenceInputMode
+): string[] {
   if (provider === "kling") {
     if (kind === "image-to-video" || kind === "start-end-to-video") {
       return ["kling-v3"];
@@ -1147,7 +1187,10 @@ function getModelOptions(provider: VideoProvider, kind: GenerationKind): string[
   if (provider === "vidu") {
     switch (kind) {
       case "reference-to-video":
-        return ["viduq2-pro", "viduq2"];
+        return referenceInputMode === "subjects"
+          ? [...VIDU_REFERENCE_SUBJECT_MODELS]
+          : [...VIDU_REFERENCE_IMAGE_MODELS];
+
       case "image-to-video":
         return [
           "viduq3-turbo",
@@ -1156,6 +1199,7 @@ function getModelOptions(provider: VideoProvider, kind: GenerationKind): string[
           "viduq2-pro",
           "viduq2-turbo",
         ];
+
       case "start-end-to-video":
         return [
           "viduq3-turbo",
@@ -1164,14 +1208,16 @@ function getModelOptions(provider: VideoProvider, kind: GenerationKind): string[
           "viduq2-pro",
           "viduq2-turbo",
         ];
+
       case "text-to-video":
         return ["viduq3-turbo", "viduq3-pro", "viduq2"];
+
       default:
-        return ["viduq2-pro"];
+        return ["viduq3-mix"];
     }
   }
 
-  return ["viduq2-pro"];
+  return ["viduq3-mix"];
 }
 
 function getAllowedDurations(
@@ -1187,25 +1233,50 @@ function getAllowedDurations(
   }
 
   if (kind === "reference-to-video") {
-    if (model === "viduq2-pro") return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-    if (model === "viduq2") return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    if (model === VIDU_REFERENCE_Q3_MIX_MODEL) {
+      return ALL_DURATION_OPTIONS;
+    }
+
+    if (
+      VIDU_REFERENCE_Q3_ENTITY_MODELS.includes(
+        model as (typeof VIDU_REFERENCE_Q3_ENTITY_MODELS)[number]
+      )
+    ) {
+      return Q3_ENTITY_DURATION_OPTIONS;
+    }
+
+    if (
+      VIDU_REFERENCE_Q2_MODELS.includes(
+        model as (typeof VIDU_REFERENCE_Q2_MODELS)[number]
+      )
+    ) {
+      return Q2_REFERENCE_DURATION_OPTIONS;
+    }
+
     return [5];
   }
 
   if (kind === "image-to-video") {
-    if (model === "viduq3-pro" || model === "viduq3-turbo") return ALL_DURATION_OPTIONS;
+    if (model === "viduq3-pro" || model === "viduq3-turbo") {
+      return ALL_DURATION_OPTIONS;
+    }
+
     if (
       model === "viduq2-pro" ||
       model === "viduq2-pro-fast" ||
       model === "viduq2-turbo"
     ) {
-      return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+      return Q2_REFERENCE_DURATION_OPTIONS;
     }
+
     return [5];
   }
 
   if (kind === "start-end-to-video") {
-    if (model === "viduq3-pro" || model === "viduq3-turbo") return ALL_DURATION_OPTIONS;
+    if (model === "viduq3-pro" || model === "viduq3-turbo") {
+      return ALL_DURATION_OPTIONS;
+    }
+
     if (
       model === "viduq2-pro" ||
       model === "viduq2-pro-fast" ||
@@ -1213,12 +1284,19 @@ function getAllowedDurations(
     ) {
       return [1, 2, 3, 4, 5, 6, 7, 8];
     }
+
     return [5];
   }
 
   if (kind === "text-to-video") {
-    if (model === "viduq3-pro" || model === "viduq3-turbo") return ALL_DURATION_OPTIONS;
-    if (model === "viduq2") return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    if (model === "viduq3-pro" || model === "viduq3-turbo") {
+      return ALL_DURATION_OPTIONS;
+    }
+
+    if (model === "viduq2") {
+      return Q2_REFERENCE_DURATION_OPTIONS;
+    }
+
     return [5];
   }
 
@@ -1239,9 +1317,18 @@ function getAllowedResolutions(
   }
 
   if (kind === "reference-to-video") {
-    if (model === "viduq2-pro" || model === "viduq2") {
+    if (model === "viduq3-mix") {
+      return ["720p", "1080p"];
+    }
+
+    if (
+      VIDU_REFERENCE_IMAGE_MODELS.includes(
+        model as (typeof VIDU_REFERENCE_IMAGE_MODELS)[number]
+      )
+    ) {
       return ["540p", "720p", "1080p"];
     }
+
     return ["720p"];
   }
 
@@ -1249,6 +1336,7 @@ function getAllowedResolutions(
     if (model === "viduq3-pro" || model === "viduq3-turbo") {
       return ["540p", "720p", "1080p"];
     }
+
     if (
       model === "viduq2-pro" ||
       model === "viduq2-pro-fast" ||
@@ -1256,6 +1344,7 @@ function getAllowedResolutions(
     ) {
       return ["720p", "1080p"];
     }
+
     return ["720p"];
   }
 
@@ -1263,6 +1352,7 @@ function getAllowedResolutions(
     if (model === "viduq3-pro" || model === "viduq3-turbo") {
       return ["540p", "720p", "1080p"];
     }
+
     if (
       model === "viduq2-pro" ||
       model === "viduq2-pro-fast" ||
@@ -1270,6 +1360,7 @@ function getAllowedResolutions(
     ) {
       return ["540p", "720p", "1080p"];
     }
+
     return ["720p"];
   }
 
@@ -1277,16 +1368,26 @@ function getAllowedResolutions(
     if (model === "viduq3-pro" || model === "viduq3-turbo") {
       return ["540p", "720p", "1080p"];
     }
+
     if (model === "viduq2") return ["540p", "720p", "1080p"];
+
     return ["720p"];
   }
 
   return ["720p"];
 }
 
-function getAllowedAspects(provider: VideoProvider, active: VideoToolKey) {
+function getAllowedAspects(
+  provider: VideoProvider,
+  active: VideoToolKey,
+  referenceInputMode: ReferenceInputMode
+) {
   if (provider === "kling" && active === "image-to-video") {
     return KLING_ALLOWED_ASPECTS;
+  }
+
+  if (active === "reference-to-video" && referenceInputMode === "subjects") {
+    return SUBJECT_ASPECT_OPTIONS;
   }
 
   return ALL_ASPECT_OPTIONS;
@@ -1296,9 +1397,11 @@ function getStatusBadgeClasses(status: SavedGenerationStatus) {
   if (status === "success") {
     return "border-emerald-400/20 bg-emerald-400/10 text-emerald-200";
   }
+
   if (status === "failed") {
     return "border-red-400/20 bg-red-400/10 text-red-200";
   }
+
   return "border-white/10 bg-black/40 text-white/70";
 }
 
@@ -1484,6 +1587,8 @@ function VideoHistoryCard({
   );
 }
 
+
+
 export default function CreateVideoClient({
   initialCredits = 0,
 }: {
@@ -1523,7 +1628,7 @@ export default function CreateVideoClient({
   const [prompt, setPrompt] = useState("");
   const [negativePrompt, setNegativePrompt] = useState("");
 
-  const [model, setModel] = useState("viduq2-pro");
+  const [model, setModel] = useState("viduq3-mix");
   const [resolution, setResolution] = useState("1080p");
   const [duration, setDuration] = useState<number>(5);
   const [amount, setAmount] = useState<number>(2);
@@ -1538,9 +1643,6 @@ export default function CreateVideoClient({
     createKlingCustomShot(3),
   ]);
 
-  // IMPORTANT FIX:
-  // isSubmitting is only for the active submit action.
-  // Existing queued/rendering jobs should NOT block new submits.
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
@@ -1572,8 +1674,14 @@ export default function CreateVideoClient({
   );
 
   const providerOptions = useMemo(() => getProviderOptions(active), [active]);
+
   const canUseSubjectMode =
-    active === "reference-to-video" && provider === "vidu" && model !== "viduq2-pro";
+    active === "reference-to-video" &&
+    provider === "vidu" &&
+    VIDU_REFERENCE_SUBJECT_MODELS.includes(
+      model as (typeof VIDU_REFERENCE_SUBJECT_MODELS)[number]
+    );
+
   const klingAvailable = isKlingAvailableForTool(active);
   const isKling = provider === "kling";
   const klingMultiShotLockedByEndFrame =
@@ -1707,8 +1815,8 @@ export default function CreateVideoClient({
   );
 
   const modelOptions = useMemo(
-    () => getModelOptions(provider, currentKind),
-    [provider, currentKind]
+    () => getModelOptions(provider, currentKind, referenceInputMode),
+    [provider, currentKind, referenceInputMode]
   );
 
   const allowedDurations = useMemo(
@@ -1722,13 +1830,13 @@ export default function CreateVideoClient({
   );
 
   const allowedAspects = useMemo(
-    () => getAllowedAspects(provider, active),
-    [provider, active]
+    () => getAllowedAspects(provider, active, referenceInputMode),
+    [provider, active, referenceInputMode]
   );
 
   useEffect(() => {
     if (!modelOptions.includes(model)) {
-      setModel(modelOptions[0] ?? "viduq2-pro");
+      setModel(modelOptions[0] ?? "viduq3-mix");
     }
   }, [modelOptions, model]);
 
@@ -1930,6 +2038,7 @@ export default function CreateVideoClient({
 
   const addSubject = () => {
     if (subjects.length >= 7) return;
+
     const id =
       typeof crypto !== "undefined" && "randomUUID" in crypto
         ? crypto.randomUUID()
@@ -1987,6 +2096,10 @@ export default function CreateVideoClient({
         throw new Error("You must be logged in.");
       }
 
+      if (provider !== "vidu") {
+        throw new Error("Reference to Video is currently only available with Vidu.");
+      }
+
       if (effectiveCredits != null && effectiveCredits < videoCreditCost) {
         throw new Error(
           `You need ${videoCreditCost} credits, but only have ${effectiveCredits}.`
@@ -1998,6 +2111,14 @@ export default function CreateVideoClient({
       }
 
       if (referenceInputMode === "images") {
+        if (
+          !VIDU_REFERENCE_IMAGE_MODELS.includes(
+            model as (typeof VIDU_REFERENCE_IMAGE_MODELS)[number]
+          )
+        ) {
+          throw new Error("This model is not supported for Vidu reference images.");
+        }
+
         if (refImages.length === 0) {
           throw new Error("Upload at least 1 reference image.");
         }
@@ -2008,8 +2129,20 @@ export default function CreateVideoClient({
       }
 
       if (referenceInputMode === "subjects") {
-        if (model === "viduq2-pro") {
-          throw new Error("Vidu Q2 Pro currently supports image references only.");
+        if (
+          !VIDU_REFERENCE_SUBJECT_MODELS.includes(
+            model as (typeof VIDU_REFERENCE_SUBJECT_MODELS)[number]
+          )
+        ) {
+          throw new Error(
+            "Named Subjects support only Vidu Q3 Turbo, Vidu Q3, and Vidu Q2."
+          );
+        }
+
+        if (!SUBJECT_ASPECT_OPTIONS.includes(aspect)) {
+          throw new Error(
+            "Named Subjects support only 16:9, 9:16, and 1:1 aspect ratios."
+          );
         }
 
         if (subjects.length === 0) {
@@ -2033,10 +2166,22 @@ export default function CreateVideoClient({
           throw new Error("Subject mode supports at most 7 images total.");
         }
 
+        const normalizedNames = new Set<string>();
+
         for (const subject of subjects) {
-          if (!subject.name.trim()) {
+          const name = subject.name.trim();
+
+          if (!name) {
             throw new Error("Each subject must have a name.");
           }
+
+          const normalizedName = name.toLowerCase();
+
+          if (normalizedNames.has(normalizedName)) {
+            throw new Error(`Duplicate subject name: ${name}`);
+          }
+
+          normalizedNames.add(normalizedName);
 
           if (subject.files.length === 0) {
             throw new Error(
@@ -2063,15 +2208,16 @@ export default function CreateVideoClient({
         aspect,
         amount,
         referenceInputMode,
-        refImageCount: refImages.length,
-        subjectCount: subjects.length,
-        subjectImageCount,
+        refImageCount: referenceInputMode === "images" ? refImages.length : 0,
+        subjectCount: referenceInputMode === "subjects" ? subjects.length : 0,
+        subjectImageCount:
+          referenceInputMode === "subjects" ? subjectImageCount : 0,
         batchKey,
       });
 
       const requests = Array.from({ length: amount }, async () => {
         const formData = new FormData();
-        formData.append("prompt", prompt);
+        formData.append("prompt", prompt.trim());
         formData.append("model", model);
         formData.append("duration", String(duration));
         formData.append("resolution", resolution);
@@ -2137,6 +2283,7 @@ export default function CreateVideoClient({
 
       if (failedCount > 0) {
         const refundAmount = perItemCredits * failedCount;
+
         try {
           await refundCredits(
             refundAmount,
@@ -2152,6 +2299,7 @@ export default function CreateVideoClient({
               duration,
               resolution,
               aspect,
+              referenceInputMode,
             }
           );
         } catch (refundErr) {
@@ -2194,7 +2342,9 @@ export default function CreateVideoClient({
 
       if (failedCount > 0) {
         setError(
-          `${failedCount} generation${failedCount > 1 ? "s were" : " was"} not created and refunded automatically.`
+          `${failedCount} generation${
+            failedCount > 1 ? "s were" : " was"
+          } not created and refunded automatically.`
         );
       }
     } catch (err) {
@@ -2444,7 +2594,9 @@ export default function CreateVideoClient({
 
       if (failedCount > 0) {
         setError(
-          `${failedCount} Kling generation${failedCount > 1 ? "s were" : " was"} not created and refunded automatically.`
+          `${failedCount} Kling generation${
+            failedCount > 1 ? "s were" : " was"
+          } not created and refunded automatically.`
         );
       }
     } catch (err) {
@@ -2454,6 +2606,8 @@ export default function CreateVideoClient({
       await refreshCredits();
     }
   };
+
+
 
   const createImageOrStartEndVideo = async () => {
     if (provider === "kling") {
@@ -2594,6 +2748,7 @@ export default function CreateVideoClient({
 
       if (failedCount > 0) {
         const refundAmount = perItemCredits * failedCount;
+
         try {
           await refundCredits(
             refundAmount,
@@ -2651,7 +2806,9 @@ export default function CreateVideoClient({
 
       if (failedCount > 0) {
         setError(
-          `${failedCount} generation${failedCount > 1 ? "s were" : " was"} not created and refunded automatically.`
+          `${failedCount} generation${
+            failedCount > 1 ? "s were" : " was"
+          } not created and refunded automatically.`
         );
       }
     } catch (err) {
@@ -2753,6 +2910,7 @@ export default function CreateVideoClient({
 
       if (failedCount > 0) {
         const refundAmount = perItemCredits * failedCount;
+
         try {
           await refundCredits(
             refundAmount,
@@ -2810,7 +2968,9 @@ export default function CreateVideoClient({
 
       if (failedCount > 0) {
         setError(
-          `${failedCount} generation${failedCount > 1 ? "s were" : " was"} not created and refunded automatically.`
+          `${failedCount} generation${
+            failedCount > 1 ? "s were" : " was"
+          } not created and refunded automatically.`
         );
       }
     } catch (err) {
@@ -2820,6 +2980,7 @@ export default function CreateVideoClient({
       await refreshCredits();
     }
   };
+
 
 
 
@@ -3159,6 +3320,9 @@ export default function CreateVideoClient({
   const workspaceViewportHeight =
     "h-[calc(100vh-136px)] min-h-[720px] max-h-[980px]";
 
+
+
+
   return (
     <div className="relative min-h-screen overflow-x-hidden text-white">
       <WallpaperRevealBackground src="/wallpaper.jpg" radius={260} />
@@ -3279,8 +3443,9 @@ export default function CreateVideoClient({
 
                         {active === "image-to-video" && klingAvailable && (
                           <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-xs text-white/55">
-                            Kling uses only <span className="text-white/80">kling-v3</span> and
-                            only inside Image to Video.
+                            Kling uses only{" "}
+                            <span className="text-white/80">kling-v3</span> and only
+                            inside Image to Video.
                           </div>
                         )}
                       </div>
@@ -3311,8 +3476,9 @@ export default function CreateVideoClient({
 
                               {!canUseSubjectMode && (
                                 <div className="rounded-2xl border border-amber-300/20 bg-amber-400/10 px-3 py-2.5 text-xs text-amber-100">
-                                  Named Subjects are currently available with Vidu Q2. Vidu Q2 Pro
-                                  uses plain image references only.
+                                  Named Subjects are only available with Vidu Q3 Turbo,
+                                  Vidu Q3, and Vidu Q2. Vidu Q3 Mix and Vidu Q2 Pro use
+                                  plain image references only.
                                 </div>
                               )}
 
@@ -3334,8 +3500,8 @@ export default function CreateVideoClient({
                                         Named Subjects
                                       </div>
                                       <div className="mt-1 text-xs text-white/50">
-                                        Add 1 to 7 subjects. Each subject can contain up to 3
-                                        images.
+                                        Add 1 to 7 subjects. Each subject can contain up
+                                        to 3 images. Total subject images cannot exceed 7.
                                       </div>
                                     </div>
 
@@ -3365,16 +3531,23 @@ export default function CreateVideoClient({
                                           onAddFiles={(files) =>
                                             updateSubject(subject.id, (prev) => ({
                                               ...prev,
-                                              files: [...prev.files, ...files].slice(0, 3),
+                                              files: [...prev.files, ...files].slice(
+                                                0,
+                                                3
+                                              ),
                                             }))
                                           }
                                           onRemoveFile={(index) =>
                                             updateSubject(subject.id, (prev) => ({
                                               ...prev,
-                                              files: prev.files.filter((_, i) => i !== index),
+                                              files: prev.files.filter(
+                                                (_, i) => i !== index
+                                              ),
                                             }))
                                           }
-                                          onRemoveSubject={() => removeSubject(subject.id)}
+                                          onRemoveSubject={() =>
+                                            removeSubject(subject.id)
+                                          }
                                         />
                                       ))}
                                     </div>
@@ -3423,8 +3596,8 @@ export default function CreateVideoClient({
                                     Upload Frames
                                   </div>
                                   <div className="mt-1 text-xs text-white/55">
-                                    Upload Frame 1 for image-to-video, or both Frame 1 and Frame 2
-                                    for start-end-to-video
+                                    Upload Frame 1 for image-to-video, or both Frame 1
+                                    and Frame 2 for start-end-to-video.
                                   </div>
                                 </div>
 
@@ -3448,7 +3621,10 @@ export default function CreateVideoClient({
 
                               {isKling && (
                                 <div className="rounded-[24px] border border-white/10 bg-black/18 p-4">
-                                  <SectionTitle icon={<Clapperboard size={14} />} kicker="Kling v3">
+                                  <SectionTitle
+                                    icon={<Clapperboard size={14} />}
+                                    kicker="Kling v3"
+                                  >
                                     Kling Story Controls
                                   </SectionTitle>
 
@@ -3487,13 +3663,16 @@ export default function CreateVideoClient({
                                           </div>
                                         </div>
                                         <div className="mt-1 text-xs text-white/48">
-                                          Turn one start frame into a storyboard-driven video.
+                                          Turn one start frame into a storyboard-driven
+                                          video.
                                         </div>
                                       </button>
 
                                       <button
                                         type="button"
-                                        onClick={() => setKlingWithAudio((prev) => !prev)}
+                                        onClick={() =>
+                                          setKlingWithAudio((prev) => !prev)
+                                        }
                                         className={cn(
                                           "rounded-2xl border p-4 text-left transition",
                                           klingWithAudio
@@ -3524,16 +3703,20 @@ export default function CreateVideoClient({
 
                                     {klingMultiShotLockedByEndFrame && (
                                       <div className="rounded-2xl border border-amber-300/20 bg-amber-400/10 px-3 py-2.5 text-xs text-amber-100">
-                                        Multi-shot is disabled while an end frame exists. Remove
-                                        Frame 2 to enable Kling multi-shot.
+                                        Multi-shot is disabled while an end frame exists.
+                                        Remove Frame 2 to enable Kling multi-shot.
                                       </div>
                                     )}
 
                                     <div>
-                                      <div className="mb-2 text-sm text-white/70">Quality mode</div>
+                                      <div className="mb-2 text-sm text-white/70">
+                                        Quality mode
+                                      </div>
                                       <ChipSelector
                                         value={klingMode}
-                                        onChange={(next) => setKlingMode(next as KlingMode)}
+                                        onChange={(next) =>
+                                          setKlingMode(next as KlingMode)
+                                        }
                                         options={[
                                           {
                                             value: "std",
@@ -3559,13 +3742,19 @@ export default function CreateVideoClient({
                                             <div className="flex gap-1">
                                               <MiniTab
                                                 label="Auto"
-                                                active={klingShotType === "intelligence"}
-                                                onClick={() => setKlingShotType("intelligence")}
+                                                active={
+                                                  klingShotType === "intelligence"
+                                                }
+                                                onClick={() =>
+                                                  setKlingShotType("intelligence")
+                                                }
                                               />
                                               <MiniTab
                                                 label="Custom"
                                                 active={klingShotType === "customize"}
-                                                onClick={() => setKlingShotType("customize")}
+                                                onClick={() =>
+                                                  setKlingShotType("customize")
+                                                }
                                               />
                                             </div>
                                           </div>
@@ -3573,8 +3762,9 @@ export default function CreateVideoClient({
 
                                         {klingShotType === "intelligence" ? (
                                           <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-3 text-xs text-white/55">
-                                            Auto mode uses your main prompt and lets Kling
-                                            intelligently split the scene into multiple shots.
+                                            Auto mode uses your main prompt and lets
+                                            Kling intelligently split the scene into
+                                            multiple shots.
                                           </div>
                                         ) : (
                                           <div className="space-y-3">
@@ -3584,8 +3774,8 @@ export default function CreateVideoClient({
                                                   Custom Shot Builder
                                                 </div>
                                                 <div className="mt-1 text-xs text-white/50">
-                                                  Up to 6 shots. The total duration must equal{" "}
-                                                  {duration}s.
+                                                  Up to 6 shots. The total duration must
+                                                  equal {duration}s.
                                                 </div>
                                               </div>
 
@@ -3611,14 +3801,16 @@ export default function CreateVideoClient({
                                                       Shot {index + 1}
                                                     </div>
                                                     <div className="mt-1 text-xs text-white/50">
-                                                      Define the action and timing for this
-                                                      storyboard shot.
+                                                      Define the action and timing for
+                                                      this storyboard shot.
                                                     </div>
                                                   </div>
 
                                                   <button
                                                     type="button"
-                                                    onClick={() => removeKlingCustomShot(shot.id)}
+                                                    onClick={() =>
+                                                      removeKlingCustomShot(shot.id)
+                                                    }
                                                     className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white/70 transition hover:border-white/20 hover:bg-white/[0.08]"
                                                     title="Remove shot"
                                                   >
@@ -3629,10 +3821,13 @@ export default function CreateVideoClient({
                                                 <textarea
                                                   value={shot.prompt}
                                                   onChange={(e) =>
-                                                    updateKlingCustomShot(shot.id, (prev) => ({
-                                                      ...prev,
-                                                      prompt: e.target.value,
-                                                    }))
+                                                    updateKlingCustomShot(
+                                                      shot.id,
+                                                      (prev) => ({
+                                                        ...prev,
+                                                        prompt: e.target.value,
+                                                      })
+                                                    )
                                                   }
                                                   placeholder="Describe this specific shot..."
                                                   className="mt-4 h-28 w-full resize-none rounded-[20px] border border-white/10 bg-black/30 px-4 py-3 text-sm text-white placeholder:text-white/36 outline-none transition focus:border-white/25 focus:bg-black/35"
@@ -3648,10 +3843,13 @@ export default function CreateVideoClient({
                                                         key={n}
                                                         type="button"
                                                         onClick={() =>
-                                                          updateKlingCustomShot(shot.id, (prev) => ({
-                                                            ...prev,
-                                                            duration: n,
-                                                          }))
+                                                          updateKlingCustomShot(
+                                                            shot.id,
+                                                            (prev) => ({
+                                                              ...prev,
+                                                              duration: n,
+                                                            })
+                                                          )
                                                         }
                                                         className={cn(
                                                           "cursor-pointer rounded-2xl border px-3 py-3 text-sm font-medium transition",
@@ -3676,8 +3874,8 @@ export default function CreateVideoClient({
                                                   : "border-amber-300/20 bg-amber-400/10 text-amber-100"
                                               )}
                                             >
-                                              Custom shot total: {klingCustomDurationSum}s /{" "}
-                                              {duration}s
+                                              Custom shot total:{" "}
+                                              {klingCustomDurationSum}s / {duration}s
                                             </div>
                                           </div>
                                         )}
@@ -3749,7 +3947,10 @@ export default function CreateVideoClient({
                       </div>
 
                       <div className="rounded-[24px] border border-white/10 bg-black/22 p-4">
-                        <SectionTitle icon={<SlidersHorizontal size={14} />} kicker="Settings">
+                        <SectionTitle
+                          icon={<SlidersHorizontal size={14} />}
+                          kicker="Settings"
+                        >
                           Generation Settings
                         </SectionTitle>
 
@@ -3793,7 +3994,9 @@ export default function CreateVideoClient({
                           </div>
 
                           <div>
-                            <div className="mb-2 text-sm text-white/70">Resolution</div>
+                            <div className="mb-2 text-sm text-white/70">
+                              Resolution
+                            </div>
                             <ChipSelector
                               value={resolution}
                               onChange={setResolution}
@@ -3813,7 +4016,9 @@ export default function CreateVideoClient({
                           </div>
 
                           <div>
-                            <div className="mb-2 text-sm text-white/70">Aspect Ratio</div>
+                            <div className="mb-2 text-sm text-white/70">
+                              Aspect Ratio
+                            </div>
                             <ChipSelector
                               value={aspect}
                               onChange={setAspect}
@@ -3876,17 +4081,17 @@ export default function CreateVideoClient({
                           klingShotType === "customize" &&
                           !klingCustomShotsValid && (
                             <div className="mt-3 rounded-2xl border border-amber-300/20 bg-amber-400/10 px-3 py-2.5 text-xs text-amber-100">
-                              Your custom shot builder is not valid yet. Every shot needs a
-                              prompt and the summed durations must exactly match the selected
-                              duration.
+                              Your custom shot builder is not valid yet. Every shot needs
+                              a prompt and the summed durations must exactly match the
+                              selected duration.
                             </div>
                           )}
 
                         {pendingGenerationsCount > 0 && (
                           <div className="mt-3 rounded-2xl border border-violet-300/20 bg-violet-400/10 px-3 py-2.5 text-xs text-violet-100">
                             {pendingGenerationsCount} generation
-                            {pendingGenerationsCount > 1 ? "s are" : " is"} still processing.
-                            You can queue another one right now.
+                            {pendingGenerationsCount > 1 ? "s are" : " is"} still
+                            processing. You can queue another one right now.
                           </div>
                         )}
 
@@ -3905,8 +4110,9 @@ export default function CreateVideoClient({
                                     Top up your credits
                                   </div>
                                   <div className="mt-1 text-xs leading-relaxed text-amber-100/65">
-                                    Buy one-time credit packs without changing your subscription.
-                                    Purchased top-up credits persist through monthly resets.
+                                    Buy one-time credit packs without changing your
+                                    subscription. Purchased top-up credits persist through
+                                    monthly resets.
                                   </div>
                                 </div>
 
@@ -4021,8 +4227,8 @@ export default function CreateVideoClient({
                           </div>
                         </div>
                         <div className="rounded-full border border-violet-400/20 bg-violet-400/10 px-3 py-1 text-xs text-violet-100">
-                          {formatViduModelName(currentTask.model)} • {currentTask.resolution} •{" "}
-                          {currentTask.duration}s
+                          {formatViduModelName(currentTask.model)} •{" "}
+                          {currentTask.resolution} • {currentTask.duration}s
                         </div>
                       </div>
 
@@ -4073,7 +4279,9 @@ export default function CreateVideoClient({
                               </div>
                               <div className="mt-1 text-xs text-white/45">
                                 {selectedGeneration
-                                  ? new Date(selectedGeneration.createdAt).toLocaleString()
+                                  ? new Date(
+                                      selectedGeneration.createdAt
+                                    ).toLocaleString()
                                   : "Your generated videos will appear here."}
                               </div>
                             </div>
@@ -4108,11 +4316,14 @@ export default function CreateVideoClient({
                                       src={selectedGeneration.videoUrl}
                                       controls
                                       playsInline
-                                      poster={selectedGeneration.coverUrl ?? undefined}
+                                      poster={
+                                        selectedGeneration.coverUrl ?? undefined
+                                      }
                                     />
                                   ) : selectedGeneration.status === "failed" ? (
                                     <div className="flex min-h-[440px] items-center justify-center rounded-[24px] border border-red-500/20 bg-red-500/10 px-6 text-center text-sm text-red-200">
-                                      {selectedGeneration.error || "Generation failed."}
+                                      {selectedGeneration.error ||
+                                        "Generation failed."}
                                     </div>
                                   ) : (
                                     <div className="flex min-h-[440px] items-center justify-center rounded-[24px] border border-white/10 bg-white/[0.03]">
@@ -4123,11 +4334,15 @@ export default function CreateVideoClient({
                                         </div>
                                         <div className="text-center">
                                           <div className="text-sm font-medium text-white/90">
-                                            {prettyStatus(selectedGeneration.status)}
+                                            {prettyStatus(
+                                              selectedGeneration.status
+                                            )}
                                           </div>
                                           <div className="mt-1 text-xs text-white/50">
-                                            {formatProviderName(selectedGeneration.provider)} is
-                                            working on this generation.
+                                            {formatProviderName(
+                                              selectedGeneration.provider
+                                            )}{" "}
+                                            is working on this generation.
                                           </div>
                                         </div>
                                       </div>
@@ -4146,10 +4361,14 @@ export default function CreateVideoClient({
 
                                 <div className="mt-4 flex flex-wrap gap-2 text-xs text-white/50">
                                   <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
-                                    {formatProviderName(selectedGeneration.provider)}
+                                    {formatProviderName(
+                                      selectedGeneration.provider
+                                    )}
                                   </div>
                                   <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
-                                    {formatViduModelName(selectedGeneration.model)}
+                                    {formatViduModelName(
+                                      selectedGeneration.model
+                                    )}
                                   </div>
                                   <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
                                     {selectedGeneration.duration}s
@@ -4166,16 +4385,22 @@ export default function CreateVideoClient({
                                   {selectedGeneration.provider === "kling" && (
                                     <>
                                       <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
-                                        audio: {selectedGeneration.klingWithAudio ? "on" : "off"}
+                                        audio:{" "}
+                                        {selectedGeneration.klingWithAudio
+                                          ? "on"
+                                          : "off"}
                                       </div>
                                       <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
                                         multi-shot:{" "}
-                                        {selectedGeneration.klingMultiShot ? "on" : "off"}
+                                        {selectedGeneration.klingMultiShot
+                                          ? "on"
+                                          : "off"}
                                       </div>
                                       {selectedGeneration.klingMultiShot &&
                                         selectedGeneration.klingShotType && (
                                           <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-1.5">
-                                            shot type: {selectedGeneration.klingShotType}
+                                            shot type:{" "}
+                                            {selectedGeneration.klingShotType}
                                           </div>
                                         )}
                                     </>
@@ -4208,7 +4433,9 @@ export default function CreateVideoClient({
 
                                   <button
                                     type="button"
-                                    onClick={() => remixGeneration(selectedGeneration)}
+                                    onClick={() =>
+                                      remixGeneration(selectedGeneration)
+                                    }
                                     className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-violet-300/20 bg-violet-400/10 px-4 py-2.5 text-sm text-violet-100 transition hover:border-violet-200/30 hover:bg-violet-400/15"
                                   >
                                     <Sparkles size={15} />
@@ -4240,8 +4467,9 @@ export default function CreateVideoClient({
                                     Create cinematic AI video
                                   </div>
                                   <div className="mt-1 max-w-xl text-sm text-white/55">
-                                    Build motion-driven clips with text prompts, start/end frames,
-                                    or reference material. Everything you render appears here.
+                                    Build motion-driven clips with text prompts,
+                                    start/end frames, or reference material. Everything
+                                    you render appears here.
                                   </div>
 
                                   <div className="mt-4 flex flex-wrap gap-2">
@@ -4293,7 +4521,9 @@ export default function CreateVideoClient({
                       <div className="rounded-[28px] border border-white/10 bg-black/18 p-4">
                         <div className="flex items-center justify-between">
                           <div>
-                            <div className="text-sm font-semibold text-white/90">Recent</div>
+                            <div className="text-sm font-semibold text-white/90">
+                              Recent
+                            </div>
                             <div className="mt-1 text-xs text-white/45">
                               Click a card to preview it
                             </div>
@@ -4348,7 +4578,9 @@ export default function CreateVideoClient({
                                     {item.prompt || "Untitled generation"}
                                   </div>
                                   <div className="mt-1 flex flex-wrap gap-2 text-xs text-white/45">
-                                    <span>{new Date(item.createdAt).toLocaleString()}</span>
+                                    <span>
+                                      {new Date(item.createdAt).toLocaleString()}
+                                    </span>
                                     <span>•</span>
                                     <span>{item.chargedCredits} credits</span>
                                     <span>•</span>
@@ -4507,3 +4739,6 @@ export default function CreateVideoClient({
     </div>
   );
 }
+
+
+
