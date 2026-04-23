@@ -1538,7 +1538,11 @@ export default function CreateVideoClient({
     createKlingCustomShot(3),
   ]);
 
-  const [isCreating, setIsCreating] = useState(false);
+  // IMPORTANT FIX:
+  // isSubmitting is only for the active submit action.
+  // Existing queued/rendering jobs should NOT block new submits.
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const [error, setError] = useState<string | null>(null);
   const [generations, setGenerations] = useState<SavedGeneration[]>([]);
   const [selectedGeneration, setSelectedGeneration] =
@@ -1840,6 +1844,20 @@ export default function CreateVideoClient({
     }
   }, [creditsAreResolved, hasEnoughCredits]);
 
+  const pendingGenerations = useMemo(
+    () =>
+      generations.filter(
+        (item) =>
+          item.status === "uploading" ||
+          item.status === "created" ||
+          item.status === "queueing" ||
+          item.status === "processing"
+      ),
+    [generations]
+  );
+
+  const pendingGenerationsCount = pendingGenerations.length;
+
   const deductCredits = async (
     amountValue: number,
     description: string,
@@ -1954,6 +1972,7 @@ export default function CreateVideoClient({
   };
 
 
+
   const createReferenceToVideo = async () => {
     const batchKey =
       typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -1962,7 +1981,7 @@ export default function CreateVideoClient({
 
     try {
       setError(null);
-      setIsCreating(true);
+      setIsSubmitting(true);
 
       if (!user) {
         throw new Error("You must be logged in.");
@@ -2181,7 +2200,7 @@ export default function CreateVideoClient({
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
-      setIsCreating(false);
+      setIsSubmitting(false);
       await refreshCredits();
     }
   };
@@ -2194,7 +2213,7 @@ export default function CreateVideoClient({
 
     try {
       setError(null);
-      setIsCreating(true);
+      setIsSubmitting(true);
 
       if (!user) {
         throw new Error("You must be logged in.");
@@ -2431,7 +2450,7 @@ export default function CreateVideoClient({
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
-      setIsCreating(false);
+      setIsSubmitting(false);
       await refreshCredits();
     }
   };
@@ -2449,7 +2468,7 @@ export default function CreateVideoClient({
 
     try {
       setError(null);
-      setIsCreating(true);
+      setIsSubmitting(true);
 
       if (!user) {
         throw new Error("You must be logged in.");
@@ -2638,7 +2657,7 @@ export default function CreateVideoClient({
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
-      setIsCreating(false);
+      setIsSubmitting(false);
       await refreshCredits();
     }
   };
@@ -2651,7 +2670,7 @@ export default function CreateVideoClient({
 
     try {
       setError(null);
-      setIsCreating(true);
+      setIsSubmitting(true);
 
       if (!user) {
         throw new Error("You must be logged in.");
@@ -2797,22 +2816,15 @@ export default function CreateVideoClient({
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
-      setIsCreating(false);
+      setIsSubmitting(false);
       await refreshCredits();
     }
   };
 
-  useEffect(() => {
-    const pendingGenerations = generations.filter(
-      (item) =>
-        item.status === "uploading" ||
-        item.status === "created" ||
-        item.status === "queueing" ||
-        item.status === "processing"
-    );
 
+
+  useEffect(() => {
     if (pendingGenerations.length === 0) {
-      setIsCreating(false);
       return;
     }
 
@@ -2975,15 +2987,12 @@ export default function CreateVideoClient({
             r.state === "processing"
         );
 
-        setIsCreating(stillPending);
-
         if (!stillPending && interval) {
           clearInterval(interval);
         }
       } catch (err) {
         if (cancelled) return;
         setError(err instanceof Error ? err.message : "Polling failed.");
-        setIsCreating(false);
         if (interval) clearInterval(interval);
       }
     };
@@ -2995,7 +3004,7 @@ export default function CreateVideoClient({
       cancelled = true;
       if (interval) clearInterval(interval);
     };
-  }, [generations]);
+  }, [pendingGenerations]);
 
   useEffect(() => {
     const failedNeedingRefund = generations.filter(
@@ -3074,13 +3083,8 @@ export default function CreateVideoClient({
     }
   }, [generations, selectedGeneration]);
 
-  const currentTask = generations.find(
-    (item) =>
-      item.status === "uploading" ||
-      item.status === "created" ||
-      item.status === "queueing" ||
-      item.status === "processing"
-  );
+  const currentTask =
+    pendingGenerations.length > 0 ? pendingGenerations[0] : null;
 
   const recentGenerations = generations.slice(0, 6);
 
@@ -3878,6 +3882,14 @@ export default function CreateVideoClient({
                             </div>
                           )}
 
+                        {pendingGenerationsCount > 0 && (
+                          <div className="mt-3 rounded-2xl border border-violet-300/20 bg-violet-400/10 px-3 py-2.5 text-xs text-violet-100">
+                            {pendingGenerationsCount} generation
+                            {pendingGenerationsCount > 1 ? "s are" : " is"} still processing.
+                            You can queue another one right now.
+                          </div>
+                        )}
+
                         <AnimatePresence>
                           {showTopupPanel && (
                             <motion.div
@@ -3934,7 +3946,7 @@ export default function CreateVideoClient({
                             }
                           }}
                           disabled={
-                            isCreating ||
+                            isSubmitting ||
                             !creditsAreResolved ||
                             !hasEnoughCredits ||
                             authLoading ||
@@ -3947,13 +3959,15 @@ export default function CreateVideoClient({
                         >
                           <Sparkles size={16} />
                           <span>
-                            {isCreating
-                              ? `Generating ${amount} video${amount > 1 ? "s" : ""}...`
+                            {isSubmitting
+                              ? `Submitting ${amount} video${amount > 1 ? "s" : ""}...`
                               : !creditsAreResolved
                                 ? "Loading credits..."
                                 : !hasEnoughCredits
                                   ? `Insufficient credits • Need ${videoCreditCost}`
-                                  : `Create • ${videoCreditCost} credits`}
+                                  : pendingGenerationsCount > 0
+                                    ? `Queue more • ${videoCreditCost} credits`
+                                    : `Create • ${videoCreditCost} credits`}
                           </span>
                         </motion.button>
                       </div>
@@ -4010,6 +4024,11 @@ export default function CreateVideoClient({
                           {formatViduModelName(currentTask.model)} • {currentTask.resolution} •{" "}
                           {currentTask.duration}s
                         </div>
+                      </div>
+
+                      <div className="mt-2 text-xs text-white/45">
+                        {pendingGenerationsCount} active generation
+                        {pendingGenerationsCount > 1 ? "s" : ""} in queue / render
                       </div>
 
                       <div className="mt-4 grid grid-cols-4 gap-2">
