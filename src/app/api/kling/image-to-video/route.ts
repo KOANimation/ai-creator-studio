@@ -3,7 +3,7 @@ import { getKlingAuthorizationHeader } from "@/app/lib/kling/auth";
 import { buildKlingImageToVideoPayload } from "@/app/lib/kling/payload";
 
 const KLING_API_BASE =
-  process.env.KLING_API_BASE_URL?.replace(/\/+$/, "") || "https://api.kling.ai";
+  process.env.KLING_API_BASE_URL?.replace(/\/+$/, "") || "https://api-singapore.klingai.com";
 
 const MAX_IMAGE_FILE_BYTES = 10 * 1024 * 1024;
 
